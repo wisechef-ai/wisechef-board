@@ -17,8 +17,40 @@ import { getSoul, putSoul, getSoulHistory, revertSoul, getSoulTemplates } from '
 import { getSettings, postSettings } from './controllers/settings.js';
 import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
+import {
+  isOnboarded, hasLinkedChannel,
+  getOnboardingStatus, completeOnboarding,
+  listChannels, startLinking, getQrStatus, submitToken, unlinkChannel,
+  gatewayRestart, gatewayStatus,
+} from './controllers/channels.js';
 
 const router = Router();
+
+// ──── Onboarding & Channel Linking Pages ────
+
+// Onboarding pages served as static HTML (before SPA takes over)
+router.get('/onboarding', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+});
+
+router.get('/link', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
+});
+
+// ──── Onboarding API ────
+router.get('/api/onboarding/status', getOnboardingStatus);
+router.post('/api/onboarding/complete', completeOnboarding);
+
+// ──── Channel Management API ────
+router.get('/api/channels', listChannels);
+router.post('/api/channels/link', startLinking);
+router.get('/api/channels/qr/:channel', getQrStatus);
+router.post('/api/channels/token', submitToken);
+router.delete('/api/channels/:channel', unlinkChannel);
+
+// ──── Gateway Management API ────
+router.post('/api/gateway/restart', gatewayRestart);
+router.get('/api/gateway/status', gatewayStatus);
 
 // Activity
 router.get('/api/activity', getActivity);
@@ -89,7 +121,19 @@ router.delete('/api/credentials/:name', deleteCredential);
 router.get('/api/wisechef-board/version', getBoardVersion);
 router.post('/api/wisechef-board/update', updateBoard);
 
-// SPA fallback
+// ──── Root route: onboarding flow → SPA ────
+router.get('/', (req, res) => {
+  if (!isOnboarded()) {
+    return res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+  }
+  if (!hasLinkedChannel() && !req.query.skip) {
+    return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
+  }
+  // Onboarded + linked → serve the board SPA
+  return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// SPA fallback — all other routes serve the React app
 router.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });

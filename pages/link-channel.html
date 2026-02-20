@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiseChef — Connect Your Messenger</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a; color: #e0e0e0;
+            min-height: 100vh; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .container { max-width: 640px; width: 94%; padding: 20px; }
+        .logo { text-align: center; margin-bottom: 1.5rem; }
+        .logo span { font-size: 2.5rem; }
+        .logo h1 {
+            font-size: 1.8rem; font-weight: 700;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .card {
+            background: #161616; border: 1px solid #2a2a2a;
+            border-radius: 16px; padding: 28px; margin-bottom: 16px;
+        }
+        h2 { font-size: 1.3rem; text-align: center; margin-bottom: 4px; }
+        .sub { color: #666; text-align: center; font-size: 0.85rem; margin-bottom: 20px; }
+        .channel-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            margin-bottom: 20px;
+        }
+        .channel-card {
+            background: #0d0d0d; border: 2px solid #222; border-radius: 12px;
+            padding: 18px 14px; text-align: center; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .channel-card:hover { border-color: #444; transform: translateY(-2px); }
+        .channel-card.selected { border-color: #f59e0b; background: #1a1500; }
+        .channel-card.linked { border-color: #22c55e; background: #0a1a0a; }
+        .channel-card .icon { font-size: 2rem; margin-bottom: 6px; }
+        .channel-card .name { font-weight: 600; font-size: 0.95rem; }
+        .channel-card .desc { color: #666; font-size: 0.75rem; margin-top: 4px; }
+        .channel-card .badge {
+            display: inline-block; font-size: 0.7rem; padding: 2px 8px;
+            border-radius: 10px; margin-top: 6px; font-weight: 600;
+        }
+        .badge-linked { background: #22c55e22; color: #22c55e; }
+        .badge-qr { background: #3b82f622; color: #3b82f6; }
+        .badge-token { background: #a855f722; color: #a855f7; }
+
+        /* Linking Panel */
+        .link-panel { display: none; margin-top: 16px; }
+        .link-panel.active { display: block; }
+        .link-panel .panel-card {
+            background: #0d0d0d; border: 1px solid #333; border-radius: 12px; padding: 24px;
+        }
+        .link-panel h3 { font-size: 1.1rem; margin-bottom: 12px; }
+        .link-panel .instructions { color: #999; font-size: 0.85rem; margin-bottom: 16px; line-height: 1.5; }
+        .link-panel .instructions ol { padding-left: 20px; }
+        .link-panel .instructions li { margin-bottom: 6px; }
+
+        .qr-container {
+            text-align: center; padding: 20px;
+            background: #111; border-radius: 8px; margin: 12px 0;
+            font-family: monospace; white-space: pre; line-height: 1;
+            font-size: 6px; overflow-x: auto;
+        }
+        .qr-container.waiting {
+            font-family: inherit; font-size: 0.9rem; color: #888;
+            white-space: normal; line-height: 1.5;
+        }
+
+        .status-line {
+            text-align: center; padding: 10px; border-radius: 8px;
+            font-size: 0.85rem; margin-top: 12px;
+        }
+        .status-waiting { background: #1a1a00; color: #f59e0b; }
+        .status-ready { background: #001a00; color: #22c55e; }
+        .status-error { background: #1a0000; color: #ef4444; }
+
+        /* Token input */
+        .token-input {
+            width: 100%; padding: 12px 14px; border: 1px solid #333;
+            border-radius: 10px; background: #0a0a0a; color: #fff;
+            font-size: 0.9rem; font-family: monospace; margin-bottom: 12px;
+        }
+        .token-input:focus { outline: none; border-color: #f59e0b; }
+
+        .btn {
+            padding: 12px 24px; border-radius: 10px; font-size: 0.95rem;
+            font-weight: 600; cursor: pointer; transition: all 0.2s; border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff; width: 100%;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-secondary {
+            background: transparent; border: 1px solid #333; color: #999; width: 100%;
+        }
+        .btn-secondary:hover { border-color: #555; color: #ccc; }
+        .btn-sm { padding: 8px 16px; font-size: 0.8rem; width: auto; }
+
+        .skip-link {
+            display: block; text-align: center; margin-top: 16px;
+            color: #555; font-size: 0.85rem; text-decoration: none;
+        }
+        .skip-link:hover { color: #888; }
+
+        .buttons-row { display: flex; gap: 12px; margin-top: 16px; }
+        .buttons-row .btn { flex: 1; }
+
+        .connected-list { margin-bottom: 16px; }
+        .connected-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; background: #0d0d0d; border-radius: 8px; margin-bottom: 6px;
+        }
+        .connected-item .left { display: flex; align-items: center; gap: 10px; }
+        .connected-item .check { color: #22c55e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <span>🍳</span>
+            <h1>WiseChef</h1>
+        </div>
+
+        <div class="card">
+            <h2>Connect Your Messenger 💬</h2>
+            <p class="sub">Choose how you want to talk to your assistant. You can add more later.</p>
+
+            <div id="connectedChannels" class="connected-list" style="display:none"></div>
+
+            <div class="channel-grid" id="channelGrid">
+                <div style="grid-column:1/-1;text-align:center;padding:40px 0;color:#888">
+                    <div style="font-size:2rem;margin-bottom:8px">⏳</div>
+                    Loading channels...
+                </div>
+            </div>
+
+            <div class="link-panel" id="linkPanel">
+                <div class="panel-card" id="panelContent"></div>
+            </div>
+
+            <div class="buttons-row" id="actionButtons">
+                <button class="btn btn-secondary" id="restartBtn" onclick="doRestartGateway()" style="display:none">
+                    🔄 Restart Gateway
+                </button>
+                <div id="linkingNotice" style="display:none;flex:1;text-align:center;padding:12px;color:#f59e0b;font-size:0.9rem;font-weight:600">
+                    ⏳ Linking in progress — please wait for the QR code above...
+                </div>
+                <button class="btn btn-primary" id="continueBtn" onclick="goToDashboard()">
+                    Continue to Dashboard →
+                </button>
+            </div>
+        </div>
+
+        <a href="/?skip=1" class="skip-link">Skip for now — I'll use the web chat only</a>
+    </div>
+
+    <script>
+    let channels = [];
+    let selectedChannel = null;
+    let pollInterval = null;
+
+    async function loadChannels() {
+        try {
+            const res = await fetch('/api/channels');
+            const data = await res.json();
+            channels = data.channels;
+            renderChannels();
+        } catch (e) {
+            console.error('Failed to load channels:', e);
+        }
+    }
+
+    function renderChannels() {
+        const grid = document.getElementById('channelGrid');
+        const connected = channels.filter(c => c.linked);
+        const connDiv = document.getElementById('connectedChannels');
+
+        if (connected.length > 0) {
+            connDiv.style.display = 'block';
+            connDiv.innerHTML = connected.map(c => `
+                <div class="connected-item">
+                    <div class="left">
+                        <span class="check">✅</span>
+                        <span>${c.icon} ${c.name}</span>
+                    </div>
+                    <span style="color:#22c55e;font-size:0.8rem">Connected</span>
+                </div>
+            `).join('');
+            document.getElementById('restartBtn').style.display = 'block';
+        }
+
+        grid.innerHTML = channels.filter(c => !c.linked).map(c => `
+            <div class="channel-card ${selectedChannel === c.id ? 'selected' : ''}"
+                 onclick="selectChannel('${c.id}')">
+                <div class="icon">${c.icon}</div>
+                <div class="name">${c.name}</div>
+                <div class="desc">${c.description}</div>
+                <span class="badge ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? 'badge-qr' : 'badge-token'}">
+                    ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? '📷 QR Code' : '🔑 Bot Token'}
+                </span>
+            </div>
+        `).join('');
+    }
+
+    function selectChannel(id) {
+        selectedChannel = id;
+        renderChannels();
+        const ch = channels.find(c => c.id === id);
+        if (!ch) return;
+
+        // Hide continue button while user is in linking flow
+        document.getElementById('continueBtn').style.display = 'none';
+        document.getElementById('linkingNotice').style.display = 'none';
+
+        const panel = document.getElementById('linkPanel');
+        const content = document.getElementById('panelContent');
+        panel.classList.add('active');
+
+        if (ch.linkType === 'qr' || ch.linkType === 'signal-qr') {
+            const isSignal = ch.linkType === 'signal-qr';
+            const scanInstructions = isSignal
+                ? 'Open Signal on your phone → Settings → Linked Devices → Link New Device'
+                : `Open ${ch.name} on your phone → Settings → Linked Devices → Link a Device`;
+            content.innerHTML = `
+                <h3>${ch.icon} Link ${ch.name} <button onclick="closePanel()" style="float:right;background:none;border:none;color:#666;cursor:pointer;font-size:1.2rem">&times;</button></h3>
+                <div class="instructions">
+                    <ol>
+                        <li>Click <b>"Start Linking"</b> below</li>
+                        <li>A QR code will appear (may take 10-20 seconds)</li>
+                        <li>${scanInstructions}</li>
+                        <li>Scan the QR code</li>
+                    </ol>
+                </div>
+                <div class="qr-container waiting" id="qrDisplay">
+                    Click "Start Linking" to begin
+                </div>
+                <div id="linkStatus"></div>
+                <button class="btn btn-primary" id="startLinkBtn" onclick="startQrLink('${id}')">
+                    Start Linking
+                </button>
+            `;
+        } else {
+            const fields = getTokenFields(id);
+            content.innerHTML = `
+                <h3>${ch.icon} Link ${ch.name} <button onclick="closePanel()" style="float:right;background:none;border:none;color:#666;cursor:pointer;font-size:1.2rem">&times;</button></h3>
+                <div class="instructions">${getTokenInstructions(id)}</div>
+                ${fields.map(f => `
+                    <input type="text" class="token-input" id="token_${f.key}"
+                           placeholder="${f.placeholder}" />
+                `).join('')}
+                <button class="btn btn-primary" onclick="submitToken('${id}')">
+                    Connect ${ch.name}
+                </button>
+            `;
+        }
+    }
+
+    function getTokenInstructions(channel) {
+        const instructions = {
+            telegram: `<ol>
+                <li>Open Telegram and talk to <a href="https://t.me/BotFather" target="_blank" style="color:#3b82f6">@BotFather</a></li>
+                <li>Send <code>/newbot</code> and follow the prompts</li>
+                <li>Copy the bot token and paste it below</li>
+            </ol>`,
+            discord: `<ol>
+                <li>Go to <a href="https://discord.com/developers/applications" target="_blank" style="color:#3b82f6">Discord Developer Portal</a></li>
+                <li>Create a new application → Bot → Reset Token</li>
+                <li>Copy the bot token and paste it below</li>
+                <li>Enable "Message Content Intent" under Privileged Intents</li>
+            </ol>`,
+            slack: `<ol>
+                <li>Create a Slack app at <a href="https://api.slack.com/apps" target="_blank" style="color:#3b82f6">api.slack.com</a></li>
+                <li>Add Bot Token Scopes and install to workspace</li>
+                <li>Copy both the Bot Token (xoxb-) and App Token (xapp-)</li>
+            </ol>`,
+        };
+        return instructions[channel] || '<p>Enter the required token below.</p>';
+    }
+
+    function getTokenFields(channel) {
+        const fields = {
+            telegram: [{ key: 'token', placeholder: 'Bot token from BotFather (e.g. 123456:ABC-DEF...)' }],
+            discord: [{ key: 'token', placeholder: 'Bot token from Developer Portal' }],
+            slack: [
+                { key: 'botToken', placeholder: 'Bot Token (xoxb-...)' },
+                { key: 'appToken', placeholder: 'App Token (xapp-...)' },
+            ],
+        };
+        return fields[channel] || [{ key: 'token', placeholder: 'Token' }];
+    }
+
+    async function startQrLink(channel) {
+        const btn = document.getElementById('startLinkBtn');
+        const qrDisplay = document.getElementById('qrDisplay');
+        const statusEl = document.getElementById('linkStatus');
+
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
+        qrDisplay.className = 'qr-container waiting';
+        qrDisplay.textContent = '⏳ Initializing... this may take 10-20 seconds';
+
+        // Hide continue button while linking is in progress
+        document.getElementById('continueBtn').style.display = 'none';
+        document.getElementById('linkingNotice').style.display = 'block';
+
+        try {
+            await fetch('/api/channels/link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel })
+            });
+
+            // Start polling for QR
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(() => pollQr(channel), 2000);
+        } catch (e) {
+            qrDisplay.textContent = '❌ Failed to start. Try again.';
+            btn.disabled = false;
+            btn.textContent = 'Start Linking';
+            document.getElementById('continueBtn').style.display = 'block';
+            document.getElementById('linkingNotice').style.display = 'none';
+        }
+    }
+
+    async function pollQr(channel) {
+        try {
+            const res = await fetch(`/api/channels/qr/${channel}`);
+            const data = await res.json();
+            const qrDisplay = document.getElementById('qrDisplay');
+            const statusEl = document.getElementById('linkStatus');
+            const btn = document.getElementById('startLinkBtn');
+
+            if (data.status === 'qr_ready') {
+                if (data.qrUri) {
+                    // Signal: render URI as QR code image
+                    qrDisplay.className = 'qr-container';
+                    qrDisplay.style.fontSize = 'inherit';
+                    qrDisplay.innerHTML = '<canvas id="qrCanvas"></canvas>';
+                    renderQrCode(data.qrUri, document.getElementById('qrCanvas'));
+                } else if (data.qrRaw) {
+                    // WhatsApp: render terminal QR
+                    qrDisplay.className = 'qr-container';
+                    qrDisplay.textContent = data.qrRaw.split('\n')
+                        .filter(l => l.includes('▄') || l.includes('█') || l.includes('▀'))
+                        .join('\n');
+                }
+                statusEl.innerHTML = '<div class="status-line status-waiting">📱 Scan this QR code with your phone</div>';
+                btn.style.display = 'none';
+            } else if (data.status === 'connected') {
+                clearInterval(pollInterval);
+                qrDisplay.className = 'qr-container waiting';
+                qrDisplay.innerHTML = '✅ <b>Connected!</b>';
+                statusEl.innerHTML = '<div class="status-line status-ready">🎉 Successfully linked! Restarting gateway...</div>';
+                btn.style.display = 'none';
+                document.getElementById('continueBtn').style.display = 'block';
+                document.getElementById('linkingNotice').style.display = 'none';
+                setTimeout(() => loadChannels(), 2000);
+            } else if (data.status === 'failed' || data.status === 'timeout') {
+                clearInterval(pollInterval);
+                qrDisplay.className = 'qr-container waiting';
+                qrDisplay.textContent = `❌ ${data.error || 'Timed out. Try again.'}`;
+                btn.disabled = false;
+                btn.textContent = 'Retry';
+                btn.style.display = 'block';
+                document.getElementById('continueBtn').style.display = 'block';
+                document.getElementById('linkingNotice').style.display = 'none';
+            }
+        } catch (e) {}
+    }
+
+    async function submitToken(channel) {
+        const fields = getTokenFields(channel);
+        const body = { channel };
+        for (const f of fields) {
+            const val = document.getElementById(`token_${f.key}`)?.value?.trim();
+            if (!val) return alert(`Please enter the ${f.placeholder}`);
+            body[f.key] = val;
+        }
+
+        try {
+            const res = await fetch('/api/channels/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (data.ok) {
+                alert(`${CHANNELS_MAP[channel]?.name || channel} connected! Gateway restarting...`);
+                loadChannels();
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        } catch (e) {
+            alert('Failed to connect. Check the token and try again.');
+        }
+    }
+
+    // Local lookup for names
+    const CHANNELS_MAP = {
+        whatsapp: { name: 'WhatsApp' },
+        telegram: { name: 'Telegram' },
+        signal: { name: 'Signal' },
+        discord: { name: 'Discord' },
+        slack: { name: 'Slack' },
+    };
+
+    function closePanel() {
+        selectedChannel = null;
+        document.getElementById('linkPanel').classList.remove('active');
+        document.getElementById('continueBtn').style.display = 'block';
+        document.getElementById('linkingNotice').style.display = 'none';
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        renderChannels();
+    }
+
+    async function doRestartGateway() {
+        const btn = document.getElementById('restartBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Restarting...';
+        try {
+            await fetch('/api/gateway/restart', { method: 'POST' });
+            btn.textContent = '✅ Gateway Restarted';
+            setTimeout(() => {
+                btn.textContent = '🔄 Restart Gateway';
+                btn.disabled = false;
+            }, 3000);
+        } catch (e) {
+            btn.textContent = '❌ Failed — try again';
+            btn.disabled = false;
+        }
+    }
+
+    function goToDashboard() {
+        window.location.href = '/';
+    }
+
+    // Init
+    loadChannels();
+
+    // ── Minimal QR Code renderer (uses external lib) ──
+    // Load qrcode.js from CDN for rendering sgnl:// URIs
+    (function loadQrLib() {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+        s.async = true;
+        document.head.appendChild(s);
+    })();
+
+    function renderQrCode(text, canvas) {
+        if (typeof qrcode === 'undefined') {
+            // Fallback: show URI as text
+            canvas.parentElement.innerHTML = `<div style="word-break:break-all;font-size:0.8rem;color:#aaa">${text}</div>`;
+            return;
+        }
+        const qr = qrcode(0, 'M');
+        qr.addData(text);
+        qr.make();
+        const size = qr.getModuleCount();
+        const scale = Math.max(4, Math.floor(280 / size));
+        canvas.width = size * scale;
+        canvas.height = size * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                if (qr.isDark(r, c)) {
+                    ctx.fillRect(c * scale, r * scale, scale, scale);
+                }
+            }
+        }
+    }
+    </script>
+</body>
+</html>

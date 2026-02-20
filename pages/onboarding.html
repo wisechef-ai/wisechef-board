@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiseChef — Your Personal AI Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a; color: #e0e0e0;
+            min-height: 100vh; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .container { max-width: 560px; width: 92%; padding: 20px; }
+        .logo { text-align: center; margin-bottom: 2rem; }
+        .logo span { font-size: 3.5rem; }
+        .logo h1 {
+            font-size: 2rem; font-weight: 700;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .logo .tagline {
+            color: #888; font-size: 0.95rem; margin-top: 4px;
+        }
+        .logo .flavor {
+            color: #555; font-size: 0.8rem; margin-top: 6px; font-style: italic;
+        }
+        .card {
+            background: #161616; border: 1px solid #2a2a2a;
+            border-radius: 16px; padding: 32px;
+        }
+        .progress {
+            display: flex; gap: 8px; justify-content: center; margin-bottom: 24px;
+        }
+        .progress .dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #333; transition: background 0.3s;
+        }
+        .progress .dot.active { background: #f59e0b; }
+        .step-title {
+            font-size: 1.25rem; font-weight: 600; text-align: center;
+            margin-bottom: 4px; color: #e0e0e0;
+        }
+        .step-sub {
+            color: #666; text-align: center; font-size: 0.85rem; margin-bottom: 20px;
+        }
+        .field { margin-bottom: 16px; }
+        .field label {
+            display: block; font-size: 0.85rem; font-weight: 600;
+            color: #bbb; margin-bottom: 6px;
+        }
+        .field input, .field textarea, .field select {
+            width: 100%; padding: 12px 14px; border: 1px solid #333;
+            border-radius: 10px; background: #0d0d0d; color: #fff;
+            font-size: 0.95rem; outline: none; font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .field input:focus, .field textarea:focus, .field select:focus {
+            border-color: #f59e0b;
+        }
+        .field textarea { resize: vertical; min-height: 70px; }
+        .field select option { background: #0d0d0d; }
+        .buttons {
+            display: flex; justify-content: space-between; margin-top: 24px; gap: 12px;
+        }
+        .btn {
+            padding: 12px 24px; border-radius: 10px; font-size: 0.95rem;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-back {
+            background: transparent; border: 1px solid #333; color: #999;
+        }
+        .btn-back:hover { border-color: #555; color: #ccc; }
+        .btn-next {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            border: none; color: #fff; margin-left: auto;
+        }
+        .btn-next:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-next:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .error { color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 12px; }
+
+        .done { text-align: center; padding: 40px 20px; }
+        .done .emoji { font-size: 3rem; margin-bottom: 12px; }
+        .done h2 { font-size: 1.5rem; margin-bottom: 8px; }
+        .done p { color: #888; margin-bottom: 20px; }
+        .done .btn-next { display: inline-block; text-decoration: none; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <span>🍳</span>
+            <h1>WiseChef</h1>
+            <p class="tagline">Your personal AI assistant</p>
+            <p class="flavor" id="flavor"></p>
+        </div>
+
+        <div class="card" id="wizard">
+            <div class="progress" id="progress"></div>
+            <div class="step-title" id="stepTitle"></div>
+            <div class="step-sub" id="stepSub"></div>
+            <div id="questions"></div>
+            <div class="error hidden" id="error"></div>
+            <div class="buttons">
+                <button class="btn btn-back hidden" id="backBtn" onclick="prevStep()">← Back</button>
+                <button class="btn btn-next" id="nextBtn" onclick="nextStep()">Next →</button>
+            </div>
+        </div>
+
+        <div class="card done hidden" id="doneScreen">
+            <div class="emoji">🎉</div>
+            <h2>All set!</h2>
+            <p>Your assistant is configured and ready to chat.</p>
+            <a href="/" class="btn btn-next" id="chatBtn">Continue →</a>
+        </div>
+    </div>
+
+    <script>
+    const FLAVORS = [
+        "Cooking up intelligence, one prompt at a time",
+        "Your AI sous-chef for everything",
+        "Because even geniuses need an assistant",
+        "Less busywork, more brilliance",
+        "Think of me as your second brain",
+        "Automate the boring. Focus on the bold.",
+        "I never sleep, and I never forget",
+        "Your unfair advantage in a noisy world",
+        "Making complexity taste simple",
+        "Where AI meets getting stuff done",
+        "Built different. Works harder.",
+        "The assistant you always wanted, minus the attitude",
+        "Powered by curiosity and a lot of neurons",
+    ];
+    document.getElementById('flavor').textContent = FLAVORS[Math.floor(Math.random() * FLAVORS.length)];
+
+    const STEPS = [
+        {
+            title: "Let's get to know each other 👋",
+            questions: [
+                { id: 'business', label: 'What do you do? Describe your company or role in a few sentences.', type: 'textarea' },
+                { id: 'team', label: 'Do you work solo or with a team? If a team — what kind?', type: 'text' },
+                { id: 'hours', label: 'What are your typical working hours?', type: 'text' },
+            ]
+        },
+        {
+            title: 'How do you work? 🛠️',
+            questions: [
+                { id: 'style', label: 'Do you prefer formal or casual communication?', type: 'select', options: ['Formal', 'Casual', 'Depends on the situation'] },
+                { id: 'reports', label: 'How do you like to receive information? (bullet points, detailed, short & sweet)', type: 'text' },
+                { id: 'pain', label: 'What frustrates you most in your daily work? What eats up the most time?', type: 'textarea' },
+            ]
+        },
+        {
+            title: 'Last few questions 🎯',
+            questions: [
+                { id: 'tools', label: 'What tools do you use daily? (email, calendar, Slack, Excel...)', type: 'textarea' },
+                { id: 'automate', label: 'What would you love your assistant to do for you? Dream big 🚀', type: 'textarea' },
+                { id: 'fun', label: 'Tell us something about yourself — hobbies, favorite food, anything 😄', type: 'text' },
+            ]
+        }
+    ];
+
+    let currentStep = 0;
+    const answers = {};
+
+    function render() {
+        const step = STEPS[currentStep];
+        const isLast = currentStep === STEPS.length - 1;
+
+        document.getElementById('progress').innerHTML = STEPS.map((_, i) =>
+            `<div class="dot ${i <= currentStep ? 'active' : ''}"></div>`
+        ).join('');
+
+        document.getElementById('stepTitle').textContent = step.title;
+        document.getElementById('stepSub').textContent = `Step ${currentStep + 1} of ${STEPS.length}`;
+
+        document.getElementById('questions').innerHTML = step.questions.map(q => {
+            const val = answers[q.id] || '';
+            if (q.type === 'textarea') {
+                return `<div class="field"><label>${q.label}</label><textarea id="q_${q.id}" oninput="onInput('${q.id}', this.value)">${val}</textarea></div>`;
+            } else if (q.type === 'select') {
+                const opts = q.options.map(o => `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`).join('');
+                return `<div class="field"><label>${q.label}</label><select id="q_${q.id}" onchange="onInput('${q.id}', this.value)"><option value="">Choose...</option>${opts}</select></div>`;
+            } else {
+                return `<div class="field"><label>${q.label}</label><input type="text" id="q_${q.id}" value="${val}" oninput="onInput('${q.id}', this.value)"></div>`;
+            }
+        }).join('');
+
+        document.getElementById('backBtn').classList.toggle('hidden', currentStep === 0);
+        document.getElementById('nextBtn').textContent = isLast ? '✅ Finish' : 'Next →';
+        updateNextBtn();
+    }
+
+    function onInput(id, value) {
+        answers[id] = value;
+        updateNextBtn();
+    }
+
+    function updateNextBtn() {
+        const step = STEPS[currentStep];
+        const allFilled = step.questions.every(q => (answers[q.id] || '').trim());
+        document.getElementById('nextBtn').disabled = !allFilled;
+    }
+
+    function prevStep() {
+        if (currentStep > 0) { currentStep--; render(); }
+    }
+
+    async function nextStep() {
+        const isLast = currentStep === STEPS.length - 1;
+        if (!isLast) { currentStep++; render(); return; }
+
+        const btn = document.getElementById('nextBtn');
+        const errEl = document.getElementById('error');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        errEl.classList.add('hidden');
+
+        try {
+            const res = await fetch('/api/onboarding/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answers })
+            });
+            if (!res.ok) throw new Error('Save failed');
+            document.getElementById('wizard').classList.add('hidden');
+            document.getElementById('doneScreen').classList.remove('hidden');
+        } catch (e) {
+            errEl.textContent = 'Failed to save. Please try again.';
+            errEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = '✅ Finish';
+        }
+    }
+
+    // Check if already onboarded
+    fetch('/api/onboarding/status')
+        .then(r => r.json())
+        .then(d => { if (d.onboarded) window.location.href = '/'; else render(); })
+        .catch(() => render());
+    </script>
+</body>
+</html>
