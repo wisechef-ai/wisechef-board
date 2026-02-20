@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# VidClaw — one-liner installer
-# curl -fsSL vidclaw.com/install.sh | bash
-# curl -fsSL vidclaw.com/install.sh | bash -s -- --no-tailscale
+# WiseChef Board — one-liner installer
+# curl -fsSL wisechef-board.com/install.sh | bash
+# curl -fsSL wisechef-board.com/install.sh | bash -s -- --no-tailscale
 set -euo pipefail
 
 INSTALL_DIR="${VIDCLAW_DIR:-${HOME}/.openclaw/workspace/dashboard}"
-REPO_URL="https://github.com/madrzak/vidclaw.git"
+REPO_URL="https://github.com/madrzak/wisechef-board.git"
 TAILSCALE_FLAG=1
 TAILSCALE_CONNECTED=0
 SETUP_ARGS=()
@@ -35,7 +35,7 @@ has()   { command -v "$1" > /dev/null 2>&1; }
 
 # ---------- banner ----------
 echo
-echo -e "${BOLD}  ⚡ VidClaw Installer${RESET}"
+echo -e "${BOLD}  ⚡ WiseChef Board Installer${RESET}"
 echo -e "${DIM}  ─────────────────────${RESET}"
 echo
 
@@ -105,11 +105,11 @@ echo
 
 # ---------- install ----------
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
-  step "Updating VidClaw..."
+  step "Updating WiseChef Board..."
   cd "${INSTALL_DIR}"
   git pull --ff-only -q 2>/dev/null || warn "git pull failed — using existing code"
 else
-  step "Cloning VidClaw..."
+  step "Cloning WiseChef Board..."
   mkdir -p "$(dirname "${INSTALL_DIR}")"
   git clone -q "${REPO_URL}" "${INSTALL_DIR}"
   cd "${INSTALL_DIR}"
@@ -122,7 +122,7 @@ chmod +x setup.sh
 
 # ---------- done ----------
 echo
-echo -e "${BOLD}${GREEN}  ⚡ VidClaw is ready${RESET}"
+echo -e "${BOLD}${GREEN}  ⚡ WiseChef Board is ready${RESET}"
 echo
 echo -e "  ${DIM}Dashboard${RESET}  http://localhost:${VIDCLAW_PORT:-3333}"
 echo -e "  ${DIM}Directory${RESET}  ${INSTALL_DIR}"

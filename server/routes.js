@@ -15,7 +15,7 @@ import { listSkills, toggleSkill, createSkill, getSkillContent, deleteSkill } fr
 import { listFiles, getFileContent, downloadFile, getWorkspaceFile, putWorkspaceFile, getWorkspaceFileHistory } from './controllers/files.js';
 import { getSoul, putSoul, getSoulHistory, revertSoul, getSoulTemplates } from './controllers/soul.js';
 import { getSettings, postSettings } from './controllers/settings.js';
-import { getVidclawVersion, updateVidclaw } from './controllers/vidclaw.js';
+import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
 
 const router = Router();
@@ -85,9 +85,9 @@ router.get('/api/credentials', listCredentials);
 router.put('/api/credentials/:name', putCredential);
 router.delete('/api/credentials/:name', deleteCredential);
 
-// VidClaw
-router.get('/api/vidclaw/version', getVidclawVersion);
-router.post('/api/vidclaw/update', updateVidclaw);
+// WiseChef Board
+router.get('/api/wisechef-board/version', getBoardVersion);
+router.post('/api/wisechef-board/update', updateBoard);
 
 // SPA fallback
 router.get('*', (req, res) => {

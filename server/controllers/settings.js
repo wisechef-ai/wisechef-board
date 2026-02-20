@@ -54,7 +54,7 @@ export async function postSettings(req, res) {
       }
     }
 
-    // timezone and maxConcurrent go into VidClaw's own settings file
+    // timezone and maxConcurrent go into WiseChef Board's own settings file
     const settings = readSettings();
     if (timezone) settings.timezone = timezone;
     if (maxConcurrent !== undefined) settings.maxConcurrent = parseInt(maxConcurrent, 10);

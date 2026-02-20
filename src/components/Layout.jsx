@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Coffee, Sun, Moon, KeyRound } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
 const navItems = [
@@ -21,7 +21,7 @@ export default function Layout({ page, setPage, children }) {
 
   // Check for updates on mount
   useEffect(() => {
-    fetch('/api/vidclaw/version')
+    fetch('/api/wisechef-board/version')
       .then(r => r.json())
       .then(data => {
         if (data.outdated) setUpdateAvailable(data.latest)
@@ -60,10 +60,10 @@ export default function Layout({ page, setPage, children }) {
       )}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
-              ⚡ VidClaw
+            <h1 className="text-lg font-bold bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent">
+              🍳 WiseChef
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Clawmand Center</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Chef's Dashboard</p>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -93,7 +93,7 @@ export default function Layout({ page, setPage, children }) {
           onClick={() => setPage('settings')}
           className="p-3 border-t border-border text-xs text-muted-foreground hover:text-foreground transition-colors text-left flex items-center gap-1.5 w-full"
         >
-          <span>VidClaw v{__APP_VERSION__}</span>
+          <span>WiseChef v{__APP_VERSION__}</span>
           {updateAvailable && (
             <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0" title={`Update available: v${updateAvailable}`} />
           )}
@@ -113,15 +113,6 @@ export default function Layout({ page, setPage, children }) {
             <span className="text-sm font-medium">{navItems.find(n => n.id === page)?.label || page}</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3">
-            <a
-              href="https://buy.stripe.com/8x2aEX0Wl7Wv7Roag9cEw0f"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-amber-400 transition-colors"
-            >
-              <Coffee size={12} />
-              <span className="hidden sm:inline">Buy me a coffee</span>
-            </a>
             <UsageWidget />
             <button
               onClick={toggleTheme}

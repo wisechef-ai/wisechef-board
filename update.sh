@@ -93,7 +93,7 @@ require_cmd git
 
 cd "${REPO_ROOT}"
 
-echo "⚡ VidClaw Update"
+echo "⚡ WiseChef Board Update"
 print_runtime_summary
 
 if [[ "${SKIP_GIT}" == "0" ]]; then

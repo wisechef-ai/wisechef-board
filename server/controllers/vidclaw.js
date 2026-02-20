@@ -7,7 +7,7 @@ import { logActivity } from '../lib/fileStore.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..', '..');
 
-export async function getVidclawVersion(req, res) {
+export async function getBoardVersion(req, res) {
   const result = {};
   try {
     const tag = await exec(`git -C "${projectRoot}" describe --tags --abbrev=0`);
@@ -16,7 +16,7 @@ export async function getVidclawVersion(req, res) {
     result.current = null;
   }
   try {
-    const resp = await fetch('https://api.github.com/repos/madrzak/vidclaw/tags?per_page=1');
+    const resp = await fetch('https://api.github.com/repos/wisechef-ai/wisechef-board/tags?per_page=1');
     const tags = await resp.json();
     if (tags.length > 0) {
       result.latest = tags[0].name.replace(/^v/, '');
@@ -34,7 +34,7 @@ export async function getVidclawVersion(req, res) {
   res.json(result);
 }
 
-export async function updateVidclaw(req, res) {
+export async function updateBoard(req, res) {
   try {
     await exec(`git -C "${projectRoot}" fetch --tags`);
     const latestTag = await exec(`git -C "${projectRoot}" tag -l 'v*' --sort=-v:refname | head -n1`);
@@ -43,12 +43,12 @@ export async function updateVidclaw(req, res) {
     await exec(`npm install --production=false --prefix "${projectRoot}"`);
     await exec(`npm run build --prefix "${projectRoot}"`);
     const version = latestTag.replace(/^v/, '');
-    logActivity('dashboard', 'vidclaw_updated', { version });
+    logActivity('dashboard', 'wisechef_board_updated', { version });
     res.json({ success: true, version });
     // Restart service after response is sent
     setTimeout(() => {
-      execCb('sudo systemctl restart vidclaw', (err) => {
-        if (err) console.error('Failed to restart vidclaw:', err.message);
+      execCb('sudo systemctl restart wisechef-board', (err) => {
+        if (err) console.error('Failed to restart wisechef-board:', err.message);
       });
     }, 500);
   } catch (e) {

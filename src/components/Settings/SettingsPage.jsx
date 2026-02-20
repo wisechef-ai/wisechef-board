@@ -121,10 +121,10 @@ export default function SettingsPage() {
   const [updating, setUpdating] = useState(false)
   const [updateResult, setUpdateResult] = useState(null)
 
-  const [vidclawInfo, setVidclawInfo] = useState(null)
-  const [vidclawLoading, setVidclawLoading] = useState(true)
-  const [vidclawUpdating, setVidclawUpdating] = useState(false)
-  const [vidclawUpdateResult, setVidclawUpdateResult] = useState(null)
+  const [boardInfo, setVidclawInfo] = useState(null)
+  const [boardLoading, setVidclawLoading] = useState(true)
+  const [boardUpdating, setVidclawUpdating] = useState(false)
+  const [boardUpdateResult, setVidclawUpdateResult] = useState(null)
   const [refreshCountdown, setRefreshCountdown] = useState(null)
 
   const isDirty = heartbeat !== savedHeartbeat || timezone !== savedTimezone || maxConcurrent !== savedMaxConcurrent
@@ -144,7 +144,7 @@ export default function SettingsPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-    fetch('/api/vidclaw/version')
+    fetch('/api/wisechef-board/version')
       .then(r => r.json())
       .then(d => { setVidclawInfo(d); setVidclawLoading(false) })
       .catch(() => setVidclawLoading(false))
@@ -183,7 +183,7 @@ export default function SettingsPage() {
     setVidclawUpdating(true)
     setVidclawUpdateResult(null)
     try {
-      const r = await fetch('/api/vidclaw/update', { method: 'POST' })
+      const r = await fetch('/api/wisechef-board/update', { method: 'POST' })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Update failed')
       setVidclawUpdateResult({ success: true, version: data.version })
@@ -357,59 +357,59 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* VidClaw Version */}
+      {/* WiseChef Board Version */}
       <div className="rounded-lg border border-border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Zap size={16} className="text-orange-400" />
-          <h3 className="font-medium text-sm">VidClaw Version</h3>
+          <h3 className="font-medium text-sm">WiseChef Board Version</h3>
         </div>
-        {vidclawLoading ? (
+        {boardLoading ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="animate-spin" size={14} /> Checking version…
           </div>
-        ) : !vidclawInfo || (!vidclawInfo.current && !vidclawInfo.latest) ? (
+        ) : !boardInfo || (!boardInfo.current && !boardInfo.latest) ? (
           <p className="text-xs text-muted-foreground">Could not check version</p>
         ) : (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className="text-muted-foreground">Installed:</span>
-              <span className="font-mono">{vidclawInfo.current || 'unknown'}</span>
-              {vidclawInfo.latest && (
+              <span className="font-mono">{boardInfo.current || 'unknown'}</span>
+              {boardInfo.latest && (
                 <>
                   <span className="text-muted-foreground">Latest:</span>
-                  <span className="font-mono">{vidclawInfo.latest}</span>
+                  <span className="font-mono">{boardInfo.latest}</span>
                 </>
               )}
-              {vidclawInfo.outdated === true && (
+              {boardInfo.outdated === true && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
                   Update available
                 </span>
               )}
-              {vidclawInfo.outdated === false && (
+              {boardInfo.outdated === false && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
                   Up to date
                 </span>
               )}
             </div>
-            {vidclawInfo.outdated && (
+            {boardInfo.outdated && (
               <button
                 onClick={handleVidclawUpdate}
-                disabled={vidclawUpdating}
+                disabled={boardUpdating}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {vidclawUpdating ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
-                {vidclawUpdating ? 'Updating…' : `Update to v${vidclawInfo.latest}`}
+                {boardUpdating ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
+                {boardUpdating ? 'Updating…' : `Update to v${boardInfo.latest}`}
               </button>
             )}
-            {vidclawUpdateResult?.success && (
+            {boardUpdateResult?.success && (
               <p className="text-xs text-green-400">
-                Updated to v{vidclawUpdateResult.version}.{' '}
+                Updated to v{boardUpdateResult.version}.{' '}
                 <a onClick={() => window.location.reload()} className="underline cursor-pointer hover:text-green-300">Refresh now</a>
                 {' '}or auto-refresh in {refreshCountdown}s…
               </p>
             )}
-            {vidclawUpdateResult && !vidclawUpdateResult.success && (
-              <p className="text-xs text-red-400">Update failed: {vidclawUpdateResult.error}</p>
+            {boardUpdateResult && !boardUpdateResult.success && (
+              <p className="text-xs text-red-400">Update failed: {boardUpdateResult.error}</p>
             )}
           </div>
         )}

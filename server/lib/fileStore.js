@@ -45,7 +45,7 @@ export function writeOpenclawJson(data) {
   fs.writeFileSync(OPENCLAW_JSON, JSON.stringify(data, null, 2));
 }
 
-// --- VidClaw Settings ---
+// --- WiseChef Board Settings ---
 export function readSettings() {
   try { return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')); } catch { return {}; }
 }

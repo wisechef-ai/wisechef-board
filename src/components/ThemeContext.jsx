@@ -5,7 +5,7 @@ const ThemeContext = createContext()
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('vidclaw-theme') || 
+      return localStorage.getItem('wisechef-theme') || 
         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     }
     return 'dark'
@@ -15,7 +15,7 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement
     root.classList.remove('light', 'dark')
     root.classList.add(theme)
-    localStorage.setItem('vidclaw-theme', theme)
+    localStorage.setItem('wisechef-theme', theme)
   }, [theme])
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
