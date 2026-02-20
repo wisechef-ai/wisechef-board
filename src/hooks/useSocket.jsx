@@ -17,7 +17,8 @@ export function SocketProvider({ children }) {
         wsUrl = __WS_TARGET__.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:').replace(/\/$/, '') + '/ws'
       } else {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-        wsUrl = `${protocol}//${location.host}/ws`
+        const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
+        wsUrl = `${protocol}//${location.host}${base}/ws`
       }
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
