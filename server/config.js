@@ -78,7 +78,7 @@ export const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort 
 export const HOST = process.env.HOST || '127.0.0.1';
 
 export const OPENCLAW_DIR = normalizeDir(process.env.OPENCLAW_DIR || path.join(HOME, '.openclaw'));
-export const WORKSPACE = path.join(OPENCLAW_DIR, 'workspace');
+export const WORKSPACE = normalizeDir(process.env.WORKSPACE_DIR || path.join(OPENCLAW_DIR, 'workspace'));
 export const OPENCLAW_JSON = path.join(OPENCLAW_DIR, 'openclaw.json');
 export const TASKS_FILE = path.join(__dirname, 'data', 'tasks.json');
 export const ACTIVITY_FILE = path.join(__dirname, 'data', 'activity.json');
