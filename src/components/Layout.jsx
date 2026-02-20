@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2 } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { id: 'skills', label: 'Skills', icon: Puzzle },
   { id: 'soul', label: 'Soul', icon: Heart },
   { id: 'credentials', label: 'Credentials', icon: KeyRound },
+  { id: 'link-channel', label: 'Link Channel', icon: Link2 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -60,8 +61,8 @@ export default function Layout({ page, setPage, children }) {
       )}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent">
-              🍳 WiseChef
+            <h1 className="text-lg font-bold">
+              <span className="mr-1">🍳</span> <span className="bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent">WiseChef</span>
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">Chef's Dashboard</p>
           </div>
@@ -76,7 +77,7 @@ export default function Layout({ page, setPage, children }) {
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setPage(item.id)}
+              onClick={() => item.id === 'link-channel' ? (window.location.href = '/link') : setPage(item.id)}
               className={cn(
                 'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                 page === item.id
