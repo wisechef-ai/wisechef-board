@@ -206,6 +206,7 @@ export function startLinking(req, res) {
       if (text.toLowerCase().includes('connected') || text.toLowerCase().includes('success')) {
         session.status = 'connected';
         saveChannelLink(channel);
+        try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
       }
     });
 
@@ -255,6 +256,7 @@ export function startLinking(req, res) {
           } catch (e) { session.logs.push('Config error: ' + e.message); }
         }
         saveChannelLink(channel);
+        try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
       }
     });
 
