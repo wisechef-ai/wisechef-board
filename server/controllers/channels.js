@@ -172,6 +172,10 @@ export function listChannels(_req, res) {
 // ────────────────────────────────────────────────────────
 
 export function startLinking(req, res) {
+  if (!isOnboarded()) {
+    return res.status(403).json({ error: 'onboarding_required' });
+  }
+  
   const { channel } = req.body;
   if (!CHANNELS[channel]) return res.status(400).json({ error: 'Unknown channel' });
   const ch = CHANNELS[channel];

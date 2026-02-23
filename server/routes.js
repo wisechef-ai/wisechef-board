@@ -34,6 +34,7 @@ router.get('/onboarding', (_req, res) => {
 });
 
 router.get('/link', (_req, res) => {
+  if (!isOnboarded()) return res.redirect('/onboarding');
   res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
 });
 
