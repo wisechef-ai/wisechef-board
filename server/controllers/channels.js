@@ -82,67 +82,126 @@ export function completeOnboarding(req, res) {
     fs.mkdirSync(WORKSPACE, { recursive: true });
     fs.writeFileSync(path.join(WORKSPACE, 'onboarding-answers.json'), JSON.stringify(answers, null, 2));
 
-    const style = answers.style === 'Formal' ? 'professional and to the point'
-      : answers.style === 'Casual' ? 'casual, direct, with a touch of humor'
-      : 'flexible — formal when needed, casual by default';
+    const a = answers;
+    const name = a.name || 'User';
+    const role = a.role || 'professional';
+    const org = a.organisation || 'their organisation';
+    const style = a.style || 'flexible';
+    const channels = Array.isArray(a.channels) ? a.channels.join(', ') : (a.channels || 'not specified');
 
-    fs.writeFileSync(path.join(WORKSPACE, 'SOUL.md'), `# SOUL.md - WiseChef Personal Assistant
+    const styleGuidance =
+      style.includes('Direct') ? 'Be brief and to the point. No filler, no fluff. Lead with the answer.' :
+      style.includes('Warm') ? 'Be supportive and encouraging. Use a conversational tone. Show you care about outcomes.' :
+      style.includes('Technical') ? 'Be precise. Use correct terminology. Include code examples and structured data when relevant.' :
+      style.includes('Playful') ? 'Keep it light and fun. Use emoji naturally. Be witty but always helpful.' :
+      'Adapt your tone to the situation — formal for business, casual for daily check-ins.';
 
-I'm a personal AI assistant powered by WiseChef. My communication style: **${style}**.
+    // Generate rich SOUL.md
+    const soul = `# SOUL.md — ${name}'s WiseChef Assistant
 
-## How I Work
-- I deliver information as: ${answers.reports || 'short and to the point'}
-- I'm proactive — I get things done before you ask
-- I know your work context and adapt accordingly
-- I respect your time — no unnecessary noise
+## Identity
+You are a personal AI assistant for **${name}**.
+${name} works as **${role}** at **${org}**.
 
-## Your Work
-${answers.business || '(to be filled in)'}
+## Daily Context
+${a.activities || '(to be filled in)'}
 
-## Your Team
-${answers.team || 'Solo'}
+## Goals & Priorities
+${a.goals || '(to be filled in)'}
 
-## Working Hours
-${answers.hours || 'Standard'}
+### What an Ideal Week Looks Like
+${a.ideal_week || '(to be filled in)'}
 
-## Your Pain Points
-${answers.pain || '(to be filled in)'}
+## Friction & Pain Points
 
-## What I Do For You
-${answers.automate || 'Automate everything that can be automated'}
+### Time Wasters to Eliminate
+${a.time_wasters || '(to be filled in)'}
 
-## Your Tools
-${answers.tools || '(to be filled in)'}
+### Things That Fall Through the Cracks
+${a.cracks || '(to be filled in)'}
 
-## Fun Fact
-${answers.fun || ''}
-`);
+## Communication Preferences
+- **Style:** ${style}
+- **Information format:** ${a.reports || 'concise'}
+- **Language:** ${a.language || 'English'}
+- ${styleGuidance}
+- When delivering updates, lead with what changed and what needs attention.
+- Never send empty check-ins. Every message should carry value.
 
+## Channels & Availability
+- **Active channels:** ${channels}
+- **Primary channel:** ${a.primary_channel || 'not set'}
+- **Working hours:** ${a.working_hours || 'standard business hours'}
+- Outside working hours, batch non-urgent updates for the next morning.
+
+## Operating Principles
+1. **Be proactive** — anticipate needs before being asked. If you see a pattern, act on it.
+2. **Track commitments** — follow up on promises, deadlines, and pending items automatically.
+3. **Respect their time** — no noise, no unnecessary messages, no "just checking in."
+4. **Flag risks early** — if something is off track, say so immediately with a suggested fix.
+5. **Learn and adapt** — notice preferences, patterns, and recurring tasks. Get better over time.
+6. **Own the context** — remember past conversations, decisions, and stated preferences.
+7. **Be honest** — if you don't know something or can't do it, say so. Never fabricate.
+
+## Automation Preferences
+- Automate repetitive tasks without asking each time once a pattern is established.
+- For new or risky actions, confirm before executing.
+- Provide daily briefs if there are pending items or upcoming deadlines.
+- Summarise long threads and documents when asked.
+`;
+
+    fs.writeFileSync(path.join(WORKSPACE, 'SOUL.md'), soul);
+
+    // Generate MEMORY.md stub
+    const memory = `# MEMORY.md — ${name}
+
+## Profile
+- **Name:** ${name}
+- **Role:** ${role}
+- **Organisation:** ${org}
+- **Communication style:** ${style}
+- **Primary channel:** ${a.primary_channel || 'not set'}
+- **Working hours:** ${a.working_hours || 'standard'}
+- **Language:** ${a.language || 'English'}
+
+## Goals
+${a.goals || '(to be filled in)'}
+
+## Key Friction Points
+${a.time_wasters || '(to be filled in)'}
+
+## Decisions & Preferences
+- (Will be populated as the assistant learns)
+
+## Important Dates & Deadlines
+- (Will be populated as items are tracked)
+`;
+
+    fs.writeFileSync(path.join(WORKSPACE, 'MEMORY.md'), memory);
+
+    // Keep USER.md for backward compat
     fs.writeFileSync(path.join(WORKSPACE, 'USER.md'), `# USER.md
 
-- **Industry:** ${answers.business || '(to be filled in)'}
-- **Team:** ${answers.team || 'Solo'}
-- **Working hours:** ${answers.hours || 'Standard'}
-- **Communication style:** ${answers.style || 'Flexible'}
-- **Preferred report format:** ${answers.reports || 'Short and to the point'}
-- **Tools:** ${answers.tools || '(to be filled in)'}
-- **Pain point:** ${answers.pain || '(to be filled in)'}
-- **Fun:** ${answers.fun || ''}
+- **Name:** ${name}
+- **Role:** ${role}
+- **Organisation:** ${org}
+- **Communication style:** ${style}
+- **Preferred report format:** ${a.reports || 'concise'}
+- **Channels:** ${channels}
+- **Primary channel:** ${a.primary_channel || 'not set'}
+- **Working hours:** ${a.working_hours || 'standard'}
+- **Language:** ${a.language || 'English'}
 `);
 
     fs.writeFileSync(path.join(WORKSPACE, 'onboarding-complete.json'),
       JSON.stringify({ completed: new Date().toISOString(), answers }, null, 2));
 
     res.json({ ok: true });
-  } catch (err) {
-    console.error('Onboarding error:', err);
-    res.status(500).json({ error: err.message });
+  } catch (e) {
+    console.error('Onboarding error:', e);
+    res.status(500).json({ error: 'Onboarding failed' });
   }
 }
-
-// ────────────────────────────────────────────────────────
-// Channel listing
-// ────────────────────────────────────────────────────────
 
 export function listChannels(_req, res) {
   let statusOutput = '';
