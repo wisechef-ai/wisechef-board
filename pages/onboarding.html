@@ -86,6 +86,17 @@
         .done p { color: #888; margin-bottom: 20px; }
         .done .btn-next { display: inline-block; text-decoration: none; }
 
+        .template-grid {
+            display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px;
+        }
+        .tmpl-card {
+            padding: 14px 16px; border-radius: 10px; border: 1px solid #333;
+            background: #0d0d0d; cursor: pointer; transition: all 0.2s;
+        }
+        .tmpl-card:hover { border-color: #555; }
+        .tmpl-card.selected { border-color: #f59e0b; background: #2a1f0a; }
+        .tmpl-card .tmpl-name { font-weight: 600; font-size: 0.9rem; color: #e0e0e0; margin-bottom: 2px; }
+        .tmpl-card .tmpl-desc { font-size: 0.8rem; color: #888; }
         .hidden { display: none; }
     </style>
 </head>
@@ -138,6 +149,13 @@
 
     const STEPS = [
         {
+            title: "Pick your base template 🧠",
+            questions: [
+                { id: '_template', label: 'Choose a starting personality for your assistant (you can customise later)', type: 'template' },
+            ]
+        },
+        
+        {
             title: "Let's get to know each other 👋",
             questions: [
                 { id: 'business', label: 'What do you do? Describe your company or role in a few sentences.', type: 'textarea' },
@@ -181,6 +199,9 @@
             const val = answers[q.id] || '';
             if (q.type === 'textarea') {
                 return `<div class="field"><label>${q.label}</label><textarea id="q_${q.id}" oninput="onInput('${q.id}', this.value)">${val}</textarea></div>`;
+            } else if (q.type === 'template') {
+                const selected = answers._template || '';
+                return `<div class="field"><label>\${q.label}</label><div class="template-grid" id="templateGrid">Loading templates...</div></div>`;
             } else if (q.type === 'select') {
                 const opts = q.options.map(o => `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`).join('');
                 return `<div class="field"><label>${q.label}</label><select id="q_${q.id}" onchange="onInput('${q.id}', this.value)"><option value="">Choose...</option>${opts}</select></div>`;
@@ -190,7 +211,37 @@
         }).join('');
 
         document.getElementById('backBtn').classList.toggle('hidden', currentStep === 0);
+
+        // Load templates if on template step
+        if (step.questions.some(q => q.type === 'template')) {
+            loadTemplates();
+        }
         document.getElementById('nextBtn').textContent = isLast ? '✅ Finish' : 'Next →';
+        updateNextBtn();
+    }
+
+    let cachedTemplates = null;
+    async function loadTemplates() {
+        const grid = document.getElementById('templateGrid');
+        if (!grid) return;
+        if (!cachedTemplates) {
+            try {
+                const res = await fetch('/api/soul/templates');
+                cachedTemplates = await res.json();
+            } catch { grid.innerHTML = '<p style="color:#666">Failed to load templates</p>'; return; }
+        }
+        const selected = answers._template || '';
+        grid.innerHTML = cachedTemplates.map(t =>
+            `<div class="tmpl-card ${selected === t.name ? 'selected' : ''}" onclick="selectTemplate('${t.name.replace(/'/g, "\\'")}')">
+                <div class="tmpl-name">${t.name}</div>
+                <div class="tmpl-desc">${t.description}</div>
+            </div>`
+        ).join('');
+    }
+
+    function selectTemplate(name) {
+        answers._template = answers._template === name ? '' : name;
+        loadTemplates();
         updateNextBtn();
     }
 
@@ -201,7 +252,10 @@
 
     function updateNextBtn() {
         const step = STEPS[currentStep];
-        const allFilled = step.questions.every(q => (answers[q.id] || '').trim());
+        const allFilled = step.questions.every(q => {
+            if (q.type === 'template') return true; // template selection is optional
+            return (answers[q.id] || '').trim();
+        });
         document.getElementById('nextBtn').disabled = !allFilled;
     }
 

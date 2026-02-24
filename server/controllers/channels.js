@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawn } from 'child_process';
-import { WORKSPACE, OPENCLAW_DIR } from '../config.js';
+import { WORKSPACE, OPENCLAW_DIR, SOUL_TEMPLATES } from '../config.js';
 
 // ────────────────────────────────────────────────────────
 // Supported channels (Linux VM — no iMessage)
@@ -82,11 +82,15 @@ export function completeOnboarding(req, res) {
     fs.mkdirSync(WORKSPACE, { recursive: true });
     fs.writeFileSync(path.join(WORKSPACE, 'onboarding-answers.json'), JSON.stringify(answers, null, 2));
 
+    // Use selected template as base, or default
+    const selectedTemplate = SOUL_TEMPLATES.find(t => t.name === answers._template);
+    const templateBase = selectedTemplate ? selectedTemplate.content + '\n\n---\n\n' : '';
+
     const style = answers.style === 'Formal' ? 'professional and to the point'
       : answers.style === 'Casual' ? 'casual, direct, with a touch of humor'
       : 'flexible — formal when needed, casual by default';
 
-    fs.writeFileSync(path.join(WORKSPACE, 'SOUL.md'), `# SOUL.md - WiseChef Personal Assistant
+    fs.writeFileSync(path.join(WORKSPACE, 'SOUL.md'), templateBase + `# SOUL.md - WiseChef Personal Assistant
 
 I'm a personal AI assistant powered by WiseChef. My communication style: **${style}**.
 
