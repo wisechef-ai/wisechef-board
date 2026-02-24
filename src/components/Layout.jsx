@@ -1,24 +1,31 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2 } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server } from 'lucide-react'
 import { useTheme } from './ThemeContext'
-
-const navItems = [
-  { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
-  { id: 'calendar', label: 'Activity', icon: Calendar },
-  { id: 'files', label: 'Files', icon: FolderOpen },
-  { id: 'skills', label: 'Skills', icon: Puzzle },
-  { id: 'soul', label: 'Soul', icon: Heart },
-  { id: 'credentials', label: 'Credentials', icon: KeyRound },
-  { id: 'link-channel', label: 'Link Channel', icon: Link2 },
-  { id: 'settings', label: 'Settings', icon: Settings },
-]
 
 export default function Layout({ page, setPage, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const [updateAvailable, setUpdateAvailable] = useState(null)
+  const [isHQ, setIsHQ] = useState(false)
+
+  // Check if running on HQ
+  useEffect(() => {
+    fetch('/api/env').then(r => r.json()).then(d => setIsHQ(d.hq)).catch(() => {})
+  }, [])
+
+  const navItems = [
+    { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
+    { id: 'calendar', label: 'Activity', icon: Calendar },
+    { id: 'files', label: 'Files', icon: FolderOpen },
+    { id: 'skills', label: 'Skills', icon: Puzzle },
+    { id: 'soul', label: 'Soul', icon: Heart },
+    { id: 'credentials', label: 'Credentials', icon: KeyRound },
+    { id: 'link-channel', label: 'Link Channel', icon: Link2 },
+    ...(isHQ ? [{ id: 'fleet', label: 'Fleet', icon: Server }] : []),
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ]
 
   // Check for updates on mount
   useEffect(() => {

@@ -8,12 +8,13 @@ import SoulEditor from './components/Soul/SoulEditor'
 import CredentialsManager from './components/Credentials/CredentialsManager'
 import SettingsPage from './components/Settings/SettingsPage'
 import MemoryManager from './components/Memory/MemoryManager'
+import FleetDashboard from './components/Fleet/FleetDashboard'
 import { TimezoneProvider } from './components/TimezoneContext'
 import { ThemeProvider } from './components/ThemeContext'
 import { SocketProvider } from './hooks/useSocket.jsx'
 import { NavProvider } from './hooks/useNav.jsx'
 
-const VALID_PAGES = new Set(['kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings'])
+const VALID_PAGES = new Set(['kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet'])
 
 function getHashPage() {
   const hash = location.hash.replace('#', '')
@@ -47,6 +48,7 @@ export default function App() {
               {page === 'soul' && <SoulEditor />}
               {page === 'credentials' && <CredentialsManager />}
               {page === 'settings' && <SettingsPage />}
+              {page === 'fleet' && <FleetDashboard />}
             </Layout>
           </NavProvider>
         </TimezoneProvider>

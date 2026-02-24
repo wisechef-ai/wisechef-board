@@ -18,6 +18,7 @@ import { getSettings, postSettings } from './controllers/settings.js';
 import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
 import { getPlanoStatus, startPlano, stopPlano, getPlanoConfig, putPlanoConfig } from './controllers/plano.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
+import { getFleet, getClientStatus, deployClient, startHealthChecks } from './controllers/fleet.js';
 import {
   isOnboarded, hasLinkedChannel,
   getOnboardingStatus, completeOnboarding,
@@ -129,6 +130,19 @@ router.post('/api/plano/start', startPlano);
 router.post('/api/plano/stop', stopPlano);
 router.get('/api/plano/config', getPlanoConfig);
 router.put('/api/plano/config', putPlanoConfig);
+
+// Fleet Management (only active on HQ)
+if (process.env.WISECHEF_HQ === 'true') {
+  router.get('/api/fleet', getFleet);
+  router.get('/api/fleet/:clientId/status', getClientStatus);
+  router.post('/api/fleet/:clientId/deploy', deployClient);
+  startHealthChecks();
+}
+
+// HQ flag for client-side
+router.get('/api/env', (_req, res) => {
+  res.json({ hq: process.env.WISECHEF_HQ === 'true' });
+});
 
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
