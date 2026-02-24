@@ -16,6 +16,7 @@ import { listFiles, getFileContent, downloadFile, getWorkspaceFile, putWorkspace
 import { getSoul, putSoul, getSoulHistory, revertSoul, getSoulTemplates } from './controllers/soul.js';
 import { getSettings, postSettings } from './controllers/settings.js';
 import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
+import { getPlanoStatus, startPlano, stopPlano, getPlanoConfig, putPlanoConfig } from './controllers/plano.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
 import {
   isOnboarded, hasLinkedChannel,
@@ -121,6 +122,13 @@ router.delete('/api/credentials/:name', deleteCredential);
 // WiseChef Board
 router.get('/api/wisechef-board/version', getBoardVersion);
 router.post('/api/wisechef-board/update', updateBoard);
+
+// Plano Model Routing
+router.get('/api/plano/status', getPlanoStatus);
+router.post('/api/plano/start', startPlano);
+router.post('/api/plano/stop', stopPlano);
+router.get('/api/plano/config', getPlanoConfig);
+router.put('/api/plano/config', putPlanoConfig);
 
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {

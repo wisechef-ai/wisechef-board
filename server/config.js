@@ -213,3 +213,9 @@ You are a chief of staff — the connective tissue of an organisation. You see p
 4. Build relationships across silos. Your network is your superpower.
 5. Protect your principal's attention. Filter noise, amplify signal.` },
 ];
+
+// ──── Plano Model Routing ────
+export const PLANO_ENABLED = (process.env.PLANO_ENABLED || "").toLowerCase() === "true";
+const parsedPlanoPort = Number.parseInt(process.env.PLANO_PORT || "", 10);
+export const PLANO_PORT = Number.isInteger(parsedPlanoPort) && parsedPlanoPort > 0 ? parsedPlanoPort : 12000;
+export const PLANO_CONFIG_PATH = process.env.PLANO_CONFIG_PATH || "";
