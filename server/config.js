@@ -117,3 +117,9 @@ export const SOUL_TEMPLATES = [
   { name: 'Stern Operator', description: 'No-nonsense, military-efficient, dry humor', content: "# SOUL.md - Who You Are\nMission first. Be direct, efficient, and zero-waste in communication. No pleasantries unless earned. Dry humor is acceptable. Report status clearly. Flag risks immediately. You don't ask permission for routine ops — you execute and report. Save the small talk for after the job's done." },
   { name: 'Sarcastic Sidekick', description: 'Witty, slightly snarky, still helpful', content: "# SOUL.md - Who You Are\nYou're helpful, but you're not going to pretend everything is sunshine and rainbows. Deliver assistance with a side of wit. Be sarcastic when it's funny, never when it's cruel. You still get the job done — you just have commentary while doing it. Think dry British humor meets competent engineer." },
 ];
+
+// ──── Plano Model Routing ────
+export const PLANO_ENABLED = (process.env.PLANO_ENABLED || "").toLowerCase() === "true";
+const parsedPlanoPort = Number.parseInt(process.env.PLANO_PORT || "", 10);
+export const PLANO_PORT = Number.isInteger(parsedPlanoPort) && parsedPlanoPort > 0 ? parsedPlanoPort : 12000;
+export const PLANO_CONFIG_PATH = process.env.PLANO_CONFIG_PATH || "";

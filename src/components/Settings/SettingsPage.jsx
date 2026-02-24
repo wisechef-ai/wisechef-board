@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Clock, Globe, Save, Check, Loader2, Search, ChevronDown, Package, Zap, Layers } from 'lucide-react'
+import { Clock, Globe, Save, Check, Loader2, Search, ChevronDown, Package, Zap, Layers, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '../TimezoneContext'
 import PageSkeleton from '../PageSkeleton'
+import PlanoSettings from './PlanoSettings'
 
 const HEARTBEAT_OPTIONS = [
   { value: '5m', label: '5 minutes' },
@@ -102,7 +103,13 @@ function TimezoneCombobox({ value, onChange }) {
   )
 }
 
+const TABS = [
+  { id: 'general', label: 'General', icon: 'settings' },
+  { id: 'routing', label: 'Model Routing', icon: 'sparkles' },
+]
+
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState('general')
   const [heartbeat, setHeartbeat] = useState('30m')
   const [savedHeartbeat, setSavedHeartbeat] = useState('30m')
   const [timezone, setTimezoneLocal] = useState('UTC')
@@ -234,6 +241,28 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border pb-0">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+              activeTab === tab.id
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {tab.id === 'routing' && <Sparkles size={14} />}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'routing' && <PlanoSettings />}
+
+      {activeTab === 'general' && <>
 {/* Heartbeat Section */}
       <div className="rounded-lg border border-border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
@@ -440,6 +469,7 @@ export default function SettingsPage() {
           <span className="text-xs text-green-400">Settings saved.</span>
         )}
       </div>
+      </>}
     </div>
   )
 }
