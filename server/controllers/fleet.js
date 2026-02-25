@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { __dirname } from '../config.js';
+import { broadcast } from '../broadcast.js';
 
 const STATUS_FILE = path.join(__dirname, 'data', 'fleet-status.json');
 const REGISTRY_PATH = process.env.REGISTRY_PATH || '/home/wisechef/clawd/wisechef/clients/registry.json';
@@ -104,7 +105,7 @@ async function checkClientHealth(client) {
 
 // Periodic health check
 let healthInterval;
-export function startHealthChecks(io) {
+export function startHealthChecks() {
   const check = async () => {
     try {
       const registry = readRegistry();
@@ -114,7 +115,7 @@ export function startHealthChecks(io) {
         results[client.id] = await checkClientHealth(client);
       }
       writeFleetStatus(results);
-      if (io) io.emit('fleet:update', results);
+      broadcast('fleet:update', results);
     } catch (e) {
       console.error('[fleet] Health check error:', e.message);
     }
@@ -154,6 +155,9 @@ export async function getClientStatus(req, res) {
 
 export async function deployClient(req, res) {
   const { clientId } = req.params;
+  if (!/^[a-z0-9][a-z0-9-]{0,50}$/.test(clientId)) {
+    return res.status(400).json({ error: 'Invalid client ID' });
+  }
   const registry = readRegistry();
   const client = registry.clients.find(c => c.id === clientId);
   if (!client) return res.status(404).json({ error: 'Client not found' });
