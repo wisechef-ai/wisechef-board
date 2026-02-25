@@ -1,0 +1,136 @@
+name: Deploy to Client VPSes
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to ${{ matrix.client }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - client: michal
+            ip: 89.167.67.11
+            ssh_key_secret: SSH_KEY_MICHAL
+          - client: olek
+            ip: 89.167.83.118
+            ssh_key_secret: SSH_KEY_OLEK
+          - client: eryk
+            ip: 46.225.125.218
+            ssh_key_secret: SSH_KEY_ERYK
+      fail-fast: false # Continue deploying to other clients even if one fails
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets[matrix.ssh_key_secret] }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ matrix.ip }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to ${{ matrix.client }}
+        env:
+          CLIENT: ${{ matrix.client }}
+          IP: ${{ matrix.ip }}
+        run: |
+          echo "🚀 Deploying to $CLIENT ($IP)..."
+          
+          # Create backup of current build
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@$IP << 'ENDSSH'
+            set -e
+            cd /opt/wisechef/board
+            
+            # Backup current dist if it exists
+            if [ -d "dist" ]; then
+              echo "📦 Creating backup of current build..."
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              mkdir -p .backups
+              mv dist .backups/dist_backup_$TIMESTAMP
+              # Keep only last 3 backups
+              ls -t .backups/ | tail -n +4 | xargs -I {} rm -rf .backups/{}
+            fi
+            
+            # Pull latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm install --production
+            
+            # Build
+            echo "🔨 Building frontend..."
+            if npm run build; then
+              echo "✅ Build successful"
+            else
+              echo "❌ Build failed, restoring backup..."
+              if [ -d ".backups/dist_backup_$TIMESTAMP" ]; then
+                mv .backups/dist_backup_$TIMESTAMP dist
+              fi
+              exit 1
+            fi
+            
+            # Restart service
+            echo "🔄 Restarting wisechef-board service..."
+            systemctl restart wisechef-board
+            
+            # Health check
+            echo "🏥 Running health check..."
+            sleep 3
+            if systemctl is-active --quiet wisechef-board; then
+              echo "✅ Service is running"
+              # Cleanup backup on success
+              if [ -d ".backups/dist_backup_$TIMESTAMP" ]; then
+                rm -rf .backups/dist_backup_$TIMESTAMP
+              fi
+            else
+              echo "❌ Service failed to start, restoring backup..."
+              if [ -d ".backups/dist_backup_$TIMESTAMP" ]; then
+                mv .backups/dist_backup_$TIMESTAMP dist
+                systemctl restart wisechef-board
+              fi
+              exit 1
+            fi
+          ENDSSH
+          
+          echo "✅ Deployment to $CLIENT complete"
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+          HOSTNAME="${{ matrix.client }}.wisechef.ai"
+          
+          # Wait for service to stabilize
+          sleep 5
+          
+          # Try to fetch the board homepage
+          if curl -f -s -o /dev/null -w "%{http_code}" "https://$HOSTNAME" | grep -q "200\|302"; then
+            echo "✅ $HOSTNAME is responding"
+          else
+            echo "⚠️ $HOSTNAME health check failed (may be due to CF Access)"
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment to ${{ matrix.client }} failed"
+          echo "Manual intervention may be required"
+
+  notify-success:
+    name: Notify deployment success
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success()
+    steps:
+      - name: Success notification
+        run: |
+          echo "✅ All deployments completed successfully"
+          echo "Deployed to: michal, olek, eryk"
