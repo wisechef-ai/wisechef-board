@@ -212,7 +212,11 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
 
 export default function AIProviderPage() {
   const [providers, setProviders] = useState({})
-  const [models, setModels] = useState([])
+  const [availableModels, setAvailableModels] = useState([])
+
+  const refreshModels = () => fetch('/api/models').then(r => r.json()).then(m => {
+    if (Array.isArray(m)) setAvailableModels(m)
+  }).catch(() => {})
   const [currentModel, setCurrentModel] = useState('')
   const [customModel, setCustomModel] = useState('')
   const [applying, setApplying] = useState(false)
@@ -223,7 +227,7 @@ export default function AIProviderPage() {
 
   useEffect(() => {
     fetch('/api/providers').then(r => r.json()).then(setProviders).catch(() => {})
-    fetch('/api/models').then(r => r.json()).then(setModels).catch(() => {})
+    refreshModels()
     fetch('/api/usage').then(r => r.json()).then(d => setCurrentModel(d.model || '')).catch(() => {})
     fetch('/api/usage-limits').then(r => r.json()).then(setLimits).catch(() => {})
   }, [])
@@ -238,7 +242,7 @@ export default function AIProviderPage() {
       const data = await res.json()
       if (data.success) {
         setProviders(p => ({ ...p, [providerId]: { hasKey: true, masked: data.masked } }))
-        // Refresh limits (should now show byok=true)
+        refreshModels()
         fetch('/api/usage-limits').then(r => r.json()).then(setLimits).catch(() => {})
       }
       return data
@@ -248,6 +252,7 @@ export default function AIProviderPage() {
   const removeProvider = async (providerId) => {
     await fetch(`/api/providers/${providerId}`, { method: 'DELETE' })
     setProviders(p => { const n = { ...p }; delete n[providerId]; return n })
+    refreshModels()
     fetch('/api/usage-limits').then(r => r.json()).then(setLimits).catch(() => {})
   }
 
@@ -269,14 +274,6 @@ export default function AIProviderPage() {
     } catch {}
     setApplying(false)
   }
-
-  // Fetch available models from backend
-  const [availableModels, setAvailableModels] = useState([])
-  useEffect(() => {
-    fetch('/api/models').then(r => r.json()).then(models => {
-      if (Array.isArray(models)) setAvailableModels(models)
-    }).catch(() => {})
-  }, [currentModel]) // re-fetch after model change
 
   // Build model list: available models grouped by provider prefix
   const allModels = availableModels.map(m => {
@@ -338,6 +335,7 @@ export default function AIProviderPage() {
             onRemove={removeProvider}
             onSubscriptionLogin={() => {
               fetch('/api/providers').then(r => r.json()).then(setProviders).catch(() => {})
+              refreshModels()
               fetch('/api/usage-limits').then(r => r.json()).then(setLimits).catch(() => {})
             }}
           />
