@@ -409,45 +409,52 @@ export async function startLinking(req, res) {
       return res.json({ ok: false, error: installResult.error });
     }
 
-    // Use openclaw channels login — requires signal-cli
+    // Use signal-cli link directly (openclaw channels login doesn't support Signal)
     const session = {
       process: null, qrData: null, qrRaw: null, qrUri: null,
       status: 'waiting', error: null, startedAt: Date.now(), logs: [],
     };
 
-    const proc = spawn('openclaw', ['channels', 'login', '--channel', channel, '--verbose'], {
-      env: { ...process.env, TERM: 'dumb', NO_COLOR: '1' },
+    const proc = spawn('signal-cli', ['link', '-n', 'WiseChef'], {
+      env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     session.process = proc;
 
-    let buffer = '';
     proc.stdout.on('data', (data) => {
       const text = data.toString();
-      buffer += text;
       session.logs.push(text);
-      // Signal link URI
-      if (text.includes('sgnl://') || text.includes('signal.link')) {
-        const match = text.match(/(sgnl:\/\/[^\s]+|https:\/\/signal\.link\/[^\s]+)/);
-        if (match) session.qrUri = match[1];
+      // signal-cli link outputs the sgnl:// URI on stdout
+      const match = text.match(/(sgnl:\/\/[^\s]+)/);
+      if (match) {
+        session.qrUri = match[1];
         session.status = 'qr_ready';
-      }
-      // QR code block characters
-      if (text.includes('▄') || text.includes('█')) {
-        session.qrRaw = buffer;
-        session.status = 'qr_ready';
-      }
-      if (text.toLowerCase().includes('connected') || text.toLowerCase().includes('success') || text.toLowerCase().includes('linked')) {
-        session.status = 'connected';
-        saveChannelLink(channel);
-        try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
       }
     });
 
     proc.stderr.on('data', (data) => { session.logs.push(data.toString()); });
     proc.on('exit', (code) => {
-      if (session.status === 'connected') return;
-      if (code !== 0) { session.status = 'failed'; session.error = `Process exited with code ${code}`; }
+      if (code === 0) {
+        // signal-cli link exits 0 when successfully linked
+        session.status = 'connected';
+        // Configure openclaw for signal
+        try {
+          // Get the linked account number from signal-cli
+          const accounts = execSync('signal-cli -o json listAccounts 2>/dev/null', { encoding: 'utf8', timeout: 10000 });
+          const parsed = JSON.parse(accounts);
+          const account = Array.isArray(parsed) ? parsed[0]?.number : parsed?.number;
+          if (account) {
+            execSync(`openclaw config set channels.signal.account "${account}" 2>/dev/null`, { timeout: 5000 });
+          }
+        } catch {}
+        saveChannelLink(channel);
+        try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
+      } else {
+        if (session.status !== 'timeout') {
+          session.status = 'failed';
+          session.error = `Process exited with code ${code}`;
+        }
+      }
     });
 
     setTimeout(() => {
