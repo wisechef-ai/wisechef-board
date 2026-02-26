@@ -9,10 +9,18 @@ export default function Layout({ page, setPage, children }) {
   const { theme, toggleTheme } = useTheme()
   const [updateAvailable, setUpdateAvailable] = useState(null)
   const [isHQ, setIsHQ] = useState(false)
+  const [hasLinkedChannel, setHasLinkedChannel] = useState(true)
 
   // Check if running on HQ
   useEffect(() => {
     fetch('/api/env').then(r => r.json()).then(d => setIsHQ(d.hq)).catch(() => {})
+  }, [])
+
+  // Check if any channel is linked
+  useEffect(() => {
+    fetch('/api/channels').then(r => r.json()).then(d => {
+      setHasLinkedChannel(d.channels?.some(c => c.linked) ?? false)
+    }).catch(() => {})
   }, [])
 
   const navItems = [
@@ -90,7 +98,8 @@ export default function Layout({ page, setPage, children }) {
                 'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                 page === item.id
                   ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                item.id === 'link-channel' && !hasLinkedChannel && 'animate-pulse bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
               )}
             >
               <item.icon size={16} />

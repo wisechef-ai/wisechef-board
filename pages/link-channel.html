@@ -177,6 +177,17 @@
         }
     }
 
+    function getChannelTip(channelId) {
+        const tips = {
+            whatsapp: '💡 Open WhatsApp → chat with yourself (your own number) → your WiseChef assistant will reply there',
+            signal: '💡 Open Signal → send a message to the linked bot number → your assistant will reply in that chat',
+            telegram: '💡 Open Telegram → search for your bot by username → tap Start → send any message to begin',
+            discord: '💡 Invite the bot to your Discord server → DM the bot or mention it in a channel',
+            slack: '💡 Open Slack → find the WiseChef app in your workspace → send it a direct message',
+        };
+        return tips[channelId] || '';
+    }
+
     function renderChannels() {
         const grid = document.getElementById('channelGrid');
         const connected = channels.filter(c => c.linked);
@@ -195,6 +206,7 @@
                         <button onclick="unlinkChannel('${c.id}')" style="background:#ef444422;color:#ef4444;border:1px solid #ef444444;border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer">Disconnect</button>
                     </div>
                 </div>
+                <div style="padding:4px 0 8px 32px;font-size:0.8rem;color:#9ca3af">${getChannelTip(c.id)}</div>
             `).join('');
             document.getElementById('restartBtn').style.display = 'block';
         }
