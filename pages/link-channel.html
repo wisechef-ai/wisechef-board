@@ -190,7 +190,10 @@
                         <span class="check">✅</span>
                         <span>${c.icon} ${c.name}</span>
                     </div>
-                    <span style="color:#22c55e;font-size:0.8rem">Connected</span>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="color:#22c55e;font-size:0.8rem">Connected</span>
+                        <button onclick="unlinkChannel('${c.id}')" style="background:#ef444422;color:#ef4444;border:1px solid #ef444444;border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer">Disconnect</button>
+                    </div>
                 </div>
             `).join('');
             document.getElementById('restartBtn').style.display = 'block';
@@ -434,6 +437,18 @@
         } catch (e) {
             btn.textContent = '❌ Failed — try again';
             btn.disabled = false;
+        }
+    }
+
+    async function unlinkChannel(channelId) {
+        if (!confirm(`Disconnect ${channelId}? You'll need to re-link it to use it again.`)) return;
+        try {
+            const res = await fetch(`/api/channels/${channelId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed');
+            await loadChannels();
+            renderChannels();
+        } catch (e) {
+            alert('Failed to disconnect: ' + e.message);
         }
     }
 

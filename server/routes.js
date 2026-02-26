@@ -19,6 +19,7 @@ import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
 import { getPlanoStatus, startPlano, stopPlano, getPlanoConfig, putPlanoConfig } from './controllers/plano.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
 import { getFleet, getClientStatus, deployClient, startHealthChecks } from './controllers/fleet.js';
+import { createChatSession, sendChatMessage } from './controllers/chat.js';
 import {
   isOnboarded, hasLinkedChannel,
   getOnboardingStatus, completeOnboarding,
@@ -125,6 +126,10 @@ router.get('/api/wisechef-board/version', getBoardVersion);
 router.post('/api/wisechef-board/update', updateBoard);
 
 // Plano Model Routing
+// Chat
+router.post('/api/chat/session', createChatSession);
+router.post('/api/chat/send', sendChatMessage);
+
 router.get('/api/plano/status', getPlanoStatus);
 router.post('/api/plano/start', startPlano);
 router.post('/api/plano/stop', stopPlano);

@@ -7,6 +7,7 @@ import SkillsManager from './components/Skills/SkillsManager'
 import SoulEditor from './components/Soul/SoulEditor'
 import CredentialsManager from './components/Credentials/CredentialsManager'
 import SettingsPage from './components/Settings/SettingsPage'
+import ChatPage from './components/Chat/ChatPage'
 import MemoryManager from './components/Memory/MemoryManager'
 import FleetDashboard from './components/Fleet/FleetDashboard'
 import { TimezoneProvider } from './components/TimezoneContext'
@@ -14,7 +15,7 @@ import { ThemeProvider } from './components/ThemeContext'
 import { SocketProvider } from './hooks/useSocket.jsx'
 import { NavProvider } from './hooks/useNav.jsx'
 
-const VALID_PAGES = new Set(['kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet'])
+const VALID_PAGES = new Set(['kanban', 'calendar', 'chat', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet'])
 
 function getHashPage() {
   const hash = location.hash.replace('#', '')
@@ -43,6 +44,7 @@ export default function App() {
             <Layout page={page} setPage={setPage}>
               {page === 'kanban' && <Board />}
               {page === 'calendar' && <CalendarView />}
+              {page === 'chat' && <ChatPage />}
               {page === 'files' && <FileBrowser />}
               {page === 'skills' && <SkillsManager />}
               {page === 'soul' && <SoulEditor />}

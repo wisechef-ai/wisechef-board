@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server, MessageCircle } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
 export default function Layout({ page, setPage, children }) {
@@ -17,6 +17,7 @@ export default function Layout({ page, setPage, children }) {
 
   const navItems = [
     { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
+    { id: 'chat', label: 'Chat', icon: MessageCircle },
     { id: 'calendar', label: 'Activity', icon: Calendar },
     { id: 'files', label: 'Files', icon: FolderOpen },
     { id: 'skills', label: 'Skills', icon: Puzzle },
