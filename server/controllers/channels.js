@@ -143,10 +143,16 @@ function removeChannelLink(channel) {
 }
 
 function restartGateway() {
-  // Try systemd first (VPS)
+  // Try system-level systemd first (VPS with root service)
   try {
-    execSync('which systemctl >/dev/null 2>&1 && systemctl --user restart openclaw-gateway.service', {
-      env: { ...process.env, XDG_RUNTIME_DIR: '/run/user/0' },
+    execSync('systemctl restart openclaw-gateway.service', { timeout: 15000, shell: '/bin/sh' });
+    return;
+  } catch {}
+  
+  // Try user-level systemd (VPS with user service)
+  try {
+    execSync('systemctl --user restart openclaw-gateway.service', {
+      env: { ...process.env, XDG_RUNTIME_DIR: `/run/user/${process.getuid?.() || 0}` },
       timeout: 15000,
       shell: '/bin/sh',
     });
@@ -552,10 +558,20 @@ export function gatewayRestart(_req, res) {
 
 export function gatewayStatus(_req, res) {
   try {
-    const status = execSync('systemctl --user is-active openclaw-gateway.service 2>&1', {
-      env: { ...process.env, XDG_RUNTIME_DIR: '/run/user/0' },
-      timeout: 5000,
-    }).toString().trim();
+    // Try system service first, then user service
+    let status;
+    try {
+      status = execSync('systemctl is-active openclaw-gateway.service 2>&1', { timeout: 5000 }).toString().trim();
+    } catch {
+      try {
+        status = execSync('systemctl --user is-active openclaw-gateway.service 2>&1', {
+          env: { ...process.env, XDG_RUNTIME_DIR: `/run/user/${process.getuid?.() || 0}` },
+          timeout: 5000,
+        }).toString().trim();
+      } catch (e2) {
+        status = e2.stdout?.toString().trim() || 'unknown';
+      }
+    }
     res.json({ status, token: getGatewayToken() });
   } catch (err) {
     res.json({ status: err.stdout?.toString().trim() || 'unknown', token: getGatewayToken() });
