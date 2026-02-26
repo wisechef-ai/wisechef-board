@@ -16,8 +16,8 @@ export default function Layout({ page, setPage, children }) {
   }, [])
 
   const navItems = [
-    { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
     { id: 'chat', label: 'Chat', icon: MessageCircle },
+    { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
     { id: 'calendar', label: 'Activity', icon: Calendar },
     { id: 'files', label: 'Files', icon: FolderOpen },
     { id: 'skills', label: 'Skills', icon: Puzzle },

@@ -31,24 +31,42 @@ async function ensureSignalCli() {
   signalCliInstalling = true;
   try {
     console.log('[signal-cli] Installing on demand...');
-    // Get latest version
     const version = execSync(
       'curl -sL -o /dev/null -w "%{url_effective}" https://github.com/AsamK/signal-cli/releases/latest | sed "s/^.*\\/v//"',
       { timeout: 15000, encoding: 'utf8' }
     ).trim();
     console.log(`[signal-cli] Latest version: ${version}`);
     
-    // Download native Linux build
     execSync(
       `cd /tmp && curl -L -O "https://github.com/AsamK/signal-cli/releases/download/v${version}/signal-cli-${version}-Linux-native.tar.gz" 2>&1`,
       { timeout: 120000 }
     );
     
-    // Extract and link
-    execSync(`tar xf "/tmp/signal-cli-${version}-Linux-native.tar.gz" -C /opt 2>&1`, { timeout: 30000 });
-    execSync(`ln -sf "/opt/signal-cli-${version}-Linux-native/bin/signal-cli" /usr/local/bin/signal-cli 2>&1`, { timeout: 5000 });
+    // Native build extracts as a single binary or a directory — handle both
+    execSync(`cd /tmp && tar xf "signal-cli-${version}-Linux-native.tar.gz" 2>&1`, { timeout: 30000 });
     
-    // Verify
+    // Find the actual binary
+    const findBin = execSync(
+      `find /tmp -name "signal-cli" -type f -executable 2>/dev/null || find /opt -name "signal-cli" -not -path "*/usr/*" -type f 2>/dev/null | head -1`,
+      { timeout: 5000, encoding: 'utf8' }
+    ).trim().split('\n')[0];
+    
+    if (findBin) {
+      execSync(`cp "${findBin}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
+    } else {
+      // Tar might extract directly to /opt/signal-cli as single file
+      const candidates = [
+        `/tmp/signal-cli-${version}-Linux-native/bin/signal-cli`,
+        `/tmp/signal-cli-${version}-Linux-native/signal-cli`,
+        `/tmp/signal-cli`,
+        `/opt/signal-cli`,
+      ];
+      const found = candidates.find(p => { try { fs.accessSync(p, fs.constants.F_OK); return true; } catch { return false; } });
+      if (found) {
+        execSync(`cp "${found}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
+      }
+    }
+    
     const installed = isSignalCliInstalled();
     console.log(`[signal-cli] Installation ${installed ? 'succeeded' : 'failed'}`);
     return { ok: installed, error: installed ? null : 'Installation completed but binary not found' };
