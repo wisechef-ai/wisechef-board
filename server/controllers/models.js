@@ -16,6 +16,15 @@ const DEFAULT_MODELS = [
   'openai/gpt-4.1-mini',
 ];
 
+// Known models per provider — used when openclaw can't pre-verify (e.g. Copilot token exchange happens at runtime)
+const PROVIDER_MODELS = {
+  'github-copilot': ['github-copilot/claude-sonnet-4-6', 'github-copilot/claude-opus-4-6', 'github-copilot/claude-haiku-4-5', 'github-copilot/gpt-4.1', 'github-copilot/gpt-4.1-mini', 'github-copilot/gpt-4o', 'github-copilot/o3-mini', 'github-copilot/gemini-2.5-pro'],
+  'anthropic': ['anthropic/claude-sonnet-4-6', 'anthropic/claude-haiku-4-5', 'anthropic/claude-opus-4-6'],
+  'openai': ['openai/gpt-4.1', 'openai/gpt-4.1-mini', 'openai/gpt-4.1-nano', 'openai/o3-mini', 'openai/o4-mini'],
+  'google': ['google/gemini-2.5-flash', 'google/gemini-2.5-pro'],
+  'openrouter': ['openrouter/anthropic/claude-sonnet-4-6', 'openrouter/openai/gpt-4.1', 'openrouter/google/gemini-2.5-pro'],
+};
+
 export async function listModels(req, res) {
   try {
     const { execSync } = await import('child_process');
@@ -23,29 +32,37 @@ export async function listModels(req, res) {
     const currentModel = config.agents?.defaults?.model;
     const current = typeof currentModel === 'string' ? currentModel : currentModel?.primary;
     
-    // Get live model list from openclaw
-    let models = [];
+    // Start with live models from openclaw
+    const modelSet = new Set();
     try {
       const output = execSync('openclaw models list 2>/dev/null', { timeout: 10000, encoding: 'utf8' });
-      // Parse table output: "model_name   input   ctx   local   auth   tags"
       const lines = output.split('\n').filter(l => l.trim() && !l.startsWith('Model'));
-      models = lines.map(l => {
+      lines.forEach(l => {
         const parts = l.trim().split(/\s{2,}/);
-        return { id: parts[0], tags: parts[5] || '' };
-      }).filter(m => m.id && !m.tags.includes('missing'));
+        const tags = parts[5] || '';
+        if (parts[0] && !tags.includes('missing')) modelSet.add(parts[0]);
+      });
     } catch {}
     
-    // If openclaw models list failed or returned empty, use defaults
-    if (models.length === 0) {
-      models = DEFAULT_MODELS.map(m => ({ id: m, tags: '' }));
-    }
+    // Add known models for connected providers (auth profiles + provider keys)
+    const connectedProviders = new Set();
+    // Check auth profiles (e.g. github-copilot device flow)
+    const authProfiles = config.auth?.profiles || {};
+    Object.values(authProfiles).forEach(p => { if (p.provider) connectedProviders.add(p.provider); });
+    // Check provider API keys
+    const providers = config.providers || {};
+    Object.keys(providers).forEach(p => { if (providers[p]?.apiKey) connectedProviders.add(p); });
+    // Always include anthropic (default/included)
+    connectedProviders.add('anthropic');
+    
+    connectedProviders.forEach(provider => {
+      (PROVIDER_MODELS[provider] || []).forEach(m => modelSet.add(m));
+    });
     
     // Ensure current model is in list
-    if (current && !models.find(m => m.id === current)) {
-      models.unshift({ id: current, tags: 'default' });
-    }
+    if (current) modelSet.add(current);
     
-    res.json(models.map(m => m.id));
+    res.json([...modelSet]);
   } catch {
     res.json(DEFAULT_MODELS);
   }
@@ -240,6 +257,9 @@ export async function pollDeviceFlow(req, res) {
           provider: 'github-copilot',
           mode: 'token',
         };
+        // Set auth order so openclaw uses this profile
+        if (!config.auth.order) config.auth.order = {};
+        config.auth.order['github-copilot'] = ['github-copilot:github'];
         writeOpenclawJson(config);
       } catch {}
       
