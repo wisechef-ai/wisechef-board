@@ -354,7 +354,17 @@
                         .filter(l => l.includes('▄') || l.includes('█') || l.includes('▀'))
                         .join('\n');
                 }
-                statusEl.innerHTML = '<div class="status-line status-waiting">📱 Scan this QR code with your phone</div>';
+                statusEl.innerHTML = '<div class="status-line status-waiting">📱 Scan this QR code with your phone — <span id="qrTimer">20</span>s until refresh</div>';
+                // Reset countdown
+                clearInterval(window._qrCountdown);
+                let secs = 20;
+                document.getElementById('qrTimer').textContent = secs;
+                window._qrCountdown = setInterval(() => {
+                    secs--;
+                    const el = document.getElementById('qrTimer');
+                    if (el) el.textContent = Math.max(secs, 0);
+                    if (secs <= 0) clearInterval(window._qrCountdown);
+                }, 1000);
                 btn.style.display = 'none';
             } else if (data.status === 'connected') {
                 clearInterval(pollInterval);
@@ -445,6 +455,8 @@
         try {
             const res = await fetch(`/api/channels/${channelId}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Failed');
+            // Wait for gateway restart to settle before reloading status
+            await new Promise(r => setTimeout(r, 2000));
             await loadChannels();
             renderChannels();
         } catch (e) {
