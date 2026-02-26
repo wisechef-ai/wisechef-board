@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, Loader2, Bot, User, Trash2 } from 'lucide-react'
+import { Send, Loader2, Bot, User, RefreshCw } from 'lucide-react'
 
 export default function ChatPage() {
   const [messages, setMessages] = useState(() => {
@@ -67,8 +67,25 @@ export default function ChatPage() {
         body: JSON.stringify({ message: text, sessionKey: sessionRef.current })
       })
       const data = await res.json()
-      if (data.reply) {
+      if (data.ok && data.reply) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply, timestamp: Date.now() }])
+      } else {
+        // Gateway might be restarting — wait and retry once
+        setMessages(prev => [...prev, { role: 'system', content: '⏳ Agent is starting up — retrying in 10 seconds...', timestamp: Date.now() }])
+        await new Promise(r => setTimeout(r, 10000))
+        const retry = await fetch('/api/chat/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, sessionKey: sessionRef.current })
+        })
+        const retryData = await retry.json()
+        // Remove the "starting up" system message
+        setMessages(prev => prev.filter(m => !m.content?.includes('Agent is starting up')))
+        if (retryData.ok && retryData.reply) {
+          setMessages(prev => [...prev, { role: 'assistant', content: retryData.reply, timestamp: Date.now() }])
+        } else {
+          setMessages(prev => [...prev, { role: 'system', content: '⚠️ Agent is still warming up. Please try again in a moment.', timestamp: Date.now() }])
+        }
       }
     } catch (e) {
       setMessages(prev => [...prev, { role: 'system', content: '⚠️ Failed to send. Try again.', timestamp: Date.now() }])
@@ -96,8 +113,8 @@ export default function ChatPage() {
             wsStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'
           }`} />
         </div>
-        <button onClick={clearChat} className="p-1.5 rounded hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300" title="Clear chat">
-          <Trash2 size={14} />
+        <button onClick={clearChat} className="p-1.5 rounded hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300" title="New conversation">
+          <RefreshCw size={14} />
         </button>
       </div>
 
@@ -107,7 +124,7 @@ export default function ChatPage() {
           <div className="text-center text-neutral-500 mt-12">
             <Bot size={40} className="mx-auto mb-3 text-neutral-600" />
             <p className="text-sm">Send a message to start chatting with your AI assistant.</p>
-            <p className="text-xs mt-1 text-neutral-600">This connects directly to your WiseChef agent.</p>
+            <p className="text-xs mt-2 text-neutral-600">💡 Your assistant remembers previous conversations — no need to repeat context.</p>
           </div>
         )}
         {messages.map((m, i) => (
