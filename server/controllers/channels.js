@@ -18,6 +18,48 @@ const CHANNELS = {
 // Active linking sessions (in-memory)
 const linkingSessions = new Map();
 
+// On-demand signal-cli installer
+let signalCliInstalling = false;
+function isSignalCliInstalled() {
+  try { execSync('which signal-cli 2>/dev/null', { timeout: 5000 }); return true; } catch { return false; }
+}
+
+async function ensureSignalCli() {
+  if (isSignalCliInstalled()) return { ok: true };
+  if (signalCliInstalling) return { ok: false, error: 'Signal CLI is currently being installed, please wait...' };
+  
+  signalCliInstalling = true;
+  try {
+    console.log('[signal-cli] Installing on demand...');
+    // Get latest version
+    const version = execSync(
+      'curl -sL -o /dev/null -w "%{url_effective}" https://github.com/AsamK/signal-cli/releases/latest | sed "s/^.*\\/v//"',
+      { timeout: 15000, encoding: 'utf8' }
+    ).trim();
+    console.log(`[signal-cli] Latest version: ${version}`);
+    
+    // Download native Linux build
+    execSync(
+      `cd /tmp && curl -L -O "https://github.com/AsamK/signal-cli/releases/download/v${version}/signal-cli-${version}-Linux-native.tar.gz" 2>&1`,
+      { timeout: 120000 }
+    );
+    
+    // Extract and link
+    execSync(`tar xf "/tmp/signal-cli-${version}-Linux-native.tar.gz" -C /opt 2>&1`, { timeout: 30000 });
+    execSync(`ln -sf "/opt/signal-cli-${version}-Linux-native/bin/signal-cli" /usr/local/bin/signal-cli 2>&1`, { timeout: 5000 });
+    
+    // Verify
+    const installed = isSignalCliInstalled();
+    console.log(`[signal-cli] Installation ${installed ? 'succeeded' : 'failed'}`);
+    return { ok: installed, error: installed ? null : 'Installation completed but binary not found' };
+  } catch (e) {
+    console.error('[signal-cli] Install failed:', e.message);
+    return { ok: false, error: `Installation failed: ${e.message}` };
+  } finally {
+    signalCliInstalling = false;
+  }
+}
+
 // ────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────
@@ -272,7 +314,7 @@ export function listChannels(_req, res) {
 // Start linking (QR / Signal / token)
 // ────────────────────────────────────────────────────────
 
-export function startLinking(req, res) {
+export async function startLinking(req, res) {
   if (!isOnboarded()) {
     return res.status(403).json({ error: 'onboarding_required' });
   }
@@ -343,7 +385,13 @@ export function startLinking(req, res) {
     res.json({ ok: true, status: 'waiting', linkType: 'qr' });
 
   } else if (ch.linkType === 'signal-qr') {
-    // Use openclaw channels login (same as WhatsApp) — signal-cli not required
+    // Ensure signal-cli is installed on demand
+    const installResult = await ensureSignalCli();
+    if (!installResult.ok) {
+      return res.json({ ok: false, error: installResult.error });
+    }
+
+    // Use openclaw channels login — requires signal-cli
     const session = {
       process: null, qrData: null, qrRaw: null, qrUri: null,
       status: 'waiting', error: null, startedAt: Date.now(), logs: [],

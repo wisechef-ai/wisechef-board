@@ -307,18 +307,33 @@
         btn.disabled = true;
         btn.textContent = 'Starting...';
         qrDisplay.className = 'qr-container waiting';
-        qrDisplay.textContent = '⏳ Initializing... this may take 10-20 seconds';
+        
+        const isSignal = channel === 'signal';
+        qrDisplay.textContent = isSignal
+            ? '⏳ Installing Signal CLI... this may take 30-60 seconds on first use'
+            : '⏳ Initializing... this may take 10-20 seconds';
 
         // Hide continue button while linking is in progress
         document.getElementById('continueBtn').style.display = 'none';
         document.getElementById('linkingNotice').style.display = 'block';
 
         try {
-            await fetch('/api/channels/link', {
+            const linkRes = await fetch('/api/channels/link', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ channel })
             });
+            const linkData = await linkRes.json();
+            
+            if (linkData.error) {
+                qrDisplay.textContent = `❌ ${linkData.error}`;
+                btn.disabled = false;
+                btn.textContent = 'Retry';
+                document.getElementById('linkingNotice').style.display = 'none';
+                return;
+            }
+            
+            if (isSignal) qrDisplay.textContent = '⏳ Signal CLI ready — waiting for QR code...';
 
             // Start polling for QR
             if (pollInterval) clearInterval(pollInterval);
