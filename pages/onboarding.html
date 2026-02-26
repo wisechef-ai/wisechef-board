@@ -121,8 +121,8 @@
         <div class="card done hidden" id="doneScreen">
             <div class="emoji">🎉</div>
             <h2>All set!</h2>
-            <p>Your assistant is configured and ready to chat.</p>
-            <a href="/" class="btn btn-next" id="chatBtn">Continue →</a>
+            <p>Now let's connect your messaging channel so you can start chatting.</p>
+            <a href="/link" class="btn btn-next" id="chatBtn">Connect Channel →</a>
         </div>
     </div>
 
@@ -181,7 +181,7 @@
             subtitle: "Channels and tools your assistant should know about",
             questions: [
                 { id: 'channels', label: 'Which messaging platforms do you use?', type: 'chips', options: ['WhatsApp', 'Telegram', 'Discord', 'Signal', 'Slack', 'Email', 'Calendar', 'SMS'], multi: true },
-                { id: 'primary_channel', label: 'Primary channel (where you want most messages)', type: 'text', placeholder: 'e.g. WhatsApp, Telegram' },
+                { id: 'primary_channel', label: 'Primary channel (where you want most messages)', type: 'select', optionsFrom: 'channels', placeholder: 'Select your primary channel' },
                 { id: 'working_hours', label: 'Your working hours / timezone', type: 'text', placeholder: 'e.g. 9-18 CET, flexible, always on' },
             ]
         },
@@ -267,7 +267,8 @@ ${s.cracks || '(items that slip)'}
             if (q.type === 'textarea') {
                 html += `<textarea id="q_${q.id}" oninput="onInput('${q.id}', this.value)" placeholder="${q.placeholder || ''}">${val}</textarea>`;
             } else if (q.type === 'select') {
-                const opts = q.options.map(o => `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`).join('');
+                const opts_arr = q.optionsFrom ? (answers[q.optionsFrom] || []) : (q.options || []);
+                const opts = opts_arr.map(o => `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`).join('');
                 html += `<select id="q_${q.id}" onchange="onInput('${q.id}', this.value)"><option value="">Choose...</option>${opts}</select>`;
             } else if (q.type === 'chips') {
                 const selected = q.multi ? (answers[q.id] || []) : [answers[q.id] || ''];
