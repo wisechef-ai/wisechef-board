@@ -252,8 +252,12 @@ export function listChannels(_req, res) {
   const config = readOpenclawConfig();
   const result = Object.entries(CHANNELS).map(([key, ch]) => {
     const configured = !!(config.channels?.[key]);
-    const linked = statusOutput.toLowerCase().includes(`${key}`) &&
-                   !statusOutput.toLowerCase().includes(`${key} default: not linked`);
+    // Channel is linked only if openclaw output shows it as "linked" or "connected"
+    // NOT linked if: "not configured", "not linked", or not mentioned at all
+    const keyLower = key.toLowerCase();
+    const statusLower = statusOutput.toLowerCase();
+    const channelLine = statusLower.split('\n').find(l => l.includes(keyLower)) || '';
+    const linked = channelLine.includes('linked') && !channelLine.includes('not linked') && !channelLine.includes('not configured');
     const linking = linkingSessions.has(key);
     return {
       id: key, ...ch, configured, linked, linking,
