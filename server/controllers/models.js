@@ -124,7 +124,7 @@ export function getProviderKeys(_req, res) {
     try {
       const homeDir = process.env.HOME || '/root';
       const profilePath = path.join(homeDir, '.openclaw', 'agents', 'default', 'agent', 'auth-profiles.json');
-      const profiles = JSON.parse(fs.readFileSync(profPath, 'utf8'));
+      const profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
       if (profiles.profiles?.['github-copilot:github']?.token) {
         result['github-copilot'] = { hasKey: true, hasAuth: true, masked: '(device login)' };
       }

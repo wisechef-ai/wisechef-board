@@ -59,7 +59,7 @@ export function sendChatMessage(req, res) {
     console.error('Chat send failed:', e.message);
     res.json({
       ok: false,
-      reply: '⚠️ Agent is not responding. The gateway may be restarting — try again in a few seconds.',
+      reply: '⚠️ Agent is warming up after model switch — this takes about 30 seconds. Please try again shortly.',
       error: e.message
     });
   }

@@ -143,24 +143,31 @@ function removeChannelLink(channel) {
 }
 
 function restartGateway() {
-  // Try systemd first (VPS), then direct process restart (Docker containers)
+  const { execSync, spawn } = require('child_process');
+  // Try systemd first (VPS)
   try {
-    execSync('systemctl --user restart openclaw-gateway.service', {
+    execSync('which systemctl >/dev/null 2>&1 && systemctl --user restart openclaw-gateway.service', {
       env: { ...process.env, XDG_RUNTIME_DIR: '/run/user/0' },
       timeout: 15000,
+      shell: '/bin/sh',
     });
-  } catch {
-    // No systemd (Docker container) — kill existing gateway and restart as background process
-    try { execSync('kill $(cat /tmp/openclaw-gateway.pid 2>/dev/null) 2>/dev/null', { timeout: 5000 }); } catch {}
-    try {
-      execSync('nohup openclaw gateway run > /tmp/openclaw-gateway.log 2>&1 & echo $! > /tmp/openclaw-gateway.pid', {
-        timeout: 10000,
-        shell: '/bin/bash',
-      });
-    } catch (e) {
-      console.error('Gateway restart failed:', e.message);
-    }
-  }
+    return;
+  } catch {}
+  
+  // Docker container — kill existing gateway and spawn new one
+  try { execSync('kill $(cat /tmp/openclaw-gateway.pid 2>/dev/null) 2>/dev/null', { timeout: 5000, shell: '/bin/sh' }); } catch {}
+  // Wait for port to free
+  try { execSync('sleep 1', { timeout: 3000 }); } catch {}
+  
+  const child = spawn('openclaw', ['gateway', 'run'], {
+    detached: true,
+    stdio: ['ignore', 'ignore', 'ignore'],
+    env: process.env,
+  });
+  // Write PID for future kills
+  try { require('fs').writeFileSync('/tmp/openclaw-gateway.pid', String(child.pid)); } catch {}
+  child.unref();
+  console.log(`Gateway restarted (PID ${child.pid})`);
 }
 
 // ────────────────────────────────────────────────────────
