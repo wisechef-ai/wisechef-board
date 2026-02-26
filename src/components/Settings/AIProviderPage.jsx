@@ -8,10 +8,9 @@ const PROVIDERS = [
   { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3-mini'],
     subscription: { name: 'ChatGPT Plus/Pro', desc: 'Use your ChatGPT subscription — get an API key from platform.openai.com',
       steps: ['Go to platform.openai.com → sign in', 'API Keys → Create new key', 'Copy key (starts with sk-) and paste above'] } },
-  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login — no key needed)', models: ['gpt-4.1', 'gpt-4o', 'claude-sonnet-4-6', 'claude-opus-4-6'],
-    subscription: { name: 'Copilot ($10/mo)', desc: 'Use your GitHub Copilot plan — device-flow login, no API key needed',
-      steps: ['You need a GitHub account with Copilot enabled ($10/mo)', 'In terminal: openclaw models auth login-github-copilot', 'Approve the device code on github.com', 'Done — models available immediately'] },
-    note: '💡 Best value: $10/mo gets you GPT-4.1 + Claude Sonnet + more' },
+  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login)', models: ['gpt-4.1', 'gpt-4o', 'claude-sonnet-4-6', 'claude-opus-4-6'],
+    subscription: { name: 'Copilot', desc: 'Log in with your GitHub Copilot subscription — no API key needed', flow: 'device' },
+    note: '💡 Best value — GPT-4.1 + Claude Sonnet + more included' },
   { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...', models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
     note: '💡 Free API keys at aistudio.google.com — no credit card needed' },
   { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...', models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1', 'google/gemini-2.5-pro', 'meta-llama/llama-4-maverick'],
@@ -27,7 +26,8 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
   const [apiKey, setApiKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [loggingIn, setLoggingIn] = useState(false)
+  const [deviceFlow, setDeviceFlow] = useState(null) // { flowId, userCode, verificationUrl }
+  const [deviceStatus, setDeviceStatus] = useState(null) // 'waiting' | 'complete' | 'expired' | 'denied'
   const [loginResult, setLoginResult] = useState(null)
 
   const save = async () => {
@@ -44,9 +44,54 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
     setSaving(false)
   }
 
+  const startDevice = async () => {
+    setDeviceStatus('starting')
+    try {
+      const res = await fetch('/api/providers/device/start', { method: 'POST' })
+      const data = await res.json()
+      if (data.userCode) {
+        setDeviceFlow(data)
+        setDeviceStatus('waiting')
+        pollDevice(data.flowId)
+      } else {
+        setDeviceStatus(null)
+        setError(data.error || 'Failed to start login')
+      }
+    } catch { setDeviceStatus(null); setError('Network error') }
+  }
+
+  const pollDevice = async (flowId) => {
+    for (let i = 0; i < 60; i++) { // poll for ~5 min
+      await new Promise(r => setTimeout(r, 5000))
+      try {
+        const res = await fetch('/api/providers/device/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flowId }),
+        })
+        const data = await res.json()
+        if (data.status === 'complete') {
+          setDeviceStatus('complete')
+          setDeviceFlow(null)
+          onSubscriptionLogin?.()
+          return
+        }
+        if (data.status === 'expired' || data.status === 'denied') {
+          setDeviceStatus(data.status)
+          setDeviceFlow(null)
+          return
+        }
+        // pending — keep polling
+      } catch { break }
+    }
+  }
+
   const loginSubscription = async () => {
-    // Show inline steps from provider definition — no API call needed
-    setLoginResult({ ok: false, instructions: provider.subscription.steps })
+    if (provider.subscription?.flow === 'device') {
+      startDevice()
+    } else if (provider.subscription?.steps) {
+      setLoginResult({ ok: false, instructions: provider.subscription.steps })
+    }
   }
 
   return (
@@ -86,10 +131,39 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
                 <span className="text-xs font-medium">Have a {provider.subscription.name} subscription?</span>
               </div>
               <p className="text-[11px] text-muted-foreground">{provider.subscription.desc}</p>
-              <button onClick={loginSubscription} disabled={loggingIn}
-                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-md px-4 py-1.5 text-xs font-medium">
-                {loggingIn ? 'Connecting...' : `Use ${provider.subscription.name}`}
-              </button>
+              
+              {/* Device flow UI (GitHub Copilot) */}
+              {deviceFlow && deviceStatus === 'waiting' && (
+                <div className="bg-secondary rounded-lg p-4 space-y-3 text-center">
+                  <p className="text-xs text-muted-foreground">Enter this code at GitHub:</p>
+                  <a href={deviceFlow.verificationUrl} target="_blank" rel="noopener noreferrer"
+                    className="block text-2xl font-mono font-bold tracking-widest text-foreground hover:text-blue-400 transition-colors">
+                    {deviceFlow.userCode}
+                  </a>
+                  <a href={deviceFlow.verificationUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-block bg-blue-600 hover:bg-blue-500 text-white rounded-md px-4 py-2 text-xs font-medium">
+                    Open GitHub →
+                  </a>
+                  <p className="text-[10px] text-muted-foreground animate-pulse">Waiting for authorization...</p>
+                </div>
+              )}
+              {deviceStatus === 'complete' && (
+                <p className="text-[11px] text-emerald-400 font-medium">✅ GitHub Copilot connected!</p>
+              )}
+              {deviceStatus === 'expired' && (
+                <p className="text-[11px] text-red-400">Code expired. <button onClick={startDevice} className="underline">Try again</button></p>
+              )}
+              {deviceStatus === 'denied' && (
+                <p className="text-[11px] text-red-400">Login cancelled. <button onClick={startDevice} className="underline">Try again</button></p>
+              )}
+              
+              {!deviceFlow && deviceStatus !== 'complete' && (
+                <button onClick={loginSubscription} disabled={deviceStatus === 'starting'}
+                  className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-md px-4 py-1.5 text-xs font-medium">
+                  {deviceStatus === 'starting' ? 'Starting...' : provider.subscription.flow === 'device' ? 'Start Login' : `Use ${provider.subscription.name}`}
+                </button>
+              )}
+              
               {loginResult && loginResult.instructions ? (
                 <div className="bg-secondary/50 rounded p-2 space-y-1">
                   {loginResult.instructions.map((step, i) => (
@@ -99,7 +173,9 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
               ) : loginResult && (
                 <p className={`text-[11px] ${loginResult.ok ? 'text-emerald-400' : 'text-red-400'}`}>{loginResult.msg}</p>
               )}
-              <div className="text-[10px] text-muted-foreground">— or use an API key below —</div>
+              {!deviceFlow && deviceStatus !== 'complete' && (
+                <div className="text-[10px] text-muted-foreground">— or use an API key below —</div>
+              )}
             </div>
           )}
 
@@ -226,7 +302,7 @@ export default function AIProviderPage() {
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-center gap-3">
           <AlertTriangle size={16} className="text-amber-400 shrink-0" />
           <p className="text-xs text-muted-foreground">
-            Using WiseChef credits — <b className="text-foreground">{limits.percent}%</b> of ${limits.cap} monthly cap used.
+            Using WiseChef credits — <b className="text-foreground">{limits.percent}%</b> of your monthly allowance used.
             {limits.percent >= 50 && ' Connect your own key to remove limits.'}
           </p>
         </div>

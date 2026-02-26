@@ -148,9 +148,7 @@ export function getUsageLimits(_req, res) {
 
   res.json({
     plan,
-    cap,
-    cost: Math.round(monthlyCost * 1000) / 1000,
-    percent: Math.round((monthlyCost / cap) * 100),
+    percent: Math.min(100, Math.round((monthlyCost / cap) * 100)),
     byok,
     downgraded: !byok && (monthlyCost / cap) >= DOWNGRADE_THRESHOLD,
     blocked: !byok && (monthlyCost / cap) >= 1.0,

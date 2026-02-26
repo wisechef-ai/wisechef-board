@@ -26,7 +26,7 @@ function checkBYOKNudge() {
     const limits = JSON.parse(res);
     if (limits.percent >= 50) {
       byokNudgeSent = true;
-      return `\n\n---\n💡 **Tip:** You've used ${limits.percent}% of your monthly limit. Connect your own AI key for **unlimited usage** — go to **AI Provider** in the sidebar, or just ask me "how do I connect my own key?"`;
+      return `\n\n---\n💡 **Tip:** You've used ${limits.percent}% of your monthly allowance. Connect your own AI key for **unlimited usage** — go to **AI Provider** in the sidebar.`;
     }
   } catch {}
   return null;

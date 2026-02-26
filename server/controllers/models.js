@@ -121,6 +121,101 @@ export function loginProvider(req, res) {
   res.json({ success: false, error: 'Unknown auth method' });
 }
 
+// GitHub Copilot device flow
+const GH_CLIENT_ID = 'Iv1.b507a08c87ecfe98';
+const GH_DEVICE_CODE_URL = 'https://github.com/login/device/code';
+const GH_ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+
+// In-memory pending device flows
+const pendingDeviceFlows = new Map();
+
+export async function startDeviceFlow(req, res) {
+  try {
+    const r = await fetch(GH_DEVICE_CODE_URL, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: GH_CLIENT_ID, scope: 'read:user' }),
+    });
+    if (!r.ok) return res.status(502).json({ error: `GitHub returned ${r.status}` });
+    const data = await r.json();
+    
+    const flowId = Math.random().toString(36).slice(2);
+    pendingDeviceFlows.set(flowId, {
+      deviceCode: data.device_code,
+      expiresAt: Date.now() + data.expires_in * 1000,
+      intervalMs: Math.max(1000, (data.interval || 5) * 1000),
+    });
+    
+    res.json({
+      flowId,
+      userCode: data.user_code,
+      verificationUrl: data.verification_uri,
+      expiresIn: data.expires_in,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+}
+
+export async function pollDeviceFlow(req, res) {
+  const { flowId } = req.body;
+  const flow = pendingDeviceFlows.get(flowId);
+  if (!flow) return res.status(404).json({ error: 'Unknown flow' });
+  
+  if (Date.now() > flow.expiresAt) {
+    pendingDeviceFlows.delete(flowId);
+    return res.json({ status: 'expired' });
+  }
+  
+  try {
+    const r = await fetch(GH_ACCESS_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: GH_CLIENT_ID,
+        device_code: flow.deviceCode,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+      }),
+    });
+    const data = await r.json();
+    
+    if (data.access_token) {
+      pendingDeviceFlows.delete(flowId);
+      // Save to openclaw auth profile
+      const { execSync } = await import('child_process');
+      const homeDir = process.env.HOME || '/root';
+      const profilePath = `${homeDir}/.openclaw/agents/default/agent/auth-profiles.json`;
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      // Ensure dir exists
+      fs.mkdirSync(path.dirname(profilePath), { recursive: true });
+      let profiles = {};
+      try { profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch {}
+      if (!profiles.profiles) profiles.profiles = {};
+      profiles.profiles['github-copilot:github'] = {
+        type: 'token',
+        provider: 'github-copilot',
+        token: data.access_token,
+      };
+      fs.writeFileSync(profilePath, JSON.stringify(profiles, null, 2));
+      
+      return res.json({ status: 'complete', provider: 'github-copilot' });
+    }
+    
+    if (data.error === 'authorization_pending') return res.json({ status: 'pending' });
+    if (data.error === 'slow_down') return res.json({ status: 'pending', slowDown: true });
+    if (data.error === 'access_denied') {
+      pendingDeviceFlows.delete(flowId);
+      return res.json({ status: 'denied' });
+    }
+    if (data.error === 'expired_token') {
+      pendingDeviceFlows.delete(flowId);
+      return res.json({ status: 'expired' });
+    }
+    
+    res.json({ status: 'error', error: data.error });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+}
+
 export function getHeartbeat(req, res) {
   res.json(readHeartbeat());
 }
