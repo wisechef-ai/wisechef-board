@@ -80,7 +80,8 @@ export function getUsage(req, res) {
   const sessionResetIn = formatDuration(Math.max(0, sessionResetTime - now));
 
   const config = readOpenclawJson();
-  const model = (config.agents?.defaults?.model?.primary || 'unknown').replace('anthropic/', '');
+  const modelRaw = config.agents?.defaults?.model;
+  const model = (typeof modelRaw === 'string' ? modelRaw : modelRaw?.primary || 'unknown').replace('anthropic/', '').replace('google/', '');
 
   const SESSION_LIMIT = 45000000;
   const WEEKLY_LIMIT = 180000000;
