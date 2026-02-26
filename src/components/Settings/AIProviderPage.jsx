@@ -3,13 +3,23 @@ import { Key, Check, X, ChevronRight, Zap, Shield, Infinity, AlertTriangle, Tras
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...', models: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-6'],
-    subscription: { name: 'Claude Pro/Max', desc: 'Use your Claude Pro or Max subscription — no API key needed', command: 'setup-token' } },
+    subscription: { name: 'Claude Pro/Max', desc: 'Use your Claude Pro or Max subscription — no API key needed',
+      steps: ['Run "claude setup-token" in any terminal', 'Copy the token it gives you', 'Paste it as your API key above'] } },
   { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3-mini'],
-    subscription: { name: 'ChatGPT Plus/Pro', desc: 'Use your ChatGPT Plus or Pro subscription via OAuth', command: 'openai-codex' } },
+    subscription: { name: 'ChatGPT Plus/Pro', desc: 'Use your ChatGPT subscription — get an API key from platform.openai.com',
+      steps: ['Go to platform.openai.com → sign in', 'API Keys → Create new key', 'Copy key (starts with sk-) and paste above'] } },
+  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login — no key needed)', models: ['gpt-4.1', 'gpt-4o', 'claude-sonnet-4-6', 'claude-opus-4-6'],
+    subscription: { name: 'Copilot ($10/mo)', desc: 'Use your GitHub Copilot plan — device-flow login, no API key needed',
+      steps: ['You need a GitHub account with Copilot enabled ($10/mo)', 'In terminal: openclaw models auth login-github-copilot', 'Approve the device code on github.com', 'Done — models available immediately'] },
+    note: '💡 Best value: $10/mo gets you GPT-4.1 + Claude Sonnet + more' },
   { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...', models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    note: '💡 Google AI Studio offers free API keys — no credit card needed' },
+    note: '💡 Free API keys at aistudio.google.com — no credit card needed' },
   { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...', models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1', 'google/gemini-2.5-pro', 'meta-llama/llama-4-maverick'],
-    note: '💡 One key, all models. Pay-as-you-go pricing. openrouter.ai' },
+    note: '💡 One key, all models. Pay-as-you-go. openrouter.ai' },
+  { id: 'venice', name: 'Venice AI', logo: '🏴', placeholder: 'vnc_...', models: ['llama-3.3-70b'],
+    note: '🔒 Privacy-first inference — no data retention. venice.ai' },
+  { id: 'ollama', name: 'Ollama (Local)', logo: '🦙', placeholder: 'http://localhost:11434', models: ['llama3', 'mistral', 'phi3'],
+    note: '💻 Run models locally — completely free and private' },
 ]
 
 function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubscriptionLogin }) {
@@ -35,25 +45,8 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
   }
 
   const loginSubscription = async () => {
-    setLoggingIn(true)
-    setLoginResult(null)
-    try {
-      const res = await fetch('/api/providers/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: provider.id, method: provider.subscription.command }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        setLoginResult({ ok: true, msg: '✅ Subscription linked!' })
-        onSubscriptionLogin?.()
-      } else if (data.instructions) {
-        setLoginResult({ ok: false, instructions: data.instructions })
-      } else {
-        setLoginResult({ ok: false, msg: data.error || 'Login failed' })
-      }
-    } catch { setLoginResult({ ok: false, msg: 'Network error' }) }
-    setLoggingIn(false)
+    // Show inline steps from provider definition — no API call needed
+    setLoginResult({ ok: false, instructions: provider.subscription.steps })
   }
 
   return (
