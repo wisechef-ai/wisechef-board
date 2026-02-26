@@ -155,11 +155,35 @@ export function removeProviderKey(req, res) {
   const { provider } = req.params;
   try {
     const config = readOpenclawJson();
+    // Remove API key
     if (config.providers?.[provider]) {
       delete config.providers[provider].apiKey;
       if (Object.keys(config.providers[provider]).length === 0) delete config.providers[provider];
       if (Object.keys(config.providers).length === 0) delete config.providers;
     }
+    // Remove auth profiles (e.g. github-copilot device flow)
+    if (config.auth?.profiles) {
+      for (const key of Object.keys(config.auth.profiles)) {
+        if (key.startsWith(provider + ':') || config.auth.profiles[key]?.provider === provider) {
+          delete config.auth.profiles[key];
+        }
+      }
+    }
+    if (config.auth?.order?.[provider]) delete config.auth.order[provider];
+    // Also remove auth-profiles.json entries
+    try {
+      const homeDir = process.env.HOME || '/root';
+      for (const agentDir of ['default', 'main']) {
+        const profilePath = path.join(homeDir, '.openclaw', 'agents', agentDir, 'agent', 'auth-profiles.json');
+        if (fs.existsSync(profilePath)) {
+          const profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+          for (const key of Object.keys(profiles.profiles || {})) {
+            if (key.startsWith(provider + ':')) delete profiles.profiles[key];
+          }
+          fs.writeFileSync(profilePath, JSON.stringify(profiles, null, 2));
+        }
+      }
+    } catch {}
     writeOpenclawJson(config);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
