@@ -15,11 +15,11 @@ import { ThemeProvider } from './components/ThemeContext'
 import { SocketProvider } from './hooks/useSocket.jsx'
 import { NavProvider } from './hooks/useNav.jsx'
 
-const VALID_PAGES = new Set(['kanban', 'calendar', 'chat', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet'])
+const VALID_PAGES = new Set(['chat', 'kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet'])
 
 function getHashPage() {
   const hash = location.hash.replace('#', '')
-  return VALID_PAGES.has(hash) ? hash : 'kanban'
+  return VALID_PAGES.has(hash) ? hash : 'chat'
 }
 
 export default function App() {
