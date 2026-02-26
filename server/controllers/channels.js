@@ -309,18 +309,24 @@ export function listChannels(_req, res) {
     statusOutput = e.stdout?.toString() || '';
   }
 
+  // Also check channel-linked.json as fallback (signal-cli link doesn't update openclaw status)
+  let linkedFile = {};
+  try {
+    linkedFile = JSON.parse(fs.readFileSync(path.join(WORKSPACE, 'channel-linked.json'), 'utf8'));
+  } catch {}
+
   const config = readOpenclawConfig();
   const result = Object.entries(CHANNELS).map(([key, ch]) => {
     const configured = !!(config.channels?.[key]);
-    // Channel is linked only if openclaw output shows it as "linked" or "connected"
-    // NOT linked if: "not configured", "not linked", or not mentioned at all
     const keyLower = key.toLowerCase();
     const statusLower = statusOutput.toLowerCase();
     const channelLine = statusLower.split('\n').find(l => l.includes(keyLower)) || '';
-    const linked = channelLine.includes('linked') && !channelLine.includes('not linked') && !channelLine.includes('not configured');
+    const linkedFromStatus = channelLine.includes('linked') && !channelLine.includes('not linked') && !channelLine.includes('not configured');
+    const linkedFromFile = !!(linkedFile[key]?.linkedAt);
+    const linked = linkedFromStatus || linkedFromFile;
     const linking = linkingSessions.has(key);
     return {
-      id: key, ...ch, configured, linked, linking,
+      id: key, ...ch, configured: configured || linkedFromFile, linked, linking,
       linkingStatus: linking ? linkingSessions.get(key).status : null,
     };
   });
