@@ -33,6 +33,12 @@ function ensureChannelConfig(channel) {
   const configPath = path.join(OPENCLAW_DIR, 'openclaw.json');
   let config = readOpenclawConfig();
   
+  // Ensure gateway section exists
+  if (!config.gateway) {
+    const gatewayToken = process.env.GATEWAY_TOKEN || '';
+    config.gateway = { auth: { token: gatewayToken }, mode: 'local' };
+  }
+  
   if (!config.channels) config.channels = {};
   
   // Add channel if not present
