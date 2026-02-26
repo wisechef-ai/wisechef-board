@@ -1,5 +1,78 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Zap, ChevronDown, Coins, Hash, Cpu } from 'lucide-react'
+import { RefreshCw, Zap, ChevronDown, Coins, Hash, Cpu, Key, Trash2 } from 'lucide-react'
+
+function BYOKInput() {
+  const [providers, setProviders] = useState({})
+  const [provider, setProvider] = useState('anthropic')
+  const [apiKey, setApiKey] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/providers').then(r => r.json()).then(setProviders).catch(() => {})
+  }, [])
+
+  const save = async () => {
+    if (!apiKey.trim()) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey: apiKey.trim() }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setProviders(p => ({ ...p, [provider]: { hasKey: true, masked: data.masked } }))
+        setApiKey('')
+        setMsg('✅ Key saved — usage limits removed')
+      } else {
+        setMsg('❌ ' + (data.error || 'Failed'))
+      }
+    } catch { setMsg('❌ Network error') }
+    setSaving(false)
+    setTimeout(() => setMsg(null), 4000)
+  }
+
+  const remove = async (prov) => {
+    await fetch(`/api/providers/${prov}`, { method: 'DELETE' })
+    setProviders(p => { const n = { ...p }; delete n[prov]; return n })
+  }
+
+  const linked = Object.entries(providers).filter(([, v]) => v.hasKey)
+
+  return (
+    <div className="space-y-2">
+      {linked.length > 0 && (
+        <div className="space-y-1">
+          {linked.map(([name, v]) => (
+            <div key={name} className="flex items-center justify-between bg-secondary/50 rounded px-2 py-1">
+              <span className="text-[11px]"><Key size={10} className="inline mr-1 text-emerald-400" />{name} {v.masked}</span>
+              <button onClick={() => remove(name)} className="text-red-400 hover:text-red-300"><Trash2 size={12} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1">
+        <select value={provider} onChange={e => setProvider(e.target.value)}
+          className="bg-secondary border border-border rounded px-1.5 py-1 text-[11px] text-foreground w-24">
+          <option value="anthropic">Anthropic</option>
+          <option value="openai">OpenAI</option>
+          <option value="google">Google</option>
+        </select>
+        <input value={apiKey} onChange={e => setApiKey(e.target.value)}
+          placeholder="sk-ant-..." type="password"
+          className="flex-1 bg-secondary border border-border rounded px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground min-w-0"
+        />
+        <button onClick={save} disabled={saving || !apiKey.trim()}
+          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded px-2 py-1 text-[11px] font-medium whitespace-nowrap">
+          {saving ? '...' : 'Save'}
+        </button>
+      </div>
+      {msg && <p className="text-[10px] text-emerald-400">{msg}</p>}
+    </div>
+  )
+}
 
 function formatTokens(n) {
   if (!n) return '0'
@@ -77,7 +150,7 @@ export default function UsageWidget() {
 
   if (!usage) return null
 
-  const displayModel = (usage.model || 'unknown').replace('anthropic/', '').replace('google/', '')
+  const displayModel = (usage.model || 'unknown').replace('anthropic/', '').replace('google/', '').replace('openai/', '')
   const tiers = usage.tiers || []
   const sessionPct = tiers[0]?.percent ?? 0
 
@@ -116,12 +189,12 @@ export default function UsageWidget() {
             </div>
             {models.length > 0 && (
               <select
-                value={'anthropic/' + usage.model}
+                value={usage.model}
                 onChange={e => switchModel(e.target.value)}
                 className="w-full bg-secondary border border-border rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-orange-500 mt-1"
               >
                 {models.map(m => (
-                  <option key={m} value={m}>{m.replace('anthropic/', '').replace('google/', '')}</option>
+                  <option key={m} value={m}>{m.replace('anthropic/', '').replace('google/', '').replace('openai/', '')}</option>
                 ))}
               </select>
             )}
@@ -136,6 +209,13 @@ export default function UsageWidget() {
             {tiers.map((tier, i) => (
               <ProgressBar key={tier.label || i} {...tier} />
             ))}
+          </div>
+
+          {/* BYOK */}
+          <div className="space-y-2 border-t border-border pt-3">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Your API Key (optional)</div>
+            <p className="text-[10px] text-muted-foreground">Add your own API key for unlimited usage — no caps, no downgrades.</p>
+            <BYOKInput />
           </div>
         </div>
       )}
