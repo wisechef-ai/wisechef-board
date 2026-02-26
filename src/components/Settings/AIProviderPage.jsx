@@ -274,16 +274,19 @@ export default function AIProviderPage() {
     setApplying(false)
   }
 
-  // Build model list based on connected providers
-  const allModels = []
-  PROVIDERS.forEach(p => {
-    // Show models for: connected providers + anthropic (default/included)
-    const isConnected = providers[p.id]?.hasKey || providers[p.id]?.hasAuth
-    if (isConnected || p.id === 'anthropic') {
-      p.models.forEach(m => {
-        allModels.push({ label: m.replace(/^[^/]+\//, ''), value: m, provider: p.name })
-      })
-    }
+  // Fetch available models from backend
+  const [availableModels, setAvailableModels] = useState([])
+  useEffect(() => {
+    fetch('/api/models').then(r => r.json()).then(models => {
+      if (Array.isArray(models)) setAvailableModels(models)
+    }).catch(() => {})
+  }, [currentModel]) // re-fetch after model change
+
+  // Build model list: available models grouped by provider prefix
+  const allModels = availableModels.map(m => {
+    const provider = m.split('/')[0] || 'unknown'
+    const providerName = PROVIDERS.find(p => p.id === provider)?.name || provider
+    return { label: m.replace(/^[^/]+\//, ''), value: m, provider: providerName }
   })
 
   return (

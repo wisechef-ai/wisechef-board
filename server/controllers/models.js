@@ -16,17 +16,36 @@ const DEFAULT_MODELS = [
   'openai/gpt-4.1-mini',
 ];
 
-export function listModels(req, res) {
+export async function listModels(req, res) {
   try {
+    const { execSync } = await import('child_process');
     const config = readOpenclawJson();
     const currentModel = config.agents?.defaults?.model;
     const current = typeof currentModel === 'string' ? currentModel : currentModel?.primary;
     
-    // Combine defaults with any custom models in config
-    const models = new Set([...DEFAULT_MODELS]);
-    if (current) models.add(current);
+    // Get live model list from openclaw
+    let models = [];
+    try {
+      const output = execSync('openclaw models list 2>/dev/null', { timeout: 10000, encoding: 'utf8' });
+      // Parse table output: "model_name   input   ctx   local   auth   tags"
+      const lines = output.split('\n').filter(l => l.trim() && !l.startsWith('Model'));
+      models = lines.map(l => {
+        const parts = l.trim().split(/\s{2,}/);
+        return { id: parts[0], tags: parts[5] || '' };
+      }).filter(m => m.id && !m.tags.includes('missing'));
+    } catch {}
     
-    res.json([...models]);
+    // If openclaw models list failed or returned empty, use defaults
+    if (models.length === 0) {
+      models = DEFAULT_MODELS.map(m => ({ id: m, tags: '' }));
+    }
+    
+    // Ensure current model is in list
+    if (current && !models.find(m => m.id === current)) {
+      models.unshift({ id: current, tags: 'default' });
+    }
+    
+    res.json(models.map(m => m.id));
   } catch {
     res.json(DEFAULT_MODELS);
   }
@@ -59,7 +78,7 @@ export function getProviderKeys(_req, res) {
     try {
       const homeDir = process.env.HOME || '/root';
       const profilePath = path.join(homeDir, '.openclaw', 'agents', 'default', 'agent', 'auth-profiles.json');
-      const profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+      const profiles = JSON.parse(fs.readFileSync(profPath, 'utf8'));
       if (profiles.profiles?.['github-copilot:github']?.token) {
         result['github-copilot'] = { hasKey: true, hasAuth: true, masked: '(device login)' };
       }
@@ -191,28 +210,25 @@ export async function pollDeviceFlow(req, res) {
     
     if (data.access_token) {
       pendingDeviceFlows.delete(flowId);
-      // Save to openclaw auth profile
-      const homeDir = process.env.HOME || '/root';
-      const profilePath = path.join(homeDir, '.openclaw', 'agents', 'default', 'agent', 'auth-profiles.json');
       
-      // Ensure dirs exist for both default and main agents
+      // Save auth profile to both default and main agent dirs
       const homeDir = process.env.HOME || '/root';
       const agentDirs = ['default', 'main'].map(a => 
         path.join(homeDir, '.openclaw', 'agents', a, 'agent')
       );
       
       for (const dir of agentDirs) {
-        const profilePath = path.join(dir, 'auth-profiles.json');
+        const profPath = path.join(dir, 'auth-profiles.json');
         fs.mkdirSync(dir, { recursive: true });
         let profiles = {};
-        try { profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch {}
+        try { profiles = JSON.parse(fs.readFileSync(profPath, 'utf8')); } catch {}
         if (!profiles.profiles) profiles.profiles = {};
         profiles.profiles['github-copilot:github'] = {
           type: 'token',
           provider: 'github-copilot',
           token: data.access_token,
         };
-        fs.writeFileSync(profilePath, JSON.stringify(profiles, null, 2));
+        fs.writeFileSync(profPath, JSON.stringify(profiles, null, 2));
       }
       
       // Also update openclaw.json to reference the auth profile
