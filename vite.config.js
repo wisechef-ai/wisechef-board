@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       __APP_VERSION__: JSON.stringify(getVersion()),
+      __BUILD_TS__: JSON.stringify(Date.now()),
       __WS_TARGET__: JSON.stringify(apiTarget !== 'http://localhost:3333' ? apiTarget : ''),
     },
     resolve: {
