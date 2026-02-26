@@ -2,20 +2,16 @@ import React, { useState, useEffect } from 'react'
 import { Key, Check, X, ChevronRight, Zap, Shield, Infinity, AlertTriangle, Trash2, LogIn } from 'lucide-react'
 
 const PROVIDERS = [
-  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login)', models: [
-      'github-copilot/claude-sonnet-4-6', 'github-copilot/claude-opus-4-6', 'github-copilot/claude-haiku-4-5',
-      'github-copilot/gpt-4.1', 'github-copilot/gpt-4.1-mini', 'github-copilot/gpt-4o',
-      'github-copilot/o3-mini', 'github-copilot/gemini-2.5-pro',
-    ],
+  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login)',
     subscription: { name: 'Copilot', desc: 'Log in with your GitHub account — works with any Copilot plan', flow: 'device' },
-    note: '💡 Best value — GPT-4.1 + Claude Sonnet + more included', authType: 'device' },
-  { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...', models: ['anthropic/claude-sonnet-4-6', 'anthropic/claude-haiku-4-5', 'anthropic/claude-opus-4-6'],
+    note: '💡 Best value — Claude, GPT-5, Gemini 3 + more included', authType: 'device' },
+  { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...',
     note: 'Get your API key at console.anthropic.com', authType: 'apikey' },
-  { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...', models: ['openai/gpt-4.1', 'openai/gpt-4.1-mini', 'openai/gpt-4.1-nano', 'openai/o3-mini'],
+  { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...',
     note: 'Get your API key at platform.openai.com', authType: 'apikey' },
-  { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...', models: ['google/gemini-2.5-flash', 'google/gemini-2.5-pro'],
+  { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...',
     note: '💡 Free API keys at aistudio.google.com — no credit card needed', authType: 'apikey' },
-  { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...', models: ['openrouter/anthropic/claude-sonnet-4-6', 'openrouter/openai/gpt-4.1', 'openrouter/google/gemini-2.5-pro'],
+  { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...',
     note: '💡 One key, all models. Pay-as-you-go. openrouter.ai', authType: 'apikey' },
 ]
 

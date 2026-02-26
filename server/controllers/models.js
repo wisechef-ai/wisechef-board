@@ -16,13 +16,28 @@ const DEFAULT_MODELS = [
   'openai/gpt-4.1-mini',
 ];
 
-// Known models per provider — used when openclaw can't pre-verify (e.g. Copilot token exchange happens at runtime)
+// Known models per provider — kept current with openclaw docs + provider catalogs
 const PROVIDER_MODELS = {
-  'github-copilot': ['github-copilot/claude-sonnet-4-6', 'github-copilot/claude-opus-4-6', 'github-copilot/claude-haiku-4-5', 'github-copilot/gpt-4.1', 'github-copilot/gpt-4.1-mini', 'github-copilot/gpt-4o', 'github-copilot/o3-mini', 'github-copilot/gemini-2.5-pro'],
-  'anthropic': ['anthropic/claude-sonnet-4-6', 'anthropic/claude-haiku-4-5', 'anthropic/claude-opus-4-6'],
-  'openai': ['openai/gpt-4.1', 'openai/gpt-4.1-mini', 'openai/gpt-4.1-nano', 'openai/o3-mini', 'openai/o4-mini'],
-  'google': ['google/gemini-2.5-flash', 'google/gemini-2.5-pro'],
-  'openrouter': ['openrouter/anthropic/claude-sonnet-4-6', 'openrouter/openai/gpt-4.1', 'openrouter/google/gemini-2.5-pro'],
+  'github-copilot': [
+    'github-copilot/claude-sonnet-4-6', 'github-copilot/claude-opus-4-6', 'github-copilot/claude-sonnet-4.5',
+    'github-copilot/gpt-4.1', 'github-copilot/gpt-5-mini', 'github-copilot/gpt-5.1', 'github-copilot/gpt-5.2',
+    'github-copilot/o3-mini', 'github-copilot/o4-mini',
+    'github-copilot/gemini-2.5-pro', 'github-copilot/gemini-3-flash', 'github-copilot/gemini-3-pro', 'github-copilot/gemini-3.1-pro',
+  ],
+  'anthropic': [
+    'anthropic/claude-sonnet-4-6', 'anthropic/claude-opus-4-6', 'anthropic/claude-opus-4-5',
+    'anthropic/claude-sonnet-4.5', 'anthropic/claude-sonnet-4', 'anthropic/claude-haiku-4-5',
+  ],
+  'openai': [
+    'openai/gpt-5.2', 'openai/gpt-5.1', 'openai/gpt-5-mini', 'openai/gpt-4.1', 'openai/gpt-4.1-mini',
+    'openai/o3-mini', 'openai/o4-mini',
+  ],
+  'google': [
+    'google/gemini-3.1-pro', 'google/gemini-3-pro', 'google/gemini-3-flash', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash',
+  ],
+  'openrouter': [
+    'openrouter/anthropic/claude-sonnet-4-6', 'openrouter/openai/gpt-5.1', 'openrouter/google/gemini-3.1-pro',
+  ],
 };
 
 export async function listModels(req, res) {
