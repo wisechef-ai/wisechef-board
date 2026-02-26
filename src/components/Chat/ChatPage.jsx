@@ -2,13 +2,20 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, Loader2, Bot, User, Trash2 } from 'lucide-react'
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('wisechef-chat-messages') || '[]') } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [wsStatus, setWsStatus] = useState('connecting')
   const messagesEnd = useRef(null)
   const wsRef = useRef(null)
   const sessionRef = useRef(null)
+
+  // Persist messages to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('wisechef-chat-messages', JSON.stringify(messages))
+  }, [messages])
 
   const scrollToBottom = useCallback(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
@@ -72,6 +79,7 @@ export default function ChatPage() {
 
   function clearChat() {
     setMessages([])
+    sessionStorage.removeItem('wisechef-chat-messages')
     sessionRef.current = null
     initSession()
   }

@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { Key, Check, X, ChevronRight, Zap, Shield, Infinity, AlertTriangle, Trash2, LogIn } from 'lucide-react'
 
 const PROVIDERS = [
-  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login)', models: ['github-copilot/gpt-4.1', 'github-copilot/gpt-4o', 'github-copilot/claude-sonnet-4-6', 'github-copilot/claude-opus-4-6'],
+  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login)', models: [
+      'github-copilot/claude-sonnet-4-6', 'github-copilot/claude-opus-4-6', 'github-copilot/claude-haiku-4-5',
+      'github-copilot/gpt-4.1', 'github-copilot/gpt-4.1-mini', 'github-copilot/gpt-4o',
+      'github-copilot/o3-mini', 'github-copilot/gemini-2.5-pro',
+    ],
     subscription: { name: 'Copilot', desc: 'Log in with your GitHub account — works with any Copilot plan', flow: 'device' },
     note: '💡 Best value — GPT-4.1 + Claude Sonnet + more included', authType: 'device' },
   { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...', models: ['anthropic/claude-sonnet-4-6', 'anthropic/claude-haiku-4-5', 'anthropic/claude-opus-4-6'],

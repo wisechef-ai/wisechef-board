@@ -195,17 +195,37 @@ export async function pollDeviceFlow(req, res) {
       const homeDir = process.env.HOME || '/root';
       const profilePath = path.join(homeDir, '.openclaw', 'agents', 'default', 'agent', 'auth-profiles.json');
       
-      // Ensure dir exists
-      fs.mkdirSync(path.dirname(profilePath), { recursive: true });
-      let profiles = {};
-      try { profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch {}
-      if (!profiles.profiles) profiles.profiles = {};
-      profiles.profiles['github-copilot:github'] = {
-        type: 'token',
-        provider: 'github-copilot',
-        token: data.access_token,
-      };
-      fs.writeFileSync(profilePath, JSON.stringify(profiles, null, 2));
+      // Ensure dirs exist for both default and main agents
+      const homeDir = process.env.HOME || '/root';
+      const agentDirs = ['default', 'main'].map(a => 
+        path.join(homeDir, '.openclaw', 'agents', a, 'agent')
+      );
+      
+      for (const dir of agentDirs) {
+        const profilePath = path.join(dir, 'auth-profiles.json');
+        fs.mkdirSync(dir, { recursive: true });
+        let profiles = {};
+        try { profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8')); } catch {}
+        if (!profiles.profiles) profiles.profiles = {};
+        profiles.profiles['github-copilot:github'] = {
+          type: 'token',
+          provider: 'github-copilot',
+          token: data.access_token,
+        };
+        fs.writeFileSync(profilePath, JSON.stringify(profiles, null, 2));
+      }
+      
+      // Also update openclaw.json to reference the auth profile
+      try {
+        const config = readOpenclawJson();
+        if (!config.auth) config.auth = {};
+        if (!config.auth.profiles) config.auth.profiles = {};
+        config.auth.profiles['github-copilot:github'] = {
+          provider: 'github-copilot',
+          mode: 'token',
+        };
+        writeOpenclawJson(config);
+      } catch {}
       
       return res.json({ status: 'complete', provider: 'github-copilot' });
     }
