@@ -96,7 +96,7 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
           <div>
             <h3 className="font-medium text-sm">{provider.name}</h3>
             <p className="text-[11px] text-muted-foreground">
-              {connected ? <span className="text-emerald-400">Connected {masked}</span> : `${provider.models.length} models available`}
+              {connected ? <span className="text-emerald-400">Connected {masked}</span> : 'Connect to unlock models'}
             </p>
           </div>
         </div>
