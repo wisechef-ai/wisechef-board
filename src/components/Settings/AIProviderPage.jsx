@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react'
-import { Key, Check, X, ChevronRight, Zap, Shield, Infinity, AlertTriangle, Trash2 } from 'lucide-react'
+import { Key, Check, X, ChevronRight, Zap, Shield, Infinity, AlertTriangle, Trash2, LogIn } from 'lucide-react'
 
 const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...', models: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-6'] },
-  { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3-mini'] },
-  { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...', models: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
-  { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...', models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1', 'google/gemini-2.5-pro', 'meta-llama/llama-4-maverick'] },
+  { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...', models: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-6'],
+    subscription: { name: 'Claude Pro/Max', desc: 'Use your Claude Pro or Max subscription — no API key needed', command: 'setup-token' } },
+  { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3-mini'],
+    subscription: { name: 'ChatGPT Plus/Pro', desc: 'Use your ChatGPT Plus or Pro subscription via OAuth', command: 'openai-codex' } },
+  { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...', models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+    note: '💡 Google AI Studio offers free API keys — no credit card needed' },
+  { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...', models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1', 'google/gemini-2.5-pro', 'meta-llama/llama-4-maverick'],
+    note: '💡 One key, all models. Pay-as-you-go pricing. openrouter.ai' },
 ]
 
-function ProviderCard({ provider, connected, masked, onConnect, onRemove }) {
+function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubscriptionLogin }) {
   const [expanded, setExpanded] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [loginResult, setLoginResult] = useState(null)
 
   const save = async () => {
     if (!apiKey.trim()) return
@@ -26,6 +32,28 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove }) {
       setError(res.error || 'Failed to save')
     }
     setSaving(false)
+  }
+
+  const loginSubscription = async () => {
+    setLoggingIn(true)
+    setLoginResult(null)
+    try {
+      const res = await fetch('/api/providers/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: provider.id, method: provider.subscription.command }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setLoginResult({ ok: true, msg: '✅ Subscription linked!' })
+        onSubscriptionLogin?.()
+      } else if (data.instructions) {
+        setLoginResult({ ok: false, instructions: data.instructions })
+      } else {
+        setLoginResult({ ok: false, msg: data.error || 'Login failed' })
+      }
+    } catch { setLoginResult({ ok: false, msg: 'Network error' }) }
+    setLoggingIn(false)
   }
 
   return (
@@ -56,7 +84,36 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove }) {
         </div>
       </div>
       {expanded && !connected && (
-        <div className="mt-3 space-y-2 border-t border-border pt-3">
+        <div className="mt-3 space-y-3 border-t border-border pt-3">
+          {/* Subscription login option */}
+          {provider.subscription && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <LogIn size={14} className="text-blue-400" />
+                <span className="text-xs font-medium">Have a {provider.subscription.name} subscription?</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{provider.subscription.desc}</p>
+              <button onClick={loginSubscription} disabled={loggingIn}
+                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-md px-4 py-1.5 text-xs font-medium">
+                {loggingIn ? 'Connecting...' : `Use ${provider.subscription.name}`}
+              </button>
+              {loginResult && loginResult.instructions ? (
+                <div className="bg-secondary/50 rounded p-2 space-y-1">
+                  {loginResult.instructions.map((step, i) => (
+                    <p key={i} className="text-[11px] text-muted-foreground">{step}</p>
+                  ))}
+                </div>
+              ) : loginResult && (
+                <p className={`text-[11px] ${loginResult.ok ? 'text-emerald-400' : 'text-red-400'}`}>{loginResult.msg}</p>
+              )}
+              <div className="text-[10px] text-muted-foreground">— or use an API key below —</div>
+            </div>
+          )}
+
+          {provider.note && (
+            <p className="text-[11px] text-blue-400">{provider.note}</p>
+          )}
+
           <input
             type="password"
             value={apiKey}
@@ -202,6 +259,10 @@ export default function AIProviderPage() {
             masked={providers[p.id]?.masked}
             onConnect={connectProvider}
             onRemove={removeProvider}
+            onSubscriptionLogin={() => {
+              fetch('/api/providers').then(r => r.json()).then(setProviders).catch(() => {})
+              fetch('/api/usage-limits').then(r => r.json()).then(setLimits).catch(() => {})
+            }}
           />
         ))}
       </div>

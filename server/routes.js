@@ -10,7 +10,7 @@ import {
 } from './controllers/tasks.js';
 import { getUsage } from './controllers/usage.js';
 import { getOpenclawVersion, updateOpenclaw } from './controllers/openclaw.js';
-import { listModels, setModel, getHeartbeat, postHeartbeat, getProviderKeys, setProviderKey, removeProviderKey } from './controllers/models.js';
+import { listModels, setModel, getHeartbeat, postHeartbeat, getProviderKeys, setProviderKey, removeProviderKey, loginProvider } from './controllers/models.js';
 import { listSkills, toggleSkill, createSkill, getSkillContent, deleteSkill } from './controllers/skills.js';
 import { listFiles, getFileContent, downloadFile, getWorkspaceFile, putWorkspaceFile, getWorkspaceFileHistory } from './controllers/files.js';
 import { getSoul, putSoul, getSoulHistory, revertSoul, getSoulTemplates } from './controllers/soul.js';
@@ -92,6 +92,7 @@ router.post('/api/model', setModel);
 // Provider API keys (BYOK)
 router.get('/api/providers', getProviderKeys);
 router.post('/api/providers', setProviderKey);
+router.post('/api/providers/login', loginProvider);
 router.delete('/api/providers/:provider', removeProviderKey);
 router.get('/api/heartbeat', getHeartbeat);
 router.post('/api/heartbeat', postHeartbeat);

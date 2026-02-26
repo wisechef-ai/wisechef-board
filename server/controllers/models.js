@@ -88,6 +88,39 @@ export function removeProviderKey(req, res) {
   } catch (e) { res.status(500).json({ error: e.message }); }
 }
 
+export function loginProvider(req, res) {
+  const { provider, method } = req.body;
+  if (!provider || !method) return res.status(400).json({ error: 'provider and method required' });
+  
+  if (method === 'setup-token') {
+    return res.json({
+      success: false,
+      interactive: true,
+      instructions: [
+        '1. Open claude.ai and sign in to your Claude Pro/Max account',
+        '2. Open a terminal and run: claude setup-token',
+        '3. Copy the token it gives you',
+        '4. Paste it as your API key in the field above',
+      ]
+    });
+  }
+  
+  if (method === 'openai-codex') {
+    return res.json({
+      success: false,
+      interactive: true,
+      instructions: [
+        '1. Go to platform.openai.com and sign in with your ChatGPT account',
+        '2. Go to API Keys → Create new key',
+        '3. Copy the key (starts with sk-)',
+        '4. Paste it in the API key field above',
+      ]
+    });
+  }
+  
+  res.json({ success: false, error: 'Unknown auth method' });
+}
+
 export function getHeartbeat(req, res) {
   res.json(readHeartbeat());
 }
