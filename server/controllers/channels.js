@@ -77,10 +77,24 @@ function removeChannelLink(channel) {
 }
 
 function restartGateway() {
-  execSync('systemctl --user restart openclaw-gateway.service', {
-    env: { ...process.env, XDG_RUNTIME_DIR: '/run/user/0' },
-    timeout: 15000,
-  });
+  // Try systemd first (VPS), then direct process restart (Docker containers)
+  try {
+    execSync('systemctl --user restart openclaw-gateway.service', {
+      env: { ...process.env, XDG_RUNTIME_DIR: '/run/user/0' },
+      timeout: 15000,
+    });
+  } catch {
+    // No systemd (Docker container) — kill existing gateway and restart as background process
+    try { execSync('kill $(cat /tmp/openclaw-gateway.pid 2>/dev/null) 2>/dev/null', { timeout: 5000 }); } catch {}
+    try {
+      execSync('nohup openclaw gateway run > /tmp/openclaw-gateway.log 2>&1 & echo $! > /tmp/openclaw-gateway.pid', {
+        timeout: 10000,
+        shell: '/bin/bash',
+      });
+    } catch (e) {
+      console.error('Gateway restart failed:', e.message);
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────
@@ -311,34 +325,36 @@ export function startLinking(req, res) {
     res.json({ ok: true, status: 'waiting', linkType: 'qr' });
 
   } else if (ch.linkType === 'signal-qr') {
+    // Use openclaw channels login (same as WhatsApp) — signal-cli not required
     const session = {
-      process: null, qrUri: null, qrRaw: null,
+      process: null, qrData: null, qrRaw: null, qrUri: null,
       status: 'waiting', error: null, startedAt: Date.now(), logs: [],
-      signalAccount: null,
     };
 
-    const proc = spawn('signal-cli', ['link', '-n', 'WiseChef'], {
-      env: { ...process.env },
+    const proc = spawn('openclaw', ['channels', 'login', '--channel', channel, '--verbose'], {
+      env: { ...process.env, TERM: 'dumb', NO_COLOR: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     session.process = proc;
 
+    let buffer = '';
     proc.stdout.on('data', (data) => {
-      const text = data.toString().trim();
+      const text = data.toString();
+      buffer += text;
       session.logs.push(text);
-      if (text.startsWith('sgnl://')) {
-        session.qrUri = text;
+      // Signal link URI
+      if (text.includes('sgnl://') || text.includes('signal.link')) {
+        const match = text.match(/(sgnl:\/\/[^\s]+|https:\/\/signal\.link\/[^\s]+)/);
+        if (match) session.qrUri = match[1];
         session.status = 'qr_ready';
       }
-      if (text.startsWith('+') || text.includes('Associated with')) {
-        session.signalAccount = text.match(/\+\d+/)?.[0];
+      // QR code block characters
+      if (text.includes('▄') || text.includes('█')) {
+        session.qrRaw = buffer;
+        session.status = 'qr_ready';
+      }
+      if (text.toLowerCase().includes('connected') || text.toLowerCase().includes('success') || text.toLowerCase().includes('linked')) {
         session.status = 'connected';
-        if (session.signalAccount) {
-          try {
-            execSync(`openclaw channels add --channel signal --signal-number "${session.signalAccount}" --cli-path signal-cli 2>&1`, { timeout: 10000 });
-            execSync(`openclaw config set channels.signal.dmPolicy "allowlist" 2>&1`, { timeout: 5000 });
-          } catch (e) { session.logs.push('Config error: ' + e.message); }
-        }
         saveChannelLink(channel);
         try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
       }
@@ -347,10 +363,7 @@ export function startLinking(req, res) {
     proc.stderr.on('data', (data) => { session.logs.push(data.toString()); });
     proc.on('exit', (code) => {
       if (session.status === 'connected') return;
-      if (code !== 0 && session.status !== 'qr_ready') {
-        session.status = 'failed';
-        session.error = `signal-cli exited with code ${code}. Is signal-cli installed?`;
-      }
+      if (code !== 0) { session.status = 'failed'; session.error = `Process exited with code ${code}`; }
     });
 
     setTimeout(() => {
@@ -388,6 +401,9 @@ export function getQrStatus(req, res) {
 export function submitToken(req, res) {
   const { channel, token, botToken, appToken } = req.body;
   if (!CHANNELS[channel]) return res.status(400).json({ error: 'Unknown channel' });
+
+  // Ensure channel exists in openclaw.json first
+  ensureChannelConfig(channel);
 
   try {
     const args = ['channels', 'add', '--channel', channel];
