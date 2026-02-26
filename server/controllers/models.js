@@ -35,9 +35,7 @@ const PROVIDER_MODELS = {
   'google': [
     'google/gemini-3.1-pro', 'google/gemini-3-pro', 'google/gemini-3-flash', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash',
   ],
-  'openrouter': [
-    'openrouter/anthropic/claude-sonnet-4-6', 'openrouter/openai/gpt-5.1', 'openrouter/google/gemini-3.1-pro',
-  ],
+  'openrouter': [], // fetched dynamically from OpenRouter API when key is connected
 };
 
 export async function listModels(req, res) {
@@ -73,6 +71,22 @@ export async function listModels(req, res) {
     connectedProviders.forEach(provider => {
       (PROVIDER_MODELS[provider] || []).forEach(m => modelSet.add(m));
     });
+    
+    // Fetch OpenRouter models dynamically if connected
+    if (connectedProviders.has('openrouter')) {
+      try {
+        const orRes = await fetch('https://openrouter.ai/api/v1/models');
+        const orData = await orRes.json();
+        if (orData.data) {
+          // Get top models by context length and recency, prefix with openrouter/
+          orData.data
+            .filter(m => m.id && !m.id.includes(':free'))
+            .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
+            .slice(0, 30) // top 30 models
+            .forEach(m => modelSet.add(`openrouter/${m.id}`));
+        }
+      } catch {}
+    }
     
     // Ensure current model is in list
     if (current) modelSet.add(current);
