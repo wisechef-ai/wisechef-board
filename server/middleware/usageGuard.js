@@ -10,7 +10,7 @@ const PLAN_CAPS = {
 };
 
 const DOWNGRADE_THRESHOLD = 0.9; // 90% → switch to Haiku
-const DOWNGRADE_MODEL = 'anthropic/claude-haiku-3-5';
+const DOWNGRADE_MODEL = 'anthropic/claude-haiku-4-5';
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-6';
 
 // Cache to avoid reading files every request
