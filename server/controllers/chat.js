@@ -1,10 +1,35 @@
 import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 
 let chatHistory = [];
+let byokNudgeSent = false;
 
 export function createChatSession(_req, res) {
   chatHistory = [];
+  byokNudgeSent = false;
   res.json({ ok: true, sessionKey: 'board-chat', history: [] });
+}
+
+function checkBYOKNudge() {
+  if (byokNudgeSent) return null;
+  try {
+    // Check if BYOK
+    const homeDir = process.env.HOME || '/root';
+    const config = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'openclaw.json'), 'utf8'));
+    const providers = config.providers || {};
+    const hasBYOK = Object.values(providers).some(p => p.apiKey);
+    if (hasBYOK) return null;
+
+    // Check usage
+    const res = execSync('curl -s http://localhost:3333/api/usage-limits', { timeout: 5000, encoding: 'utf8' });
+    const limits = JSON.parse(res);
+    if (limits.percent >= 50) {
+      byokNudgeSent = true;
+      return `\n\n---\n💡 **Tip:** You've used ${limits.percent}% of your monthly limit. Connect your own AI key for **unlimited usage** — go to **AI Provider** in the sidebar, or just ask me "how do I connect my own key?"`;
+    }
+  } catch {}
+  return null;
 }
 
 export function sendChatMessage(req, res) {
@@ -21,7 +46,14 @@ export function sendChatMessage(req, res) {
     ).trim();
 
     chatHistory.push({ role: 'assistant', content: result, timestamp: Date.now() });
-    const reply = req._usageNote ? result + req._usageNote : result;
+    
+    let reply = result;
+    if (req._usageNote) reply += req._usageNote;
+    
+    // BYOK nudge (Option C) — one-time at 50% usage
+    const nudge = checkBYOKNudge();
+    if (nudge) reply += nudge;
+    
     res.json({ ok: true, reply, usageInfo: req._usageInfo || null });
   } catch (e) {
     console.error('Chat send failed:', e.message);

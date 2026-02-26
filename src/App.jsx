@@ -7,6 +7,7 @@ import SkillsManager from './components/Skills/SkillsManager'
 import SoulEditor from './components/Soul/SoulEditor'
 import CredentialsManager from './components/Credentials/CredentialsManager'
 import SettingsPage from './components/Settings/SettingsPage'
+import AIProviderPage from './components/Settings/AIProviderPage'
 import ChatPage from './components/Chat/ChatPage'
 import MemoryManager from './components/Memory/MemoryManager'
 import FleetDashboard from './components/Fleet/FleetDashboard'
@@ -49,6 +50,7 @@ export default function App() {
               {page === 'skills' && <SkillsManager />}
               {page === 'soul' && <SoulEditor />}
               {page === 'credentials' && <CredentialsManager />}
+              {page === 'ai-provider' && <AIProviderPage />}
               {page === 'settings' && <SettingsPage />}
               {page === 'fleet' && <FleetDashboard />}
             </Layout>

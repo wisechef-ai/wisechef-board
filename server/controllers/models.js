@@ -61,7 +61,7 @@ export function setProviderKey(req, res) {
   const { provider, apiKey } = req.body;
   if (!provider || !apiKey) return res.status(400).json({ error: 'provider and apiKey required' });
   
-  const allowed = ['anthropic', 'openai', 'google'];
+  const allowed = ['anthropic', 'openai', 'google', 'openrouter'];
   if (!allowed.includes(provider)) return res.status(400).json({ error: `Provider must be one of: ${allowed.join(', ')}` });
   
   try {

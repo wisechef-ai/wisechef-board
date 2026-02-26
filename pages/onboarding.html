@@ -186,6 +186,13 @@
             ]
         },
         {
+            title: "Supercharge your assistant ⚡",
+            subtitle: "Optional — connect your own AI subscription for unlimited power",
+            questions: [
+                { id: '_byok_info', label: '', type: 'byok' },
+            ]
+        },
+        {
             title: "Review & confirm ✅",
             subtitle: "Here's what your assistant will know about you",
             questions: [
@@ -259,6 +266,31 @@ ${s.cracks || '(items that slip)'}
                 html += `<div class="preview-box">${escapeHtml(generatePreview())}</div>`;
                 continue;
             }
+            if (q.type === 'byok') {
+                html += `
+                <div style="space-y-4">
+                    <div style="background:linear-gradient(135deg, rgba(16,185,129,0.1), rgba(59,130,246,0.1)); border:1px solid rgba(16,185,129,0.2); border-radius:12px; padding:20px; margin-bottom:16px">
+                        <div style="display:grid; gap:12px">
+                            <div style="display:flex;align-items:start;gap:8px"><span style="color:#10b981">✓</span> <span><b>Unlimited usage</b> — no monthly caps or downgrades</span></div>
+                            <div style="display:flex;align-items:start;gap:8px"><span style="color:#10b981">✓</span> <span><b>Choose any AI model</b> — use the latest and most powerful</span></div>
+                            <div style="display:flex;align-items:start;gap:8px"><span style="color:#10b981">✓</span> <span><b>Your key, your data</b> — direct connection to the AI provider</span></div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-bottom:12px">
+                        <select id="byok_provider" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:white;font-size:0.9rem;width:130px">
+                            <option value="anthropic">Anthropic</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="google">Google</option>
+                            <option value="openrouter">OpenRouter</option>
+                        </select>
+                        <input type="password" id="byok_key" placeholder="Paste your API key here..." style="flex:1;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:white;font-size:0.9rem">
+                        <button onclick="saveBYOK()" id="byok_save_btn" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:500;font-size:0.9rem;white-space:nowrap">Save</button>
+                    </div>
+                    <div id="byok_status" style="font-size:0.85rem"></div>
+                    <p style="color:#94a3b8;font-size:0.8rem;margin-top:8px">Don't have a key? No problem — skip this step and use WiseChef credits. You can add a key later in Settings → AI Provider.</p>
+                </div>`;
+                continue;
+            }
             const val = answers[q.id] || '';
             html += `<div class="field">`;
             if (q.label) html += `<label>${q.label}</label>`;
@@ -294,6 +326,37 @@ ${s.cracks || '(items that slip)'}
         return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     }
 
+    async function saveBYOK() {
+        const provider = document.getElementById('byok_provider')?.value;
+        const apiKey = document.getElementById('byok_key')?.value?.trim();
+        const statusEl = document.getElementById('byok_status');
+        const btn = document.getElementById('byok_save_btn');
+        if (!apiKey) { statusEl.innerHTML = '<span style="color:#ef4444">Please enter an API key</span>'; return; }
+        btn.textContent = 'Saving...';
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/providers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, apiKey }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color:#10b981">✅ Key saved! You now have unlimited usage.</span>';
+                btn.textContent = 'Saved ✓';
+                answers._byok = { provider, masked: data.masked };
+            } else {
+                statusEl.innerHTML = `<span style="color:#ef4444">❌ ${data.error || 'Failed'}</span>`;
+                btn.textContent = 'Save';
+                btn.disabled = false;
+            }
+        } catch (e) {
+            statusEl.innerHTML = '<span style="color:#ef4444">❌ Network error</span>';
+            btn.textContent = 'Save';
+            btn.disabled = false;
+        }
+    }
+
     function toggleChip(id, value, multi) {
         if (multi) {
             const arr = answers[id] || [];
@@ -313,7 +376,7 @@ ${s.cracks || '(items that slip)'}
 
     function updateNextBtn() {
         const step = STEPS[currentStep];
-        const required = step.questions.filter(q => q.type !== 'preview' && q.id !== 'language' && q.id !== 'working_hours');
+        const required = step.questions.filter(q => q.type !== 'preview' && q.type !== 'byok' && q.id !== 'language' && q.id !== 'working_hours');
         const allFilled = required.every(q => {
             const v = answers[q.id];
             if (Array.isArray(v)) return v.length > 0;

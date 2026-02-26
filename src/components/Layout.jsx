@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server, MessageCircle, Cpu } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
 export default function Layout({ page, setPage, children }) {
@@ -31,6 +31,7 @@ export default function Layout({ page, setPage, children }) {
     { id: 'skills', label: 'Skills', icon: Puzzle },
     { id: 'soul', label: 'Soul', icon: Heart },
     { id: 'credentials', label: 'Credentials', icon: KeyRound },
+    { id: 'ai-provider', label: 'AI Provider', icon: Cpu },
     { id: 'link-channel', label: 'Link Channel', icon: Link2 },
     ...(isHQ ? [{ id: 'fleet', label: 'Fleet', icon: Server }] : []),
     { id: 'settings', label: 'Settings', icon: Settings },
