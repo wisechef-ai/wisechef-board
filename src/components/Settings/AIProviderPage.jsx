@@ -2,23 +2,17 @@ import React, { useState, useEffect } from 'react'
 import { Key, Check, X, ChevronRight, Zap, Shield, Infinity, AlertTriangle, Trash2, LogIn } from 'lucide-react'
 
 const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...', models: ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-6'],
-    subscription: { name: 'Claude Pro/Max', desc: 'Use your Claude Pro or Max subscription — no API key needed',
-      steps: ['Run "claude setup-token" in any terminal', 'Copy the token it gives you', 'Paste it as your API key above'] } },
-  { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3-mini'],
-    subscription: { name: 'ChatGPT Plus/Pro', desc: 'Use your ChatGPT subscription — get an API key from platform.openai.com',
-      steps: ['Go to platform.openai.com → sign in', 'API Keys → Create new key', 'Copy key (starts with sk-) and paste above'] } },
-  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login)', models: ['gpt-4.1', 'gpt-4o', 'claude-sonnet-4-6', 'claude-opus-4-6'],
-    subscription: { name: 'Copilot', desc: 'Log in with your GitHub Copilot subscription — no API key needed', flow: 'device' },
-    note: '💡 Best value — GPT-4.1 + Claude Sonnet + more included' },
-  { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...', models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    note: '💡 Free API keys at aistudio.google.com — no credit card needed' },
-  { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...', models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1', 'google/gemini-2.5-pro', 'meta-llama/llama-4-maverick'],
-    note: '💡 One key, all models. Pay-as-you-go. openrouter.ai' },
-  { id: 'venice', name: 'Venice AI', logo: '🏴', placeholder: 'vnc_...', models: ['llama-3.3-70b'],
-    note: '🔒 Privacy-first inference — no data retention. venice.ai' },
-  { id: 'ollama', name: 'Ollama (Local)', logo: '🦙', placeholder: 'http://localhost:11434', models: ['llama3', 'mistral', 'phi3'],
-    note: '💻 Run models locally — completely free and private' },
+  { id: 'github-copilot', name: 'GitHub Copilot', logo: '🐙', placeholder: '(uses device login)', models: ['github-copilot/gpt-4.1', 'github-copilot/gpt-4o', 'github-copilot/claude-sonnet-4-6', 'github-copilot/claude-opus-4-6'],
+    subscription: { name: 'Copilot', desc: 'Log in with your GitHub account — works with any Copilot plan', flow: 'device' },
+    note: '💡 Best value — GPT-4.1 + Claude Sonnet + more included', authType: 'device' },
+  { id: 'anthropic', name: 'Anthropic', logo: '🟤', placeholder: 'sk-ant-api03-...', models: ['anthropic/claude-sonnet-4-6', 'anthropic/claude-haiku-4-5', 'anthropic/claude-opus-4-6'],
+    note: 'Get your API key at console.anthropic.com', authType: 'apikey' },
+  { id: 'openai', name: 'OpenAI', logo: '🟢', placeholder: 'sk-proj-...', models: ['openai/gpt-4.1', 'openai/gpt-4.1-mini', 'openai/gpt-4.1-nano', 'openai/o3-mini'],
+    note: 'Get your API key at platform.openai.com', authType: 'apikey' },
+  { id: 'google', name: 'Google AI', logo: '🔵', placeholder: 'AIza...', models: ['google/gemini-2.5-flash', 'google/gemini-2.5-pro'],
+    note: '💡 Free API keys at aistudio.google.com — no credit card needed', authType: 'apikey' },
+  { id: 'openrouter', name: 'OpenRouter', logo: '🟣', placeholder: 'sk-or-v1-...', models: ['openrouter/anthropic/claude-sonnet-4-6', 'openrouter/openai/gpt-4.1', 'openrouter/google/gemini-2.5-pro'],
+    note: '💡 One key, all models. Pay-as-you-go. openrouter.ai', authType: 'apikey' },
 ]
 
 function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubscriptionLogin }) {
@@ -136,10 +130,20 @@ function ProviderCard({ provider, connected, masked, onConnect, onRemove, onSubs
               {deviceFlow && deviceStatus === 'waiting' && (
                 <div className="bg-secondary rounded-lg p-4 space-y-3 text-center">
                   <p className="text-xs text-muted-foreground">Enter this code at GitHub:</p>
-                  <a href={deviceFlow.verificationUrl} target="_blank" rel="noopener noreferrer"
-                    className="block text-2xl font-mono font-bold tracking-widest text-foreground hover:text-blue-400 transition-colors">
-                    {deviceFlow.userCode}
-                  </a>
+                  <div className="flex items-center justify-center gap-2">
+                    <code className="text-2xl font-mono font-bold tracking-widest text-foreground select-all cursor-text" onClick={e => {
+                      navigator.clipboard.writeText(deviceFlow.userCode)
+                      e.target.style.color = '#10b981'
+                      setTimeout(() => e.target.style.color = '', 1000)
+                    }}>
+                      {deviceFlow.userCode}
+                    </code>
+                    <button onClick={() => navigator.clipboard.writeText(deviceFlow.userCode)}
+                      className="text-muted-foreground hover:text-foreground p-1" title="Copy code">
+                      📋
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Click the code to copy</p>
                   <a href={deviceFlow.verificationUrl} target="_blank" rel="noopener noreferrer"
                     className="inline-block bg-blue-600 hover:bg-blue-500 text-white rounded-md px-4 py-2 text-xs font-medium">
                     Open GitHub →
@@ -269,10 +273,11 @@ export default function AIProviderPage() {
   // Build model list based on connected providers
   const allModels = []
   PROVIDERS.forEach(p => {
-    if (providers[p.id]?.hasKey || p.id === 'anthropic') {
+    // Show models for: connected providers + anthropic (default/included)
+    const isConnected = providers[p.id]?.hasKey || providers[p.id]?.hasAuth
+    if (isConnected || p.id === 'anthropic') {
       p.models.forEach(m => {
-        const fullName = m.includes('/') ? m : `${p.id}/${m}`
-        allModels.push({ label: m, value: fullName, provider: p.name })
+        allModels.push({ label: m.replace(/^[^/]+\//, ''), value: m, provider: p.name })
       })
     }
   })

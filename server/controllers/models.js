@@ -2,6 +2,8 @@ import {
   readOpenclawJson, writeOpenclawJson, readHeartbeat, writeHeartbeat,
 } from '../lib/fileStore.js';
 import { broadcast } from '../broadcast.js';
+import fs from 'fs';
+import path from 'path';
 
 // Default models available to all users
 const DEFAULT_MODELS = [
@@ -48,11 +50,21 @@ export function getProviderKeys(_req, res) {
   try {
     const config = readOpenclawJson();
     const providers = config.providers || {};
-    // Return which providers have keys set (don't expose actual keys)
     const result = {};
     for (const [name, prov] of Object.entries(providers)) {
       result[name] = { hasKey: !!prov.apiKey, masked: prov.apiKey ? '••••' + prov.apiKey.slice(-4) : null };
     }
+    
+    // Check auth-profiles.json for device-flow providers (github-copilot)
+    try {
+      const homeDir = process.env.HOME || '/root';
+      const profilePath = path.join(homeDir, '.openclaw', 'agents', 'default', 'agent', 'auth-profiles.json');
+      const profiles = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+      if (profiles.profiles?.['github-copilot:github']?.token) {
+        result['github-copilot'] = { hasKey: true, hasAuth: true, masked: '(device login)' };
+      }
+    } catch {}
+    
     res.json(result);
   } catch { res.json({}); }
 }
@@ -180,11 +192,8 @@ export async function pollDeviceFlow(req, res) {
     if (data.access_token) {
       pendingDeviceFlows.delete(flowId);
       // Save to openclaw auth profile
-      const { execSync } = await import('child_process');
       const homeDir = process.env.HOME || '/root';
-      const profilePath = `${homeDir}/.openclaw/agents/default/agent/auth-profiles.json`;
-      const fs = await import('fs');
-      const path = await import('path');
+      const profilePath = path.join(homeDir, '.openclaw', 'agents', 'default', 'agent', 'auth-profiles.json');
       
       // Ensure dir exists
       fs.mkdirSync(path.dirname(profilePath), { recursive: true });
