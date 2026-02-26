@@ -21,7 +21,8 @@ export function sendChatMessage(req, res) {
     ).trim();
 
     chatHistory.push({ role: 'assistant', content: result, timestamp: Date.now() });
-    res.json({ ok: true, reply: result });
+    const reply = req._usageNote ? result + req._usageNote : result;
+    res.json({ ok: true, reply, usageInfo: req._usageInfo || null });
   } catch (e) {
     console.error('Chat send failed:', e.message);
     res.json({

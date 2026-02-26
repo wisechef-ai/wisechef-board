@@ -20,6 +20,7 @@ import { getPlanoStatus, startPlano, stopPlano, getPlanoConfig, putPlanoConfig }
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
 import { getFleet, getClientStatus, deployClient, startHealthChecks } from './controllers/fleet.js';
 import { createChatSession, sendChatMessage } from './controllers/chat.js';
+import { usageGuard, getUsageLimits } from './middleware/usageGuard.js';
 import {
   isOnboarded, hasLinkedChannel,
   getOnboardingStatus, completeOnboarding,
@@ -128,7 +129,10 @@ router.post('/api/wisechef-board/update', updateBoard);
 // Plano Model Routing
 // Chat
 router.post('/api/chat/session', createChatSession);
-router.post('/api/chat/send', sendChatMessage);
+router.post('/api/chat/send', usageGuard, sendChatMessage);
+
+// Usage limits
+router.get('/api/usage-limits', getUsageLimits);
 
 router.get('/api/plano/status', getPlanoStatus);
 router.post('/api/plano/start', startPlano);
