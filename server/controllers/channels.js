@@ -29,6 +29,24 @@ function readOpenclawConfig() {
   } catch { return {}; }
 }
 
+function ensureChannelConfig(channel) {
+  const configPath = path.join(OPENCLAW_DIR, 'openclaw.json');
+  let config = readOpenclawConfig();
+  
+  if (!config.channels) config.channels = {};
+  
+  // Add channel if not present
+  if (!config.channels[channel]) {
+    config.channels[channel] = {};
+    fs.mkdirSync(OPENCLAW_DIR, { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log(`Added ${channel} to openclaw.json`);
+    
+    // Restart gateway to pick up new config
+    try { restartGateway(); } catch (e) { console.error('Gateway restart after config:', e.message); }
+  }
+}
+
 function getGatewayToken() {
   return readOpenclawConfig()?.gateway?.auth?.token || '';
 }
@@ -238,6 +256,9 @@ export function startLinking(req, res) {
   const { channel } = req.body;
   if (!CHANNELS[channel]) return res.status(400).json({ error: 'Unknown channel' });
   const ch = CHANNELS[channel];
+
+  // Ensure openclaw.json exists with this channel configured
+  ensureChannelConfig(channel);
 
   // Kill existing session
   if (linkingSessions.has(channel)) {
