@@ -128,12 +128,9 @@ export function usageGuard(req, res, next) {
   if (usagePercent >= DOWNGRADE_THRESHOLD) {
     // Soft downgrade to Haiku
     switchModel(DOWNGRADE_MODEL);
-    // Let the request through but inject a note
     req._usageNote = `\n\n_ℹ️ You're at ${Math.round(usagePercent * 100)}% of your monthly limit. Responses may be shorter to conserve usage. Upgrade or add your own API key for full performance._`;
-  } else {
-    // Ensure we're on the good model
-    switchModel(DEFAULT_MODEL);
   }
+  // Don't override user's chosen model — only downgrade at threshold
 
   // Attach usage info for the response
   req._usageInfo = { plan, cap, cost: monthlyCost, percent: usagePercent };
