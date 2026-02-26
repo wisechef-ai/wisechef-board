@@ -308,7 +308,15 @@ export function startLinking(req, res) {
       buffer += text;
       session.logs.push(text);
       if (text.includes('▄') || text.includes('█')) {
-        session.qrRaw = buffer;
+        // Only keep the latest QR block (WhatsApp refreshes QR periodically)
+        const lines = buffer.split('\n');
+        const qrLines = [];
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].includes('▄') || lines[i].includes('█') || lines[i].includes('▀')) {
+            qrLines.unshift(lines[i]);
+          } else if (qrLines.length > 0) break;
+        }
+        session.qrRaw = qrLines.join('\n');
         session.status = 'qr_ready';
       }
       if (text.toLowerCase().includes('connected') || text.toLowerCase().includes('success')) {
