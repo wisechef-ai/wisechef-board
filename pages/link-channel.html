@@ -203,7 +203,7 @@
                     </div>
                     <div style="display:flex;align-items:center;gap:10px">
                         <span style="color:#22c55e;font-size:0.8rem">Connected</span>
-                        <button onclick="unlinkChannel('${c.id}')" style="background:#ef444422;color:#ef4444;border:1px solid #ef444444;border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer">Disconnect</button>
+                        <button onclick="unlinkChannel('${c.id}')" style="background:#ef444422;color:#ef4444;border:1px solid #ef444444;border-radius:8px;padding:6px 10px;font-size:0.8rem;font-weight:600;cursor:pointer">Disconnect</button>
                     </div>
                 </div>
                 <div style="padding:4px 0 8px 32px;font-size:0.8rem;color:#9ca3af">${getChannelTip(c.id)}</div>
@@ -311,6 +311,18 @@
         return fields[channel] || [{ key: 'token', placeholder: 'Token' }];
     }
 
+    function renderLinkError(channel, message) {
+        const statusEl = document.getElementById('linkStatus');
+        const channelName = CHANNELS_MAP[channel]?.name || channel;
+        statusEl.innerHTML = `
+            <div class="status-line status-error">${message}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                <button class="btn" onclick="startQrLink('${channel}')">Try Again</button>
+                <button class="btn" onclick="unlinkChannel('${channel}')">Disconnect ${channelName}</button>
+            </div>
+        `;
+    }
+
     async function startQrLink(channel) {
         const btn = document.getElementById('startLinkBtn');
         const qrDisplay = document.getElementById('qrDisplay');
@@ -318,7 +330,9 @@
 
         btn.disabled = true;
         btn.textContent = 'Starting...';
+        btn.style.display = 'block';
         qrDisplay.className = 'qr-container waiting';
+        statusEl.innerHTML = '';
         
         const isSignal = channel === 'signal';
         qrDisplay.textContent = isSignal
@@ -341,6 +355,7 @@
                 qrDisplay.textContent = `❌ ${linkData.error}`;
                 btn.disabled = false;
                 btn.textContent = 'Retry';
+                renderLinkError(channel, `${linkData.error} You can try again or disconnect this channel first.`);
                 document.getElementById('linkingNotice').style.display = 'none';
                 return;
             }
@@ -354,6 +369,7 @@
             qrDisplay.textContent = '❌ Failed to start. Try again.';
             btn.disabled = false;
             btn.textContent = 'Start Linking';
+            renderLinkError(channel, 'Failed to start linking. Try again or disconnect this channel.');
             document.getElementById('continueBtn').style.display = 'block';
             document.getElementById('linkingNotice').style.display = 'none';
         }
@@ -399,6 +415,7 @@
                 btn.disabled = false;
                 btn.textContent = 'Retry';
                 btn.style.display = 'block';
+                renderLinkError(channel, `${data.error || 'Linking timed out.'} Try again or disconnect this channel.`);
                 document.getElementById('continueBtn').style.display = 'block';
                 document.getElementById('linkingNotice').style.display = 'none';
             }
