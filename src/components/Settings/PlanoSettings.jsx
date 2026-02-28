@@ -89,7 +89,7 @@ export default function PlanoSettings() {
               'px-2 py-0.5 rounded-full text-xs font-medium border',
               status?.running
                 ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                : 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20'
+                : 'bg-muted text-muted-foreground border-border'
             )}>
               {status?.running ? `Running on :${status.port}` : 'Stopped'}
             </span>
@@ -137,7 +137,7 @@ export default function PlanoSettings() {
         {!status?.enabled && (
           <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-500/5 border border-amber-500/20 rounded-md p-3">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
-            <span>Plano is disabled. Set <code className="bg-neutral-800 px-1 rounded">PLANO_ENABLED=true</code> in your .env file to enable it.</span>
+            <span>Plano is disabled. Set <code className="bg-muted px-1 rounded text-foreground">PLANO_ENABLED=true</code> in your .env file to enable it.</span>
           </div>
         )}
 
@@ -152,13 +152,13 @@ export default function PlanoSettings() {
           <h3 className="font-medium text-sm">Setup Guide</h3>
           <div className="text-xs text-muted-foreground space-y-2">
             <p><strong>1. Install Plano:</strong></p>
-            <code className="block bg-neutral-900 text-neutral-300 px-3 py-2 rounded-md">pip install plano-router</code>
+            <code className="block bg-muted text-foreground px-3 py-2 rounded-md">pip install plano-router</code>
             <p><strong>2. Add to your .env:</strong></p>
-            <code className="block bg-neutral-900 text-neutral-300 px-3 py-2 rounded-md whitespace-pre">{`PLANO_ENABLED=true\nPLANO_PORT=12000`}</code>
+            <code className="block bg-muted text-foreground px-3 py-2 rounded-md whitespace-pre">{`PLANO_ENABLED=true\nPLANO_PORT=12000`}</code>
             <p><strong>3. Point OpenClaw at Plano:</strong></p>
-            <code className="block bg-neutral-900 text-neutral-300 px-3 py-2 rounded-md whitespace-pre">{`# In openclaw.json or env:\nOPENAI_BASE_URL=http://localhost:12000/v1`}</code>
+            <code className="block bg-muted text-foreground px-3 py-2 rounded-md whitespace-pre">{`# In openclaw.json or env:\nOPENAI_BASE_URL=http://localhost:12000/v1`}</code>
             <p><strong>4. Start from this page or run:</strong></p>
-            <code className="block bg-neutral-900 text-neutral-300 px-3 py-2 rounded-md">plano --config ~/.plano/config.yaml --port 12000</code>
+            <code className="block bg-muted text-foreground px-3 py-2 rounded-md">plano --config ~/.plano/config.yaml --port 12000</code>
             <a
               href="https://github.com/katanemo/plano"
               target="_blank"
