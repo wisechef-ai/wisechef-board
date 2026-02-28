@@ -72,7 +72,7 @@ async function ensureSignalCli() {
     ).trim().split('\n')[0];
     
     if (findBin) {
-      execSync(`cp "${findBin}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
+      execSync(`rm -f /usr/local/bin/signal-cli && cp "${findBin}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
     } else {
       // Tar might extract directly to /opt/signal-cli as single file
       const candidates = [
@@ -83,7 +83,7 @@ async function ensureSignalCli() {
       ];
       const found = candidates.find(p => { try { fs.accessSync(p, fs.constants.F_OK); return true; } catch { return false; } });
       if (found) {
-        execSync(`cp "${found}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
+        execSync(`rm -f /usr/local/bin/signal-cli && cp "${found}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
       }
     }
     
