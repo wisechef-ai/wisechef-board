@@ -382,7 +382,7 @@ ${s.cracks || '(items that slip)'}
             if (Array.isArray(v)) return v.length > 0;
             return (v || '').toString().trim().length > 0;
         });
-        document.getElementById('nextBtn').disabled = !allFilled;
+        document.getElementById('nextBtn').disabled = false;
     }
 
     function prevStep() {
