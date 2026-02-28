@@ -32,6 +32,23 @@ function checkBYOKNudge() {
   return null;
 }
 
+function runChatAgentCommand(escaped) {
+  return execSync(
+    `openclaw agent -m '${escaped}' --session-id board-chat`,
+    { timeout: 120000, encoding: 'utf8', maxBuffer: 1024 * 1024 }
+  ).trim();
+}
+
+function logChatError(prefix, error) {
+  console.error(prefix, {
+    message: error.message,
+    status: error.status ?? null,
+    signal: error.signal ?? null,
+    stdout: error.stdout?.toString?.().trim() || '',
+    stderr: error.stderr?.toString?.().trim() || '',
+  });
+}
+
 export function sendChatMessage(req, res) {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'No message' });
@@ -40,10 +57,15 @@ export function sendChatMessage(req, res) {
 
   try {
     const escaped = message.replace(/'/g, "'\\''").replace(/\\/g, '\\\\');
-    const result = execSync(
-      `openclaw agent -m '${escaped}' --session-id board-chat 2>/dev/null`,
-      { timeout: 120000, encoding: 'utf8', maxBuffer: 1024 * 1024 }
-    ).trim();
+    let result;
+
+    try {
+      result = runChatAgentCommand(escaped);
+    } catch (firstError) {
+      logChatError('Chat send failed on first attempt:', firstError);
+      execSync('sleep 3', { timeout: 4000 });
+      result = runChatAgentCommand(escaped);
+    }
 
     chatHistory.push({ role: 'assistant', content: result, timestamp: Date.now() });
     
@@ -56,7 +78,7 @@ export function sendChatMessage(req, res) {
     
     res.json({ ok: true, reply, usageInfo: req._usageInfo || null });
   } catch (e) {
-    console.error('Chat send failed:', e.message);
+    logChatError('Chat send failed after retry:', e);
     res.json({
       ok: false,
       reply: '⚠️ Agent is warming up after model switch — this takes about 30 seconds. Please try again shortly.',
