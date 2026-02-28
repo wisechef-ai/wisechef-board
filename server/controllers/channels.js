@@ -18,19 +18,21 @@ const CHANNELS = {
 // Active linking sessions (in-memory)
 const linkingSessions = new Map();
 // Send welcome message after channel is linked and gateway restarted
-function sendWelcomeMessage(channel) {
+function sendWelcomeMessage(channel, target) {
   setTimeout(() => {
     try {
       let name = 'there';
       try {
         const answers = JSON.parse(fs.readFileSync(path.join(WORKSPACE, 'onboarding-answers.json'), 'utf8'));
         name = (answers.name || 'there').split(' ')[0];
-        // Capitalize first letter
         name = name.charAt(0).toUpperCase() + name.slice(1);
       } catch {}
       const msg = `Hey ${name}! 👋 I'm your WiseChef AI assistant. You can message me right here anytime — ask me anything, give me tasks, or just chat. I'll learn your preferences over time and get better at helping you. Try sending me something!`;
-      execSync(`openclaw message send --channel ${channel} --message "${msg.replace(/"/g, '\\"')}"`, { timeout: 30000 });
-      console.log(`[welcome] Sent welcome message via ${channel}`);
+      const escaped = msg.replace(/"/g, '\\"');
+      // target is the phone number / account for the channel
+      const targetFlag = target ? ` --target "${target}"` : '';
+      execSync(`openclaw message send --channel ${channel}${targetFlag} --message "${escaped}"`, { timeout: 30000 });
+      console.log(`[welcome] Sent welcome message via ${channel} to ${target || 'default'}`);
     } catch (e) {
       console.error('[welcome] Failed to send welcome message:', e.message);
     }
@@ -419,7 +421,13 @@ export async function startLinking(req, res) {
         session.status = 'connected';
         saveChannelLink(channel);
         try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
-        sendWelcomeMessage(channel);
+        // Get the target for welcome message (phone from config or linking session)
+        let welcomeTarget;
+        try {
+          const cfg = JSON.parse(fs.readFileSync(path.join(process.env.HOME || '/root', '.openclaw/openclaw.json'), 'utf8'));
+          welcomeTarget = cfg.channels?.[channel]?.account || cfg.channels?.[channel]?.allowFrom?.[0];
+        } catch {}
+        sendWelcomeMessage(channel, welcomeTarget);
       }
     });
 
@@ -481,12 +489,25 @@ export async function startLinking(req, res) {
           const parsed = JSON.parse(accounts);
           const account = Array.isArray(parsed) ? parsed[0]?.number : parsed?.number;
           if (account) {
-            execSync(`openclaw config set channels.signal.account "${account}" 2>/dev/null`, { timeout: 5000 });
+            // Write account directly to avoid shell escaping issues with + in phone numbers
+            const cfgPath = path.join(process.env.HOME || '/root', '.openclaw/openclaw.json');
+            const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+            if (!cfg.channels) cfg.channels = {};
+            if (!cfg.channels.signal) cfg.channels.signal = {};
+            cfg.channels.signal.account = account;
+            fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+
           }
         } catch {}
         saveChannelLink(channel);
         try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
-        sendWelcomeMessage(channel);
+        // Get account for welcome message target
+        let welcomeTarget;
+        try {
+          const cfg = JSON.parse(fs.readFileSync(path.join(process.env.HOME || '/root', '.openclaw/openclaw.json'), 'utf8'));
+          welcomeTarget = cfg.channels?.[channel]?.account || cfg.channels?.[channel]?.allowFrom?.[0];
+        } catch {}
+        sendWelcomeMessage(channel, welcomeTarget);
       } else {
         if (session.status !== 'timeout') {
           session.status = 'failed';
