@@ -17,6 +17,26 @@ const CHANNELS = {
 
 // Active linking sessions (in-memory)
 const linkingSessions = new Map();
+// Send welcome message after channel is linked and gateway restarted
+function sendWelcomeMessage(channel) {
+  setTimeout(() => {
+    try {
+      let name = 'there';
+      try {
+        const answers = JSON.parse(fs.readFileSync(path.join(WORKSPACE, 'onboarding-answers.json'), 'utf8'));
+        name = (answers.name || 'there').split(' ')[0];
+        // Capitalize first letter
+        name = name.charAt(0).toUpperCase() + name.slice(1);
+      } catch {}
+      const msg = `Hey ${name}! 👋 I'm your WiseChef AI assistant. You can message me right here anytime — ask me anything, give me tasks, or just chat. I'll learn your preferences over time and get better at helping you. Try sending me something!`;
+      execSync(`openclaw message send --channel ${channel} --message "${msg.replace(/"/g, '\\"')}"`, { timeout: 30000 });
+      console.log(`[welcome] Sent welcome message via ${channel}`);
+    } catch (e) {
+      console.error('[welcome] Failed to send welcome message:', e.message);
+    }
+  }, 15000); // 15s delay for gateway to fully restart and channel to connect
+}
+
 
 // On-demand signal-cli installer
 let signalCliInstalling = false;
@@ -399,6 +419,7 @@ export async function startLinking(req, res) {
         session.status = 'connected';
         saveChannelLink(channel);
         try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
+        sendWelcomeMessage(channel);
       }
     });
 
@@ -465,6 +486,7 @@ export async function startLinking(req, res) {
         } catch {}
         saveChannelLink(channel);
         try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
+        sendWelcomeMessage(channel);
       } else {
         if (session.status !== 'timeout') {
           session.status = 'failed';
