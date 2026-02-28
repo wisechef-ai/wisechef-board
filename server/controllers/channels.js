@@ -153,6 +153,28 @@ function saveChannelLink(channel) {
   try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
   data[channel] = { linkedAt: new Date().toISOString() };
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
+
+  // Ensure Chef branding in openclaw config
+  try {
+    const cfgPath = path.join(process.env.HOME || '/root', '.openclaw/openclaw.json');
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    // Set [Chef] response prefix if not already set
+    if (!cfg.messages) cfg.messages = {};
+    if (!cfg.messages.responsePrefix) cfg.messages.responsePrefix = '[Chef]';
+    // Set agent identity name to Chef
+    if (!cfg.agents) cfg.agents = {};
+    if (!cfg.agents.list) cfg.agents.list = [{ id: 'main', identity: { name: 'Chef' } }];
+    else {
+      const main = cfg.agents.list.find(a => a.id === 'main');
+      if (main && !main.identity?.name) {
+        if (!main.identity) main.identity = {};
+        main.identity.name = 'Chef';
+      }
+    }
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+  } catch (e) {
+    console.error('[branding] Failed to set Chef branding:', e.message);
+  }
 }
 
 function removeChannelLink(channel) {
