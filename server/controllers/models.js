@@ -39,53 +39,6 @@ const PROVIDER_MODELS = {
   'openrouter': [], // fetched dynamically from OpenRouter API when key is connected
 };
 
-// Map provider names to their env var names (what OpenClaw actually reads)
-const PROVIDER_ENV_VARS = {
-  'anthropic': 'ANTHROPIC_API_KEY',
-  'google': 'GEMINI_API_KEY',
-  'openai': 'OPENAI_API_KEY',
-  'openrouter': 'OPENROUTER_API_KEY',
-};
-
-/**
- * Apply provider keys from provider-keys.json to process.env
- * so OpenClaw picks them up without touching openclaw.json.
- * Called on set/remove and can be called at startup.
- */
-export function syncProviderKeysToEnv() {
-  const keys = readProviderKeys();
-  for (const [provider, data] of Object.entries(keys)) {
-    const envVar = PROVIDER_ENV_VARS[provider];
-    if (envVar && data.apiKey) {
-      process.env[envVar] = data.apiKey;
-    }
-  }
-}
-
-// Also check for legacy config.providers and migrate on first read
-function migrateLegacyProviders() {
-  try {
-    const config = readOpenclawJson();
-    if (config.providers && Object.keys(config.providers).length > 0) {
-      const existing = readProviderKeys();
-      for (const [provider, data] of Object.entries(config.providers)) {
-        if (data.apiKey && !existing[provider]?.apiKey) {
-          existing[provider] = { apiKey: data.apiKey };
-        }
-      }
-      writeProviderKeys(existing);
-      // Remove invalid key from openclaw.json
-      delete config.providers;
-      writeOpenclawJson(config);
-      console.log('[models] Migrated legacy config.providers → provider-keys.json');
-    }
-  } catch {}
-}
-
-// Run migration + env sync on module load
-migrateLegacyProviders();
-syncProviderKeysToEnv();
-
 export async function listModels(req, res) {
   try {
     const { execSync } = await import('child_process');
@@ -105,19 +58,21 @@ export async function listModels(req, res) {
       });
     } catch {}
     
-    // Add known models for connected providers (auth profiles + provider keys)
+    // Add known models for connected providers (auth profiles + provider keys file + env vars)
     const connectedProviders = new Set();
     // Check auth profiles (e.g. github-copilot device flow)
     const authProfiles = config.auth?.profiles || {};
     Object.values(authProfiles).forEach(p => { if (p.provider) connectedProviders.add(p.provider); });
-    // Check provider API keys from provider-keys.json (NOT config.providers)
-    const providerKeys = readProviderKeys();
-    Object.keys(providerKeys).forEach(p => { if (providerKeys[p]?.apiKey) connectedProviders.add(p); });
-    // Also check env vars directly (may have been set at container start)
-    if (process.env.ANTHROPIC_API_KEY) connectedProviders.add('anthropic');
+    // Check provider keys from separate file (NOT openclaw.json)
+    const provKeys = readProviderKeys();
+    Object.entries(provKeys).forEach(([name, prov]) => { if (prov.apiKey) connectedProviders.add(name); });
+    // Check env vars for common providers
     if (process.env.GEMINI_API_KEY) connectedProviders.add('google');
     if (process.env.OPENAI_API_KEY) connectedProviders.add('openai');
     if (process.env.OPENROUTER_API_KEY) connectedProviders.add('openrouter');
+    if (process.env.ANTHROPIC_API_KEY) connectedProviders.add('anthropic');
+    // Always include anthropic (default/included)
+    connectedProviders.add('anthropic');
     
     connectedProviders.forEach(provider => {
       (PROVIDER_MODELS[provider] || []).forEach(m => modelSet.add(m));
@@ -162,17 +117,26 @@ export function setModel(req, res) {
 
 export function getProviderKeys(_req, res) {
   try {
-    const providerKeys = readProviderKeys();
+    // Read from provider-keys.json (NOT openclaw.json)
+    const provKeys = readProviderKeys();
     const result = {};
-    for (const [name, prov] of Object.entries(providerKeys)) {
+    for (const [name, prov] of Object.entries(provKeys)) {
       result[name] = { hasKey: !!prov.apiKey, masked: prov.apiKey ? '••••' + prov.apiKey.slice(-4) : null };
     }
-    // Also show keys set via env vars (from container provisioning)
-    for (const [provider, envVar] of Object.entries(PROVIDER_ENV_VARS)) {
-      if (!result[provider] && process.env[envVar]) {
-        result[provider] = { hasKey: true, masked: '(env)', fromEnv: true };
+    
+    // Also surface env-var keys (read-only, can't be removed via UI)
+    const envProviders = [
+      ['google', 'GEMINI_API_KEY'],
+      ['openai', 'OPENAI_API_KEY'],
+      ['anthropic', 'ANTHROPIC_API_KEY'],
+      ['openrouter', 'OPENROUTER_API_KEY'],
+    ];
+    for (const [name, envKey] of envProviders) {
+      if (process.env[envKey] && !result[name]) {
+        result[name] = { hasKey: true, masked: '(env)', fromEnv: true };
       }
     }
+    
     // Check auth-profiles.json for device-flow providers (github-copilot)
     try {
       const homeDir = process.env.HOME || '/root';
@@ -182,6 +146,7 @@ export function getProviderKeys(_req, res) {
         result['github-copilot'] = { hasKey: true, hasAuth: true, masked: '(device login)' };
       }
     } catch {}
+    
     res.json(result);
   } catch { res.json({}); }
 }
@@ -194,46 +159,23 @@ export function setProviderKey(req, res) {
   if (!allowed.includes(provider)) return res.status(400).json({ error: `Provider must be one of: ${allowed.join(', ')}` });
   
   try {
-    // Store in provider-keys.json (NEVER in openclaw.json)
-    const keys = readProviderKeys();
-    if (!keys[provider]) keys[provider] = {};
-    keys[provider].apiKey = apiKey;
-    writeProviderKeys(keys);
-    
-    // Set env var so OpenClaw picks it up in board process
-    const envVar = PROVIDER_ENV_VARS[provider];
-    if (envVar) process.env[envVar] = apiKey;
-    
-    // Write to auth-profiles.json so openclaw CLI picks it up too
-    const homeDir = process.env.HOME || '/root';
-    for (const agentDir of ['default', 'main']) {
-      const profDir = path.join(homeDir, '.openclaw', 'agents', agentDir, 'agent');
-      const profPath = path.join(profDir, 'auth-profiles.json');
-      fs.mkdirSync(profDir, { recursive: true });
-      let profiles = { version: 1, profiles: {}, lastGood: {} };
-      try { profiles = JSON.parse(fs.readFileSync(profPath, 'utf8')); } catch {}
-      if (!profiles.profiles) profiles.profiles = {};
-      const profileId = `${provider}:manual`;
-      profiles.profiles[profileId] = {
-        type: 'token',
-        provider,
-        token: apiKey,
-      };
-      // Set as lastGood so openclaw uses it
-      if (!profiles.lastGood) profiles.lastGood = {};
-      profiles.lastGood[provider] = profileId;
-      fs.writeFileSync(profPath, JSON.stringify(profiles, null, 2));
+    // Write to provider-keys.json (NOT openclaw.json)
+    const provKeys = readProviderKeys();
+    if (!provKeys[provider]) provKeys[provider] = {};
+    provKeys[provider].apiKey = apiKey;
+    writeProviderKeys(provKeys);
+
+    // For google provider, also set GEMINI_API_KEY env so openclaw picks it up immediately
+    if (provider === 'google') {
+      process.env.GEMINI_API_KEY = apiKey;
+    } else if (provider === 'openai') {
+      process.env.OPENAI_API_KEY = apiKey;
+    } else if (provider === 'anthropic') {
+      process.env.ANTHROPIC_API_KEY = apiKey;
+    } else if (provider === 'openrouter') {
+      process.env.OPENROUTER_API_KEY = apiKey;
     }
-    
-    // Update openclaw.json auth order to reference the profile
-    try {
-      const config = readOpenclawJson();
-      if (!config.auth) config.auth = {};
-      if (!config.auth.order) config.auth.order = {};
-      config.auth.order[provider] = [`${provider}:manual`];
-      writeOpenclawJson(config);
-    } catch {}
-    
+
     res.json({ success: true, provider, masked: '••••' + apiKey.slice(-4) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 }
@@ -242,25 +184,14 @@ export function removeProviderKey(req, res) {
   const { provider } = req.params;
   try {
     // Remove from provider-keys.json
-    const keys = readProviderKeys();
-    if (keys[provider]) {
-      delete keys[provider];
-      writeProviderKeys(keys);
+    const provKeys = readProviderKeys();
+    if (provKeys[provider]) {
+      delete provKeys[provider];
+      writeProviderKeys(provKeys);
     }
-    
-    // Clear env var
-    const envVar = PROVIDER_ENV_VARS[provider];
-    if (envVar) delete process.env[envVar];
-    
-    // Also clean up any legacy config.providers entries
+
+    // Remove auth profiles from openclaw.json (for device-flow providers like github-copilot)
     const config = readOpenclawJson();
-    if (config.providers?.[provider]) {
-      delete config.providers[provider];
-      if (Object.keys(config.providers).length === 0) delete config.providers;
-      writeOpenclawJson(config);
-    }
-    
-    // Remove auth profiles (e.g. github-copilot device flow)
     if (config.auth?.profiles) {
       for (const key of Object.keys(config.auth.profiles)) {
         if (key.startsWith(provider + ':') || config.auth.profiles[key]?.provider === provider) {
@@ -269,6 +200,8 @@ export function removeProviderKey(req, res) {
       }
     }
     if (config.auth?.order?.[provider]) delete config.auth.order[provider];
+    writeOpenclawJson(config);
+
     // Also remove auth-profiles.json entries
     try {
       const homeDir = process.env.HOME || '/root';
@@ -283,7 +216,13 @@ export function removeProviderKey(req, res) {
         }
       }
     } catch {}
-    writeOpenclawJson(config);
+
+    // Clear env var
+    if (provider === 'google') delete process.env.GEMINI_API_KEY;
+    else if (provider === 'openai') delete process.env.OPENAI_API_KEY;
+    else if (provider === 'anthropic') delete process.env.ANTHROPIC_API_KEY;
+    else if (provider === 'openrouter') delete process.env.OPENROUTER_API_KEY;
+
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 }
