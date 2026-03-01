@@ -8,9 +8,9 @@ import path from 'path';
 
 // Default models available to all users
 const DEFAULT_MODELS = [
-  'anthropic/claude-sonnet-4-6',
-  'anthropic/claude-haiku-4-5',
-  'anthropic/claude-opus-4-6',
+  'anthropic/claude-sonnet-4.6',
+  'anthropic/claude-haiku-4.5',
+  'anthropic/claude-opus-4.6',
   'google/gemini-2.5-flash',
   'google/gemini-2.5-pro',
   'openai/gpt-4.1',
@@ -25,8 +25,8 @@ const PROVIDER_MODELS = {
     'github-copilot/gemini-3-flash-preview', 'github-copilot/gemini-3-pro-preview', 'github-copilot/gemini-3.1-pro-preview',
   ],
   'anthropic': [
-    'anthropic/claude-sonnet-4-6', 'anthropic/claude-opus-4-6', 'anthropic/claude-opus-4-5',
-    'anthropic/claude-sonnet-4.5', 'anthropic/claude-haiku-4-5',
+    'anthropic/claude-sonnet-4.6', 'anthropic/claude-opus-4.6', 'anthropic/claude-opus-4.5',
+    'anthropic/claude-sonnet-4.5', 'anthropic/claude-haiku-4.5',
   ],
   'openai': [
     'openai/gpt-5.2', 'openai/gpt-5.2-codex', 'openai/gpt-5.1-codex', 'openai/gpt-5-mini',

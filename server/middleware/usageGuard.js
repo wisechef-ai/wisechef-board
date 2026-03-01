@@ -1,38 +1,29 @@
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 
 // ═══════════════════════════════════════════════════════════════
-// BATTERY USAGE SYSTEM — "Recharging" credits model
+// BATTERY USAGE SYSTEM — "Smartphone-style" recharging credits
 // ═══════════════════════════════════════════════════════════════
 //
-// Instead of a hard monthly cap that resets on the 1st:
-//   - Each plan has a battery (max credits)
-//   - Battery drains with each API call (1 credit = 1 request)
-//   - Battery recharges passively over time when not in use
-//   - Heavy users drain it, casual users always have full charge
+// Every user gets the same battery:
+//   - 50 credits max (full charge)
+//   - +1 credit per hour passive recharge
+//   - ~50 hours from empty to full
+//   - Max theoretical usage: ~720 messages/month
+//   - All tiers use anthropic/claude-sonnet-4.6
 //   - BYOK users bypass entirely (unlimited)
 //
-// Plans:
-//   starter:  100 credits max, recharge 4/hour  (~full in 25h idle)
-//   pro:      500 credits max, recharge 20/hour (~full in 25h idle)
-//   enterprise: 2000 credits max, recharge 80/hour
-//
-// Promo: first 40 users get lifetime Pro upgrade after beta
+// Promo: first 39 users get lifetime Pro features
 // ═══════════════════════════════════════════════════════════════
 
 const PLANS = {
-  starter:    { maxCredits: 100,  rechargePerHour: 4   },
-  pro:        { maxCredits: 500,  rechargePerHour: 20  },
-  enterprise: { maxCredits: 2000, rechargePerHour: 80  },
+  starter:    { maxCredits: 50, rechargePerHour: 1 },
+  pro:        { maxCredits: 50, rechargePerHour: 1 },
+  enterprise: { maxCredits: 50, rechargePerHour: 1 },
 };
-
 
 // BETA PROMO: first 39 users get lifetime Pro
 const BETA_PROMO_LIMIT = 39;
-
-const DOWNGRADE_THRESHOLD = 0.1;  // 10% remaining → switch to cheaper model
-const DOWNGRADE_MODEL = 'google/gemini-2.5-flash';
 
 // Battery state file
 const BATTERY_FILE = path.join(process.env.HOME || '/root', '.openclaw', 'battery.json');
@@ -156,16 +147,6 @@ function consumeCredit() {
   };
 }
 
-let lastModelSwitch = null;
-function switchModel(model) {
-  if (lastModelSwitch === model) return;
-  try {
-    execSync(`openclaw config set agents.defaults.model "${model}" 2>/dev/null`, { timeout: 5000 });
-    lastModelSwitch = model;
-    console.log(`[battery] Switched model to ${model}`);
-  } catch {}
-}
-
 // ═══════════════════════════════════════════════════════════════
 // Express middleware
 // ═══════════════════════════════════════════════════════════════
@@ -186,20 +167,18 @@ export function usageGuard(req, res, next) {
     
     return res.json({
       ok: false,
-      reply: `🔋 Battery empty! Your credits are recharging.\n\n` +
-        `You'll have credits again in about **${Math.min(hoursToFull, 1)} hour**. ` +
+      reply: `🔋 Battery empty! Recharging at 1 credit per hour.\n\n` +
+        `You'll have a credit again in about **1 hour**. ` +
         `Full recharge in ~${hoursToFull}h.\n\n` +
-        `💡 **Want unlimited usage?** Add your own AI key in **Settings → AI Provider** (free Gemini key works!)\n\n` +
-        `⚡ Or **upgrade to Pro** for 5× more credits and faster recharge.`,
+        `💡 **Want unlimited usage?** Add your own AI key in **Settings → AI Provider** (a free Gemini key works!)`,
       limited: true,
       battery: { credits: 0, maxCredits: state.maxCredits, percent: 0, plan: state.plan },
     });
   }
 
-  // Low battery warning — switch to cheaper model
-  if (result.percent <= DOWNGRADE_THRESHOLD * 100) {
-    switchModel(DOWNGRADE_MODEL);
-    req._usageNote = `\n\n_🔋 Battery at ${result.percent}% — using efficient model to conserve credits. Add your own API key for full performance._`;
+  // Low battery warning (below 20%)
+  if (result.percent <= 20 && result.percent > 0) {
+    req._usageNote = `\n\n_🔋 Battery at ${result.percent}% (${result.credits}/${result.maxCredits} credits). Recharging 1/hr. Add your own API key in Settings for unlimited usage._`;
   }
 
   req._usageInfo = {
@@ -240,6 +219,5 @@ export function getUsageLimits(_req, res) {
     },
     byok: false,
     limited: state.credits <= 0,
-    downgraded: percent <= DOWNGRADE_THRESHOLD * 100 && percent > 0,
   });
 }
