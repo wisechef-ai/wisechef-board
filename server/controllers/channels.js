@@ -19,8 +19,37 @@ const CHANNELS = {
 const linkingSessions = new Map();
 // Send welcome message after channel is linked and gateway restarted
 function sendWelcomeMessage(channel, target) {
-  // Increased delay to 20s — gateway needs time to reconnect to the channel
-  setTimeout(() => {
+  // Poll gateway status until the channel is actually connected, then send
+  const MAX_ATTEMPTS = 12; // 12 × 10s = 2 minutes max wait
+  const POLL_INTERVAL = 10000;
+  let attempt = 0;
+
+  const poll = () => {
+    attempt++;
+    try {
+      const statusOut = execSync('openclaw status 2>&1', { timeout: 15000, encoding: 'utf8' });
+      const channelName = channel.charAt(0).toUpperCase() + channel.slice(1);
+      const isConnected = statusOut.includes(channelName) && statusOut.includes('OK') && statusOut.includes('linked');
+      
+      if (!isConnected) {
+        if (attempt < MAX_ATTEMPTS) {
+          console.log(`[welcome] Channel ${channel} not ready yet (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in 10s...`);
+          setTimeout(poll, POLL_INTERVAL);
+          return;
+        }
+        console.log(`[welcome] Channel ${channel} still not ready after ${MAX_ATTEMPTS} attempts, sending anyway...`);
+      } else {
+        console.log(`[welcome] Channel ${channel} is connected (attempt ${attempt}), sending welcome message...`);
+      }
+    } catch (e) {
+      if (attempt < MAX_ATTEMPTS) {
+        console.log(`[welcome] Status check failed (attempt ${attempt}), retrying...`);
+        setTimeout(poll, POLL_INTERVAL);
+        return;
+      }
+    }
+
+    // Actually send the message
     try {
       let name = 'there';
       try {
@@ -29,30 +58,18 @@ function sendWelcomeMessage(channel, target) {
         name = name.charAt(0).toUpperCase() + name.slice(1);
       } catch {}
       const msg = `Hey ${name}! 👋 I'm your WiseChef AI assistant — Chef. You can message me right here anytime. Ask me anything, give me tasks, or just chat. I'll learn your preferences over time and get better at helping you.\n\nTry sending me something!`;
-
-      // Use openclaw agent to send via the message tool (more reliable than CLI in Docker)
-      const agentCmd = `openclaw agent -m "Send this exact message via ${channel}${target ? ' to ' + target : ''}: ${msg.replace(/"/g, '\\"').replace(/\n/g, '\\n')}" --session-id welcome-msg --timeout 30`;
-      execSync(agentCmd, { timeout: 45000, stdio: 'ignore' });
+      const escaped = msg.replace(/'/g, "'\\''");
+      const args = ['openclaw', 'message', 'send', '--channel', channel, '-m', `'${escaped}'`];
+      if (target) args.push('-t', target);
+      execSync(args.join(' '), { timeout: 30000, encoding: 'utf8' });
       console.log(`[welcome] Sent welcome message via ${channel} to ${target || 'default'}`);
     } catch (e) {
       console.error('[welcome] Failed to send welcome message:', e.message);
-      // Fallback: try openclaw message send directly
-      try {
-        let name = 'there';
-        try {
-          const answers = JSON.parse(fs.readFileSync(path.join(WORKSPACE, 'onboarding-answers.json'), 'utf8'));
-          name = (answers.name || 'there').split(' ')[0];
-        } catch {}
-        const msg = `Hey ${name}! 👋 I'm Chef, your WiseChef AI assistant. Message me anytime — I'm here to help!`;
-        const args = ['openclaw', 'message', 'send', '--channel', channel, '-m', msg];
-        if (target) args.push('-t', target);
-        execSync(args.join(' '), { timeout: 30000, stdio: 'ignore' });
-        console.log(`[welcome] Sent via fallback CLI`);
-      } catch (e2) {
-        console.error('[welcome] Fallback also failed:', e2.message);
-      }
     }
-  }, 20000);
+  };
+
+  // Start polling after initial 5s delay (gateway needs a moment to begin connecting)
+  setTimeout(poll, 5000);
 }
 
 
