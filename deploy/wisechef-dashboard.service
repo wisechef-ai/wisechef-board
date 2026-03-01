@@ -1,0 +1,18 @@
+# WiseChef Dashboard systemd service template
+# Copy to /etc/systemd/system/wisechef-dashboard.service on client VPS
+[Unit]
+Description=WiseChef Dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/wisechef/dashboard
+ExecStart=/usr/bin/node server.js
+Environment=HOST=127.0.0.1
+Environment=PORT=3333
+Environment=WISECHEF_WORKSPACE=/opt/wisechef/clawd
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

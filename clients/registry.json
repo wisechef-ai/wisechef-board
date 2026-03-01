@@ -1,0 +1,210 @@
+{
+  "clients": [
+    {
+      "id": "lukasz",
+      "name": "Łukasz Marczewski",
+      "phone": "+48513257939",
+      "role": "multi business owner",
+      "status": "pending",
+      "vps": null,
+      "onboarding": null
+    },
+    {
+      "id": "michal",
+      "name": "Michał Bojór",
+      "phone": "+48607373685",
+      "email": "michalbojor@gmail.com",
+      "status": "deployed",
+      "vps": {
+        "ip": "89.167.67.11",
+        "type": "cx33",
+        "location": "hel1"
+      },
+      "tunnel": {
+        "id": "e37a74db-dd13-4fac-877b-de84780f2237",
+        "hostname": "michal.wisechef.ai"
+      }
+    },
+    {
+      "id": "artur",
+      "name": "Artur Krawczyk",
+      "phone": null,
+      "role": "one business owner",
+      "status": "pending",
+      "vps": null,
+      "onboarding": null
+    },
+    {
+      "id": "olek",
+      "name": "Aleksander Rytelewski",
+      "phone": "+48506114376",
+      "role": "vet doctor",
+      "status": "deployed",
+      "vps": {
+        "ip": "89.167.83.118",
+        "id": 121705147,
+        "type": "cx23",
+        "location": "hel1",
+        "created": "2026-02-21T21:43:00+01:00"
+      },
+      "onboarding": null,
+      "email": "xamy3347@gmail.com",
+      "tunnel": {
+        "id": "43cb7105-b7d4-491e-bb32-4235ab883b4d",
+        "hostname": "olek.wisechef.ai",
+        "cname": "43cb7105-b7d4-491e-bb32-4235ab883b4d.cfargotunnel.com"
+      }
+    },
+    {
+      "id": "eryk-wawrzyn2fa",
+      "name": "Eryk Wawrzyn",
+      "email": "eryk.wawrzyn23@gmail.com",
+      "plan": "starter",
+      "channel": "whatsapp",
+      "useCase": "SCADA engineer needing help with technical documentation, project management, client communication, and staying on top of industrial automation tasks",
+      "status": "deployed",
+      "vps": {
+        "id": 122047844,
+        "ip": "46.225.125.218",
+        "type": "cx23",
+        "location": "nbg1"
+      },
+      "createdAt": "2026-02-25T06:15:02.170Z",
+      "tunnel": {
+        "id": "ed55c1e6-e105-470d-b347-e161a357af55",
+        "hostname": "eryk-wawrzyn2fa.wisechef.ai",
+        "cname": "ed55c1e6-e105-470d-b347-e161a357af55.cfargotunnel.com"
+      },
+      "deployedAt": "2026-02-25T06:22:45.938Z"
+    },
+    {
+      "id": "adam-krawczy4u3",
+      "name": "Adam Krawczyk",
+      "email": "braun54321@hotmail.com",
+      "plan": "starter",
+      "channel": "signal",
+      "useCase": "helping me catch up with the ai ",
+      "organisation": null,
+      "status": "deployed",
+      "mode": "docker",
+      "stripeCustomerId": "cus_U3BUm80tUhzQAb",
+      "stripeSubscriptionId": "sub_1T557JEgmqt5xoaLSDBCht33",
+      "docker": {
+        "hostIP": "78.47.239.248",
+        "containerName": "wisechef-adam-krawczy4u3",
+        "tunnelContainerName": "wisechef-adam-krawczy4u3-tunnel",
+        "gatewayToken": "df8d2ae7013bb0533ee1c773e50ae136"
+      },
+      "tunnel": {
+        "id": "0583b262-8967-41d4-8c78-52d72ba121ab",
+        "hostname": "adam-krawczy4u3.wisechef.ai",
+        "cname": "0583b262-8967-41d4-8c78-52d72ba121ab.cfargotunnel.com"
+      },
+      "createdAt": "2026-02-26T14:01:01.646Z",
+      "deployedAt": "2026-02-26T14:01:01.646Z"
+    },
+    {
+      "id": "adam-krawczy4rb",
+      "name": "Adam Krawczyk",
+      "email": "braun54321@hotmail.com",
+      "plan": "starter",
+      "channel": "signal",
+      "useCase": "Help me manage various activities in many projects including robotics simulations",
+      "organisation": null,
+      "status": "deployed",
+      "mode": "docker",
+      "stripeCustomerId": "cus_U3B8npvAdTO6jv",
+      "stripeSubscriptionId": "sub_1T54mLEgmqt5xoaLAgcApEyr",
+      "docker": {
+        "hostIP": "78.47.239.248",
+        "containerName": "wisechef-adam-krawczy4rb",
+        "tunnelContainerName": "wisechef-adam-krawczy4rb-tunnel",
+        "gatewayToken": "3904495a92f11f65305fab34d9bf6db8"
+      },
+      "tunnel": {
+        "id": "55f481e2-3b5b-4a4f-b608-0c484eb64f40",
+        "hostname": "adam-krawczy4rb.wisechef.ai",
+        "cname": "55f481e2-3b5b-4a4f-b608-0c484eb64f40.cfargotunnel.com"
+      },
+      "createdAt": "2026-02-26T14:39:30.602Z",
+      "deployedAt": "2026-02-26T14:39:30.602Z"
+    },
+    {
+      "id": "adam-krawczym3w",
+      "name": "Adam Krawczyk",
+      "email": "braun54321@hotmail.com",
+      "plan": "starter",
+      "channel": "whatsapp",
+      "useCase": "Manage test cases",
+      "status": "deployed",
+      "mode": "docker",
+      "stripeCustomerId": "cus_U3YuzJlgHqkbCH",
+      "stripeSubscriptionId": "sub_1T5RmQEgmqt5xoaLHsgrMDCC",
+      "docker": {
+        "hostIP": "89.167.102.128",
+        "containerName": "wisechef-adam-krawczym3w",
+        "tunnelContainerName": "wisechef-adam-krawczym3w-tunnel",
+        "gatewayToken": "0eb664fa9b1d69d9ad1864ea83fb1ba0"
+      },
+      "tunnel": {
+        "id": "8f7942ec-56b3-499b-8f75-f72a853a7173",
+        "hostname": "adam-krawczym3w.wisechef.ai",
+        "cname": "8f7942ec-56b3-499b-8f75-f72a853a7173.cfargotunnel.com"
+      },
+      "createdAt": "2026-02-27T14:36:09.345Z",
+      "deployedAt": "2026-02-27T14:36:09.345Z"
+    },
+    {
+      "id": "adam-krawczymhw",
+      "name": "Adam Krawczyk",
+      "email": "braun54321@hotmail.com",
+      "plan": "starter",
+      "channel": "whatsapp",
+      "useCase": "Test automation",
+      "organisation": null,
+      "status": "deployed",
+      "mode": "docker",
+      "stripeCustomerId": "cus_U3vKa6gOk4vXn5",
+      "stripeSubscriptionId": "sub_1T5nTlEgmqt5xoaLCBluyi6s",
+      "docker": {
+        "hostIP": "89.167.102.128",
+        "containerName": "wisechef-adam-krawczymhw",
+        "tunnelContainerName": "wisechef-adam-krawczymhw-tunnel",
+        "gatewayToken": "2687379eb57a9c563e05a1d6dbbdd7c8"
+      },
+      "tunnel": {
+        "id": "d3843410-1b60-42b4-a10c-ebea3166a3bd",
+        "hostname": "adam-krawczymhw.wisechef.ai",
+        "cname": "d3843410-1b60-42b4-a10c-ebea3166a3bd.cfargotunnel.com"
+      },
+      "createdAt": "2026-02-28T13:23:13.292Z",
+      "deployedAt": "2026-02-28T13:23:13.292Z"
+    },
+    {
+      "id": "mariusz-krawk7x",
+      "name": "Mariusz Krawczyk",
+      "email": "mkrawczyk@inter-plus.eu",
+      "plan": "starter",
+      "channel": "signal",
+      "useCase": "be my assistent for life",
+      "organisation": null,
+      "status": "deployed",
+      "mode": "docker",
+      "stripeCustomerId": "cus_U3wIwNgRn1kNhO",
+      "stripeSubscriptionId": "sub_1T5oPmEgmqt5xoaLd2iwbrzS",
+      "docker": {
+        "hostIP": "89.167.102.128",
+        "containerName": "wisechef-mariusz-krawk7x",
+        "tunnelContainerName": "wisechef-mariusz-krawk7x-tunnel",
+        "gatewayToken": "e8b36e43d782ae6cf47777a3035565b6"
+      },
+      "tunnel": {
+        "id": "b242c9f4-6d42-495d-baf2-8d541b9e9613",
+        "hostname": "mariusz-krawk7x.wisechef.ai",
+        "cname": "b242c9f4-6d42-495d-baf2-8d541b9e9613.cfargotunnel.com"
+      },
+      "createdAt": "2026-02-28T14:23:06.780Z",
+      "deployedAt": "2026-02-28T14:23:06.780Z"
+    }
+  ]
+}
