@@ -19,6 +19,7 @@ const CHANNELS = {
 const linkingSessions = new Map();
 // Send welcome message after channel is linked and gateway restarted
 function sendWelcomeMessage(channel, target) {
+  // Increased delay to 20s — gateway needs time to reconnect to the channel
   setTimeout(() => {
     try {
       let name = 'there';
@@ -27,16 +28,31 @@ function sendWelcomeMessage(channel, target) {
         name = (answers.name || 'there').split(' ')[0];
         name = name.charAt(0).toUpperCase() + name.slice(1);
       } catch {}
-      const msg = `Hey ${name}! 👋 I'm your WiseChef AI assistant. You can message me right here anytime — ask me anything, give me tasks, or just chat. I'll learn your preferences over time and get better at helping you. Try sending me something!`;
-      const escaped = msg.replace(/"/g, '\\"');
-      // target is the phone number / account for the channel
-      const targetFlag = target ? ` --target "${target}"` : '';
-      execSync(`openclaw message send --channel ${channel}${targetFlag} --message "${escaped}"`, { timeout: 30000 });
+      const msg = `Hey ${name}! 👋 I'm your WiseChef AI assistant — Chef. You can message me right here anytime. Ask me anything, give me tasks, or just chat. I'll learn your preferences over time and get better at helping you.\n\nTry sending me something!`;
+
+      // Use openclaw agent to send via the message tool (more reliable than CLI in Docker)
+      const agentCmd = `openclaw agent -m "Send this exact message via ${channel}${target ? ' to ' + target : ''}: ${msg.replace(/"/g, '\\"').replace(/\n/g, '\\n')}" --session-id welcome-msg --timeout 30`;
+      execSync(agentCmd, { timeout: 45000, stdio: 'ignore' });
       console.log(`[welcome] Sent welcome message via ${channel} to ${target || 'default'}`);
     } catch (e) {
       console.error('[welcome] Failed to send welcome message:', e.message);
+      // Fallback: try openclaw message send directly
+      try {
+        let name = 'there';
+        try {
+          const answers = JSON.parse(fs.readFileSync(path.join(WORKSPACE, 'onboarding-answers.json'), 'utf8'));
+          name = (answers.name || 'there').split(' ')[0];
+        } catch {}
+        const msg = `Hey ${name}! 👋 I'm Chef, your WiseChef AI assistant. Message me anytime — I'm here to help!`;
+        const args = ['openclaw', 'message', 'send', '--channel', channel, '-m', msg];
+        if (target) args.push('-t', target);
+        execSync(args.join(' '), { timeout: 30000, stdio: 'ignore' });
+        console.log(`[welcome] Sent via fallback CLI`);
+      } catch (e2) {
+        console.error('[welcome] Fallback also failed:', e2.message);
+      }
     }
-  }, 15000); // 15s delay for gateway to fully restart and channel to connect
+  }, 20000);
 }
 
 
@@ -589,6 +605,8 @@ export function submitToken(req, res) {
     execSync(args.join(' '), { timeout: 15000 });
     saveChannelLink(channel);
     restartGateway();
+    // Send welcome message after gateway restarts
+    sendWelcomeMessage(channel);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

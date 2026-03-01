@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Battery, BatteryCharging, BatteryFull, BatteryLow, BatteryWarning, ChevronDown, Cpu, Key, Trash2, Infinity } from 'lucide-react'
+import { RefreshCw, ChevronDown, Cpu, Key, Trash2 } from 'lucide-react'
 
 function BYOKInput() {
   const [providers, setProviders] = useState({})
@@ -74,51 +74,74 @@ function BYOKInput() {
   )
 }
 
-function BatteryIcon({ percent, byok }) {
-  if (byok) return <BatteryFull size={14} className="text-emerald-400" />
-  if (percent > 60) return <BatteryFull size={14} className="text-emerald-400" />
-  if (percent > 30) return <BatteryCharging size={14} className="text-amber-400" />
-  if (percent > 10) return <BatteryLow size={14} className="text-orange-400" />
-  return <BatteryWarning size={14} className="text-red-400" />
+// 5 battery levels with proper colors
+// Full (>80%) = green, High (60-80%) = green, Medium (30-60%) = yellow, Low (10-30%) = red, Critical (<5 credits) = blinking red
+function getBatteryLevel(credits, maxCredits, byok) {
+  if (byok) return { level: 'full', color: 'emerald', label: '∞', barClass: 'bg-emerald-500' }
+  const pct = maxCredits > 0 ? (credits / maxCredits) * 100 : 0
+  if (credits < 5) return { level: 'critical', color: 'red', label: '!', barClass: 'bg-red-500 animate-pulse' }
+  if (pct <= 20) return { level: 'low', color: 'red', label: '▪', barClass: 'bg-red-500' }
+  if (pct <= 50) return { level: 'medium', color: 'amber', label: '▪▪', barClass: 'bg-amber-500' }
+  if (pct <= 80) return { level: 'high', color: 'emerald', label: '▪▪▪', barClass: 'bg-emerald-500' }
+  return { level: 'full', color: 'emerald', label: '▪▪▪▪', barClass: 'bg-emerald-500' }
 }
 
-function BatteryBar({ percent, byok, credits, maxCredits, hoursToFull, rechargePerHour }) {
-  const barColor = byok ? 'bg-emerald-500' :
-    percent > 60 ? 'bg-emerald-500' :
-    percent > 30 ? 'bg-amber-500' :
-    percent > 10 ? 'bg-orange-500' : 'bg-red-500'
+function BatteryIcon({ credits, maxCredits, byok }) {
+  const { level, color } = getBatteryLevel(credits, maxCredits, byok)
+  const colorClass = color === 'emerald' ? 'text-emerald-400' : color === 'amber' ? 'text-amber-400' : 'text-red-400'
+  const blinkClass = level === 'critical' ? 'animate-pulse' : ''
+
+  // SVG battery icon with fill level
+  const pct = byok ? 100 : (maxCredits > 0 ? Math.max(5, (credits / maxCredits) * 100) : 0)
+  const fillColor = color === 'emerald' ? '#34d399' : color === 'amber' ? '#fbbf24' : '#f87171'
+
+  return (
+    <svg width="20" height="12" viewBox="0 0 20 12" className={`${blinkClass} shrink-0`}>
+      <rect x="0.5" y="0.5" width="16" height="11" rx="2" ry="2" fill="none" stroke="currentColor" strokeWidth="1" className="text-muted-foreground" />
+      <rect x="17" y="3" width="2.5" height="6" rx="1" fill="currentColor" className="text-muted-foreground" />
+      <rect x="2" y="2" width={Math.max(0, (pct / 100) * 13)} height="8" rx="1" fill={fillColor} />
+    </svg>
+  )
+}
+
+function BatteryBar({ credits, maxCredits, byok, hoursToFull, rechargePerHour }) {
+  const { level, barClass } = getBatteryLevel(credits, maxCredits, byok)
+  const pct = byok ? 100 : (maxCredits > 0 ? Math.round((credits / maxCredits) * 100) : 0)
 
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
-          <BatteryIcon percent={percent} byok={byok} />
+          <BatteryIcon credits={credits} maxCredits={maxCredits} byok={byok} />
           <span className="text-sm font-medium text-foreground">
-            {byok ? '∞ Unlimited' : `${credits}/${maxCredits} credits`}
+            {byok ? '∞ Unlimited' : `${credits} / ${maxCredits}`}
           </span>
+          {!byok && (
+            <span className="text-[10px] text-muted-foreground">credits</span>
+          )}
         </div>
         <span className="text-[10px] text-muted-foreground">
           {byok ? 'BYOK active' :
-           hoursToFull === 0 ? '⚡ Fully charged' :
-           `+${rechargePerHour}/hr · full in ~${hoursToFull}h`}
+           hoursToFull === 0 ? '⚡ Full' :
+           `+${rechargePerHour}/hr`}
         </span>
       </div>
 
       <div className="h-3 bg-secondary rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-700 ${barColor}`}
-          style={{ width: `${Math.max(2, percent)}%` }}
+          className={`h-full rounded-full transition-all duration-700 ${barClass}`}
+          style={{ width: `${Math.max(2, pct)}%` }}
         />
       </div>
 
-      {!byok && percent <= 20 && percent > 0 && (
-        <p className="text-[10px] text-amber-400">
-          ⚡ Battery low — recharging {rechargePerHour} credit/hour. Add your own API key below for unlimited usage.
+      {level === 'critical' && (
+        <p className="text-[10px] text-red-400 animate-pulse">
+          🔋 Battery critically low! Recharging +{rechargePerHour}/hour. Add your own API key for unlimited usage.
         </p>
       )}
-      {!byok && percent === 0 && (
+      {level === 'low' && (
         <p className="text-[10px] text-red-400">
-          🔋 Battery empty! Next credit in ~1 hour. Add your own API key for unlimited usage.
+          ⚡ Battery low — recharging. Add your own API key below for unlimited usage.
         </p>
       )}
     </div>
@@ -144,7 +167,7 @@ export default function UsageWidget() {
   useEffect(() => {
     fetchUsage()
     fetch('/api/models').then(r => r.json()).then(setModels).catch(() => {})
-    const iv = setInterval(fetchUsage, 60 * 1000) // refresh every minute for battery updates
+    const iv = setInterval(fetchUsage, 60 * 1000)
     return () => clearInterval(iv)
   }, [fetchUsage])
 
@@ -164,20 +187,28 @@ export default function UsageWidget() {
 
   const bat = usage.battery || {}
   const byok = usage.byok
-  const percent = byok ? 100 : (bat.percent ?? 100)
+  const credits = byok ? -1 : (bat.credits ?? bat.maxCredits ?? 50)
+  const maxCredits = bat.maxCredits || 50
+  const { level, color } = getBatteryLevel(credits, maxCredits, byok)
 
-  // Compact model display
   const displayModel = (usage.model || 'unknown')
     .replace('openrouter/', '')
     .replace('anthropic/', '')
     .replace('google/', '')
     .replace('openai/', '')
 
-  // Color for collapsed pill
-  const pillColor = byok ? 'text-emerald-400' :
-    percent > 60 ? 'text-emerald-400' :
-    percent > 30 ? 'text-amber-400' :
-    percent > 10 ? 'text-orange-400' : 'text-red-400'
+  // Pill color matches battery level
+  const pillColorClass = byok ? 'text-emerald-400' :
+    color === 'emerald' ? 'text-emerald-400' :
+    color === 'amber' ? 'text-amber-400' : 'text-red-400'
+  const pillBlinkClass = level === 'critical' ? 'animate-pulse' : ''
+
+  // Compact bar color
+  const compactBarClass = byok ? 'bg-emerald-500' :
+    color === 'emerald' ? 'bg-emerald-500' :
+    color === 'amber' ? 'bg-amber-500' : 'bg-red-500'
+  const compactBarBlink = level === 'critical' ? 'animate-pulse' : ''
+  const pct = byok ? 100 : (maxCredits > 0 ? Math.round((credits / maxCredits) * 100) : 0)
 
   return (
     <div className="relative">
@@ -185,18 +216,16 @@ export default function UsageWidget() {
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1.5 sm:gap-2 bg-secondary/50 hover:bg-secondary/70 rounded-full px-2.5 sm:px-4 py-1.5 text-xs transition-colors"
       >
-        <BatteryIcon percent={percent} byok={byok} />
+        <BatteryIcon credits={credits} maxCredits={maxCredits} byok={byok} />
         <span className="hidden sm:inline text-muted-foreground text-[10px]">{displayModel}</span>
         <div className="hidden sm:block w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              percent > 60 ? 'bg-emerald-500' : percent > 30 ? 'bg-amber-500' : percent > 10 ? 'bg-orange-500' : 'bg-red-500'
-            }`}
-            style={{ width: `${Math.max(2, percent)}%` }}
+            className={`h-full rounded-full transition-all duration-500 ${compactBarClass} ${compactBarBlink}`}
+            style={{ width: `${Math.max(2, pct)}%` }}
           />
         </div>
-        <span className={`text-[10px] font-medium ${pillColor}`}>
-          {byok ? '∞' : `${percent}%`}
+        <span className={`text-[10px] font-medium ${pillColorClass} ${pillBlinkClass}`}>
+          {byok ? '∞' : `${credits}`}
         </span>
         <ChevronDown size={10} className={`text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
         <div onClick={e => { e.stopPropagation(); fetchUsage(); }} className="hidden sm:block hover:text-emerald-400 transition-colors">
@@ -208,10 +237,9 @@ export default function UsageWidget() {
         <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-card border border-border rounded-lg shadow-xl p-4 z-50 space-y-4">
           {/* Battery */}
           <BatteryBar
-            percent={percent}
+            credits={credits}
+            maxCredits={maxCredits}
             byok={byok}
-            credits={bat.credits}
-            maxCredits={bat.maxCredits}
             hoursToFull={bat.hoursToFull}
             rechargePerHour={bat.rechargePerHour}
           />
@@ -257,7 +285,6 @@ export default function UsageWidget() {
             <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Your API Key (optional)</div>
             <p className="text-[10px] text-muted-foreground">
               Add your own API key for <span className="text-emerald-400 font-medium">unlimited usage</span> — no battery drain, no limits.
-              A free Google Gemini key works too!
             </p>
             <BYOKInput />
           </div>
@@ -269,7 +296,7 @@ export default function UsageWidget() {
               <div>
                 <p className="text-[11px] text-amber-400 font-medium">Beta Access</p>
                 <p className="text-[10px] text-muted-foreground">
-                  You're one of the first users! All Pro features included at Starter price — for life.
+                  You're one of the first users! All Pro features at Starter price — for life.
                 </p>
               </div>
             </div>
