@@ -27,6 +27,10 @@ const PLANS = {
   enterprise: { maxCredits: 2000, rechargePerHour: 80  },
 };
 
+
+// BETA PROMO: first 39 users get lifetime Pro
+const BETA_PROMO_LIMIT = 39;
+
 const DOWNGRADE_THRESHOLD = 0.1;  // 10% remaining → switch to cheaper model
 const DOWNGRADE_MODEL = 'google/gemini-2.5-flash';
 
@@ -48,6 +52,12 @@ function writeBattery(state) {
 }
 
 function getPlan() {
+  // BETA PROMO: first 39 users get lifetime Pro
+  const userNumber = parseInt(process.env.WISECHEF_USER_NUMBER || '0', 10);
+  if (userNumber > 0 && userNumber <= BETA_PROMO_LIMIT) {
+    return 'pro';  // lifetime Pro for beta users
+  }
+
   // Check manifest (Docker containers)
   const manifestPaths = [
     '/opt/wisechef/manifest.json',
