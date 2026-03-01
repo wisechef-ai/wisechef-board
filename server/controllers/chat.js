@@ -16,9 +16,11 @@ function checkBYOKNudge() {
   try {
     // Check if BYOK
     const homeDir = process.env.HOME || '/root';
-    const config = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'openclaw.json'), 'utf8'));
-    const providers = config.providers || {};
-    const hasBYOK = Object.values(providers).some(p => p.apiKey);
+    // Check provider keys from separate file + env vars
+    let provKeys = {};
+    try { provKeys = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'provider-keys.json'), 'utf8')); } catch {}
+    const hasBYOK = Object.values(provKeys).some(p => p.apiKey)
+      || !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY || !!process.env.OPENROUTER_API_KEY;
     if (hasBYOK) return null;
 
     // Check usage

@@ -81,10 +81,14 @@ function isBYOK() {
   try {
     const config = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'openclaw.json'), 'utf8'));
     // If user has their own API key configured, they're BYOK
-    const providers = config.providers || {};
-    for (const [, prov] of Object.entries(providers)) {
+    // Check provider keys from separate file (not openclaw.json)
+    let provKeys = {};
+    try { provKeys = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'provider-keys.json'), 'utf8')); } catch {}
+    for (const [, prov] of Object.entries(provKeys)) {
       if (prov.apiKey && !prov.apiKey.startsWith('wisechef-')) return true;
     }
+    // Also check env vars
+    if (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY) return true;
   } catch {}
   return false;
 }

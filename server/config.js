@@ -84,6 +84,7 @@ export const TASKS_FILE = path.join(__dirname, 'data', 'tasks.json');
 export const ACTIVITY_FILE = path.join(__dirname, 'data', 'activity.json');
 export const HEARTBEAT_FILE = path.join(__dirname, 'data', 'heartbeat.json');
 export const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
+export const PROVIDER_KEYS_FILE = path.join(OPENCLAW_DIR, 'provider-keys.json');
 
 const inferredOpenclawRoot = inferOpenclawInstallRoot(resolvePathExecutable('openclaw'));
 

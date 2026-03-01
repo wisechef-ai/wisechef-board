@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { TASKS_FILE, ACTIVITY_FILE, HEARTBEAT_FILE, OPENCLAW_JSON, SETTINGS_FILE } from '../config.js';
+import { TASKS_FILE, ACTIVITY_FILE, HEARTBEAT_FILE, OPENCLAW_JSON, SETTINGS_FILE, PROVIDER_KEYS_FILE } from '../config.js';
 
 // --- Tasks ---
 export function readTasks() {
@@ -66,4 +66,13 @@ export function appendHistory(histPath, content) {
   fs.mkdirSync(path.dirname(histPath), { recursive: true });
   fs.writeFileSync(histPath, JSON.stringify(history, null, 2));
   return history;
+}
+
+// --- Provider API Keys (stored separately, never in openclaw.json) ---
+export function readProviderKeys() {
+  try { return JSON.parse(fs.readFileSync(PROVIDER_KEYS_FILE, 'utf-8')); } catch { return {}; }
+}
+
+export function writeProviderKeys(data) {
+  fs.writeFileSync(PROVIDER_KEYS_FILE, JSON.stringify(data, null, 2), { mode: 0o600 });
 }
