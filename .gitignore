@@ -5,3 +5,4 @@ dist/
 credentials/
 *.pem
 *.key
+data/tasks.json
