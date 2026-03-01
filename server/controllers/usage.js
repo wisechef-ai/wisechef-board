@@ -65,13 +65,15 @@ export function getUsage(req, res) {
   const batteryPercent = Math.round((credits / maxCredits) * 100);
   const hoursToFull = credits >= maxCredits ? 0 : Math.ceil((maxCredits - credits) / rechargePerHour);
 
-  // Check BYOK
+  // Check BYOK — user-added keys (not the system-provided OpenRouter key)
   let byok = false;
   try {
     const provKeysPath = path.join(process.env.HOME || '/root', '.openclaw', 'provider-keys.json');
     const provKeys = JSON.parse(fs.readFileSync(provKeysPath, 'utf-8'));
-    for (const [, prov] of Object.entries(provKeys)) {
-      if (prov.apiKey && !prov.apiKey.startsWith('wisechef-')) { byok = true; break; }
+    for (const [provName, prov] of Object.entries(provKeys)) {
+      // Skip the system-provided openrouter key — that's not BYOK
+      if (provName === 'openrouter') continue;
+      if (prov.apiKey && prov.apiKey.trim()) { byok = true; break; }
     }
   } catch {}
   if (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY) byok = true;

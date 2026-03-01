@@ -67,14 +67,16 @@ function getPlan() {
 function isBYOK() {
   const homeDir = process.env.HOME || '/root';
   try {
-    // Check provider-keys.json
+    // Check provider-keys.json for user-added keys (not the system OpenRouter key)
     let provKeys = {};
     try { provKeys = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'provider-keys.json'), 'utf8')); } catch {}
-    for (const [, prov] of Object.entries(provKeys)) {
-      if (prov.apiKey && !prov.apiKey.startsWith('wisechef-')) return true;
+    for (const [provName, prov] of Object.entries(provKeys)) {
+      // Skip the system-provided openrouter key — that's not BYOK
+      if (provName === 'openrouter') continue;
+      if (prov.apiKey && prov.apiKey.trim()) return true;
     }
-    // Check env vars
-    if (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY) return true;
+    // Check env vars (GEMINI/OPENAI = user-provided; OPENROUTER = system-provided, skip)
+    if (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY) return true;
   } catch {}
   return false;
 }
