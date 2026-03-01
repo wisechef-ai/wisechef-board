@@ -1,0 +1,299 @@
+From b1a8fdd39de6b63b30ed7ba2414a41250db85d7b Mon Sep 17 00:00:00 2001
+From: Adam Krawczyk <adam.krawczyk0698@gmail.com>
+Date: Sun, 1 Mar 2026 09:29:03 +0000
+Subject: [PATCH] fix: store provider API keys in provider-keys.json, not
+ openclaw.json
+
+Provider keys were written to config.providers in openclaw.json,
+which newer OpenClaw rejects as unrecognized. Broke all clients
+who added their own API key (e.g. Google AI Studio) via the board.
+
+- New ~/.openclaw/provider-keys.json stores BYOK API keys
+- Keys synced to env vars (GEMINI_API_KEY etc) on startup
+- Auto-migration from legacy config.providers on first load
+- entrypoint.sh handles migration before board starts
+
+Fixes: Mariusz Krawczyk agent broken after adding Google key
+---
+ server/config.js                |   1 +
+ server/controllers/chat.js      |   8 ++-
+ server/controllers/models.js    | 112 +++++++++++++++++++++++++-------
+ server/lib/fileStore.js         |  11 +++-
+ server/middleware/usageGuard.js |   8 ++-
+ 5 files changed, 112 insertions(+), 28 deletions(-)
+
+diff --git a/server/config.js b/server/config.js
+index 7417078..beb863c 100644
+--- a/server/config.js
++++ b/server/config.js
+@@ -84,6 +84,7 @@ export const TASKS_FILE = path.join(__dirname, 'data', 'tasks.json');
+ export const ACTIVITY_FILE = path.join(__dirname, 'data', 'activity.json');
+ export const HEARTBEAT_FILE = path.join(__dirname, 'data', 'heartbeat.json');
+ export const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
++export const PROVIDER_KEYS_FILE = path.join(OPENCLAW_DIR, 'provider-keys.json');
+ 
+ const inferredOpenclawRoot = inferOpenclawInstallRoot(resolvePathExecutable('openclaw'));
+ 
+diff --git a/server/controllers/chat.js b/server/controllers/chat.js
+index ba2a2e2..ab8e74b 100644
+--- a/server/controllers/chat.js
++++ b/server/controllers/chat.js
+@@ -16,9 +16,11 @@ function checkBYOKNudge() {
+   try {
+     // Check if BYOK
+     const homeDir = process.env.HOME || '/root';
+-    const config = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'openclaw.json'), 'utf8'));
+-    const providers = config.providers || {};
+-    const hasBYOK = Object.values(providers).some(p => p.apiKey);
++    // Check provider keys from separate file + env vars
++    let provKeys = {};
++    try { provKeys = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'provider-keys.json'), 'utf8')); } catch {}
++    const hasBYOK = Object.values(provKeys).some(p => p.apiKey)
++      || !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY || !!process.env.OPENROUTER_API_KEY;
+     if (hasBYOK) return null;
+ 
+     // Check usage
+diff --git a/server/controllers/models.js b/server/controllers/models.js
+index 0f47000..57fc0c1 100644
+--- a/server/controllers/models.js
++++ b/server/controllers/models.js
+@@ -1,5 +1,6 @@
+ import {
+   readOpenclawJson, writeOpenclawJson, readHeartbeat, writeHeartbeat,
++  readProviderKeys, writeProviderKeys,
+ } from '../lib/fileStore.js';
+ import { broadcast } from '../broadcast.js';
+ import fs from 'fs';
+@@ -38,6 +39,53 @@ const PROVIDER_MODELS = {
+   'openrouter': [], // fetched dynamically from OpenRouter API when key is connected
+ };
+ 
++// Map provider names to their env var names (what OpenClaw actually reads)
++const PROVIDER_ENV_VARS = {
++  'anthropic': 'ANTHROPIC_API_KEY',
++  'google': 'GEMINI_API_KEY',
++  'openai': 'OPENAI_API_KEY',
++  'openrouter': 'OPENROUTER_API_KEY',
++};
++
++/**
++ * Apply provider keys from provider-keys.json to process.env
++ * so OpenClaw picks them up without touching openclaw.json.
++ * Called on set/remove and can be called at startup.
++ */
++export function syncProviderKeysToEnv() {
++  const keys = readProviderKeys();
++  for (const [provider, data] of Object.entries(keys)) {
++    const envVar = PROVIDER_ENV_VARS[provider];
++    if (envVar && data.apiKey) {
++      process.env[envVar] = data.apiKey;
++    }
++  }
++}
++
++// Also check for legacy config.providers and migrate on first read
++function migrateLegacyProviders() {
++  try {
++    const config = readOpenclawJson();
++    if (config.providers && Object.keys(config.providers).length > 0) {
++      const existing = readProviderKeys();
++      for (const [provider, data] of Object.entries(config.providers)) {
++        if (data.apiKey && !existing[provider]?.apiKey) {
++          existing[provider] = { apiKey: data.apiKey };
++        }
++      }
++      writeProviderKeys(existing);
++      // Remove invalid key from openclaw.json
++      delete config.providers;
++      writeOpenclawJson(config);
++      console.log('[models] Migrated legacy config.providers → provider-keys.json');
++    }
++  } catch {}
++}
++
++// Run migration + env sync on module load
++migrateLegacyProviders();
++syncProviderKeysToEnv();
++
+ export async function listModels(req, res) {
+   try {
+     const { execSync } = await import('child_process');
+@@ -62,11 +110,14 @@ export async function listModels(req, res) {
+     // Check auth profiles (e.g. github-copilot device flow)
+     const authProfiles = config.auth?.profiles || {};
+     Object.values(authProfiles).forEach(p => { if (p.provider) connectedProviders.add(p.provider); });
+-    // Check provider API keys
+-    const providers = config.providers || {};
+-    Object.keys(providers).forEach(p => { if (providers[p]?.apiKey) connectedProviders.add(p); });
+-    // Always include anthropic (default/included)
+-    connectedProviders.add('anthropic');
++    // Check provider API keys from provider-keys.json (NOT config.providers)
++    const providerKeys = readProviderKeys();
++    Object.keys(providerKeys).forEach(p => { if (providerKeys[p]?.apiKey) connectedProviders.add(p); });
++    // Also check env vars directly (may have been set at container start)
++    if (process.env.ANTHROPIC_API_KEY) connectedProviders.add('anthropic');
++    if (process.env.GEMINI_API_KEY) connectedProviders.add('google');
++    if (process.env.OPENAI_API_KEY) connectedProviders.add('openai');
++    if (process.env.OPENROUTER_API_KEY) connectedProviders.add('openrouter');
+     
+     connectedProviders.forEach(provider => {
+       (PROVIDER_MODELS[provider] || []).forEach(m => modelSet.add(m));
+@@ -78,11 +129,10 @@ export async function listModels(req, res) {
+         const orRes = await fetch('https://openrouter.ai/api/v1/models');
+         const orData = await orRes.json();
+         if (orData.data) {
+-          // Get top models by context length and recency, prefix with openrouter/
+           orData.data
+             .filter(m => m.id && !m.id.includes(':free'))
+             .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
+-            .slice(0, 30) // top 30 models
++            .slice(0, 30)
+             .forEach(m => modelSet.add(`openrouter/${m.id}`));
+         }
+       } catch {}
+@@ -104,7 +154,6 @@ export function setModel(req, res) {
+     const config = readOpenclawJson();
+     if (!config.agents) config.agents = {};
+     if (!config.agents.defaults) config.agents.defaults = {};
+-    // Store as string (consistent with entrypoint and openclaw config set)
+     config.agents.defaults.model = model;
+     writeOpenclawJson(config);
+     res.json({ success: true, model });
+@@ -113,13 +162,17 @@ export function setModel(req, res) {
+ 
+ export function getProviderKeys(_req, res) {
+   try {
+-    const config = readOpenclawJson();
+-    const providers = config.providers || {};
++    const providerKeys = readProviderKeys();
+     const result = {};
+-    for (const [name, prov] of Object.entries(providers)) {
++    for (const [name, prov] of Object.entries(providerKeys)) {
+       result[name] = { hasKey: !!prov.apiKey, masked: prov.apiKey ? '••••' + prov.apiKey.slice(-4) : null };
+     }
+-    
++    // Also show keys set via env vars (from container provisioning)
++    for (const [provider, envVar] of Object.entries(PROVIDER_ENV_VARS)) {
++      if (!result[provider] && process.env[envVar]) {
++        result[provider] = { hasKey: true, masked: '(env)', fromEnv: true };
++      }
++    }
+     // Check auth-profiles.json for device-flow providers (github-copilot)
+     try {
+       const homeDir = process.env.HOME || '/root';
+@@ -129,7 +182,6 @@ export function getProviderKeys(_req, res) {
+         result['github-copilot'] = { hasKey: true, hasAuth: true, masked: '(device login)' };
+       }
+     } catch {}
+-    
+     res.json(result);
+   } catch { res.json({}); }
+ }
+@@ -142,11 +194,16 @@ export function setProviderKey(req, res) {
+   if (!allowed.includes(provider)) return res.status(400).json({ error: `Provider must be one of: ${allowed.join(', ')}` });
+   
+   try {
+-    const config = readOpenclawJson();
+-    if (!config.providers) config.providers = {};
+-    if (!config.providers[provider]) config.providers[provider] = {};
+-    config.providers[provider].apiKey = apiKey;
+-    writeOpenclawJson(config);
++    // Store in provider-keys.json (NEVER in openclaw.json)
++    const keys = readProviderKeys();
++    if (!keys[provider]) keys[provider] = {};
++    keys[provider].apiKey = apiKey;
++    writeProviderKeys(keys);
++    
++    // Also set env var so OpenClaw picks it up immediately
++    const envVar = PROVIDER_ENV_VARS[provider];
++    if (envVar) process.env[envVar] = apiKey;
++    
+     res.json({ success: true, provider, masked: '••••' + apiKey.slice(-4) });
+   } catch (e) { res.status(500).json({ error: e.message }); }
+ }
+@@ -154,13 +211,25 @@ export function setProviderKey(req, res) {
+ export function removeProviderKey(req, res) {
+   const { provider } = req.params;
+   try {
++    // Remove from provider-keys.json
++    const keys = readProviderKeys();
++    if (keys[provider]) {
++      delete keys[provider];
++      writeProviderKeys(keys);
++    }
++    
++    // Clear env var
++    const envVar = PROVIDER_ENV_VARS[provider];
++    if (envVar) delete process.env[envVar];
++    
++    // Also clean up any legacy config.providers entries
+     const config = readOpenclawJson();
+-    // Remove API key
+     if (config.providers?.[provider]) {
+-      delete config.providers[provider].apiKey;
+-      if (Object.keys(config.providers[provider]).length === 0) delete config.providers[provider];
++      delete config.providers[provider];
+       if (Object.keys(config.providers).length === 0) delete config.providers;
++      writeOpenclawJson(config);
+     }
++    
+     // Remove auth profiles (e.g. github-copilot device flow)
+     if (config.auth?.profiles) {
+       for (const key of Object.keys(config.auth.profiles)) {
+@@ -310,7 +379,6 @@ export async function pollDeviceFlow(req, res) {
+           provider: 'github-copilot',
+           mode: 'token',
+         };
+-        // Set auth order so openclaw uses this profile
+         if (!config.auth.order) config.auth.order = {};
+         config.auth.order['github-copilot'] = ['github-copilot:github'];
+         writeOpenclawJson(config);
+diff --git a/server/lib/fileStore.js b/server/lib/fileStore.js
+index 2bb4920..b52ea95 100644
+--- a/server/lib/fileStore.js
++++ b/server/lib/fileStore.js
+@@ -1,6 +1,6 @@
+ import fs from 'fs';
+ import path from 'path';
+-import { TASKS_FILE, ACTIVITY_FILE, HEARTBEAT_FILE, OPENCLAW_JSON, SETTINGS_FILE } from '../config.js';
++import { TASKS_FILE, ACTIVITY_FILE, HEARTBEAT_FILE, OPENCLAW_JSON, SETTINGS_FILE, PROVIDER_KEYS_FILE } from '../config.js';
+ 
+ // --- Tasks ---
+ export function readTasks() {
+@@ -67,3 +67,12 @@ export function appendHistory(histPath, content) {
+   fs.writeFileSync(histPath, JSON.stringify(history, null, 2));
+   return history;
+ }
++
++// --- Provider API Keys (stored separately, never in openclaw.json) ---
++export function readProviderKeys() {
++  try { return JSON.parse(fs.readFileSync(PROVIDER_KEYS_FILE, 'utf-8')); } catch { return {}; }
++}
++
++export function writeProviderKeys(data) {
++  fs.writeFileSync(PROVIDER_KEYS_FILE, JSON.stringify(data, null, 2), { mode: 0o600 });
++}
+diff --git a/server/middleware/usageGuard.js b/server/middleware/usageGuard.js
+index a74315e..526c3dd 100644
+--- a/server/middleware/usageGuard.js
++++ b/server/middleware/usageGuard.js
+@@ -81,10 +81,14 @@ function isBYOK() {
+   try {
+     const config = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'openclaw.json'), 'utf8'));
+     // If user has their own API key configured, they're BYOK
+-    const providers = config.providers || {};
+-    for (const [, prov] of Object.entries(providers)) {
++    // Check provider keys from separate file (not openclaw.json)
++    let provKeys = {};
++    try { provKeys = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'provider-keys.json'), 'utf8')); } catch {}
++    for (const [, prov] of Object.entries(provKeys)) {
+       if (prov.apiKey && !prov.apiKey.startsWith('wisechef-')) return true;
+     }
++    // Also check env vars
++    if (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY) return true;
+   } catch {}
+   return false;
+ }
+-- 
+2.43.0
+

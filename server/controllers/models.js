@@ -200,9 +200,39 @@ export function setProviderKey(req, res) {
     keys[provider].apiKey = apiKey;
     writeProviderKeys(keys);
     
-    // Also set env var so OpenClaw picks it up immediately
+    // Set env var so OpenClaw picks it up in board process
     const envVar = PROVIDER_ENV_VARS[provider];
     if (envVar) process.env[envVar] = apiKey;
+    
+    // Write to auth-profiles.json so openclaw CLI picks it up too
+    const homeDir = process.env.HOME || '/root';
+    for (const agentDir of ['default', 'main']) {
+      const profDir = path.join(homeDir, '.openclaw', 'agents', agentDir, 'agent');
+      const profPath = path.join(profDir, 'auth-profiles.json');
+      fs.mkdirSync(profDir, { recursive: true });
+      let profiles = { version: 1, profiles: {}, lastGood: {} };
+      try { profiles = JSON.parse(fs.readFileSync(profPath, 'utf8')); } catch {}
+      if (!profiles.profiles) profiles.profiles = {};
+      const profileId = `${provider}:manual`;
+      profiles.profiles[profileId] = {
+        type: 'token',
+        provider,
+        token: apiKey,
+      };
+      // Set as lastGood so openclaw uses it
+      if (!profiles.lastGood) profiles.lastGood = {};
+      profiles.lastGood[provider] = profileId;
+      fs.writeFileSync(profPath, JSON.stringify(profiles, null, 2));
+    }
+    
+    // Update openclaw.json auth order to reference the profile
+    try {
+      const config = readOpenclawJson();
+      if (!config.auth) config.auth = {};
+      if (!config.auth.order) config.auth.order = {};
+      config.auth.order[provider] = [`${provider}:manual`];
+      writeOpenclawJson(config);
+    } catch {}
     
     res.json({ success: true, provider, masked: '••••' + apiKey.slice(-4) });
   } catch (e) { res.status(500).json({ error: e.message }); }
