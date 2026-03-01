@@ -7,18 +7,27 @@ import {
 } from '../lib/timezone.js';
 import { formatDuration } from '../lib/format.js';
 
+// Read battery state directly (same file as usageGuard)
+function readBatteryState() {
+  const batteryFile = path.join(process.env.HOME || '/root', '.openclaw', 'battery.json');
+  try {
+    return JSON.parse(fs.readFileSync(batteryFile, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
 export function getUsage(req, res) {
   const now = new Date();
   const sessionsDir = path.join(OPENCLAW_DIR, 'agents', 'main', 'sessions');
-
-  let tokensToday = 0, tokensWeek = 0, tokensMonth = 0;
-  let costToday = 0, costWeek = 0, costMonth = 0;
-  const sessionsToday = new Set(), sessionsWeek = new Set(), sessionsMonth = new Set();
-
   const tz = getTimezone();
   const todayStart = startOfDayInTz(now, tz);
   const weekStart = startOfWeekInTz(now, tz);
   const monthStart = startOfMonthInTz(now, tz);
+
+  let tokensToday = 0, tokensMonth = 0;
+  let costToday = 0, costMonth = 0;
+  const sessionsToday = new Set(), sessionsMonth = new Set();
 
   try {
     const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl'));
@@ -28,8 +37,7 @@ export function getUsage(req, res) {
       if (stat.mtime < monthStart) continue;
 
       const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n').filter(Boolean);
-      for (const line of lines) {
+      for (const line of content.split('\n').filter(Boolean)) {
         try {
           const entry = JSON.parse(line);
           const usage = entry.message?.usage || entry.usage;
@@ -37,9 +45,7 @@ export function getUsage(req, res) {
             const tokens = (usage.input || 0) + (usage.output || 0) + (usage.cacheRead || 0);
             const cost = usage.cost.total;
             const ts = new Date(entry.timestamp || stat.mtime);
-
             if (ts >= monthStart) { tokensMonth += tokens; costMonth += cost; sessionsMonth.add(file); }
-            if (ts >= weekStart) { tokensWeek += tokens; costWeek += cost; sessionsWeek.add(file); }
             if (ts >= todayStart) { tokensToday += tokens; costToday += cost; sessionsToday.add(file); }
           }
         } catch {}
@@ -47,70 +53,53 @@ export function getUsage(req, res) {
     }
   } catch {}
 
-  const tomorrowReset = new Date(todayStart); tomorrowReset.setDate(tomorrowReset.getDate() + 1);
-  const nextWeekReset = new Date(weekStart); nextWeekReset.setDate(nextWeekReset.getDate() + 7);
-  const nextMonthReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-  const sessionWindowStart = new Date(now - 5 * 3600000);
-  let tokensSession = 0, costSession = 0;
-  try {
-    const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl'));
-    for (const file of files) {
-      const filePath = path.join(sessionsDir, file);
-      const stat = fs.statSync(filePath);
-      if (stat.mtime < sessionWindowStart) continue;
-      const content = fs.readFileSync(filePath, 'utf-8');
-      for (const line of content.split('\n').filter(Boolean)) {
-        try {
-          const entry = JSON.parse(line);
-          const u = entry.message?.usage || entry.usage;
-          if (u?.cost?.total) {
-            const ts = new Date(entry.timestamp || stat.mtime);
-            if (ts >= sessionWindowStart) {
-              tokensSession += (u.input || 0) + (u.output || 0) + (u.cacheRead || 0);
-              costSession += u.cost.total;
-            }
-          }
-        } catch {}
-      }
-    }
-  } catch {}
-
-  const sessionResetTime = new Date(sessionWindowStart.getTime() + 5 * 3600000);
-  const sessionResetIn = formatDuration(Math.max(0, sessionResetTime - now));
-
   const config = readOpenclawJson();
   const modelRaw = config.agents?.defaults?.model;
-  const model = (typeof modelRaw === 'string' ? modelRaw : modelRaw?.primary || 'unknown').replace('anthropic/', '').replace('google/', '');
+  const model = typeof modelRaw === 'string' ? modelRaw : modelRaw?.primary || 'unknown';
 
-  const SESSION_LIMIT = 45000000;
-  const WEEKLY_LIMIT = 180000000;
+  // Battery state
+  const battery = readBatteryState();
+  const maxCredits = battery?.maxCredits || 50;
+  const credits = battery ? Math.min(maxCredits, battery.credits) : maxCredits;
+  const rechargePerHour = 1;
+  const batteryPercent = Math.round((credits / maxCredits) * 100);
+  const hoursToFull = credits >= maxCredits ? 0 : Math.ceil((maxCredits - credits) / rechargePerHour);
 
-  const sessionPct = Math.min(100, Math.round((tokensSession / SESSION_LIMIT) * 100));
-  const weeklyPct = Math.min(100, Math.round((tokensWeek / WEEKLY_LIMIT) * 100));
+  // Check BYOK
+  let byok = false;
+  try {
+    const provKeysPath = path.join(process.env.HOME || '/root', '.openclaw', 'provider-keys.json');
+    const provKeys = JSON.parse(fs.readFileSync(provKeysPath, 'utf-8'));
+    for (const [, prov] of Object.entries(provKeys)) {
+      if (prov.apiKey && !prov.apiKey.startsWith('wisechef-')) { byok = true; break; }
+    }
+  } catch {}
+  if (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY) byok = true;
 
   res.json({
     model,
     timezone: tz,
+    battery: {
+      credits: byok ? -1 : credits,
+      maxCredits,
+      percent: byok ? 100 : batteryPercent,
+      rechargePerHour,
+      hoursToFull: byok ? 0 : hoursToFull,
+      totalUsed: battery?.totalUsed || 0,
+    },
+    byok,
+    // Keep tiers for backward compat but now battery-based
     tiers: [
       {
-        label: 'Current session',
-        percent: sessionPct,
-        resetsIn: sessionResetIn,
-        tokens: tokensSession,
-        cost: costSession,
-      },
-      {
-        label: 'Current week (all models)',
-        percent: weeklyPct,
-        resetsIn: formatDuration(nextWeekReset - now),
-        tokens: tokensWeek,
-        cost: costWeek,
+        label: '🔋 Battery',
+        percent: byok ? 100 : batteryPercent,
+        resetsIn: byok ? '∞ (BYOK)' : hoursToFull > 0 ? `full in ~${hoursToFull}h` : 'fully charged',
+        tokens: tokensToday,
+        cost: costToday,
       },
     ],
     details: {
       today: { tokens: tokensToday, cost: costToday, sessions: sessionsToday.size },
-      week: { tokens: tokensWeek, cost: costWeek, sessions: sessionsWeek.size },
       month: { tokens: tokensMonth, cost: costMonth, sessions: sessionsMonth.size },
     },
   });
