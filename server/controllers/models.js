@@ -6,15 +6,18 @@ import { broadcast } from '../broadcast.js';
 import fs from 'fs';
 import path from 'path';
 
-// Default models available to all users
+// Default models available to all users (OpenRouter is the primary provider)
 const DEFAULT_MODELS = [
+  'openrouter/anthropic/claude-sonnet-4.6',
+  'openrouter/anthropic/claude-haiku-4.5',
+  'openrouter/anthropic/claude-opus-4.6',
+  'openrouter/google/gemini-2.5-flash',
+  'openrouter/google/gemini-2.5-pro',
+  'openrouter/openai/gpt-4.1',
+  'openrouter/openai/gpt-4.1-mini',
+  // Also keep direct-provider format for BYOK users
   'anthropic/claude-sonnet-4.6',
-  'anthropic/claude-haiku-4.5',
-  'anthropic/claude-opus-4.6',
   'google/gemini-2.5-flash',
-  'google/gemini-2.5-pro',
-  'openai/gpt-4.1',
-  'openai/gpt-4.1-mini',
 ];
 
 // Known models per provider — MUST match openclaw's actual model registry
@@ -36,7 +39,11 @@ const PROVIDER_MODELS = {
     'google/gemini-3.1-pro-preview', 'google/gemini-3-pro-preview', 'google/gemini-3-flash-preview',
     'google/gemini-2.5-pro', 'google/gemini-2.5-flash',
   ],
-  'openrouter': [], // fetched dynamically from OpenRouter API when key is connected
+  'openrouter': [
+    'openrouter/anthropic/claude-sonnet-4.6', 'openrouter/anthropic/claude-opus-4.6',
+    'openrouter/anthropic/claude-haiku-4.5', 'openrouter/google/gemini-2.5-flash',
+    'openrouter/google/gemini-2.5-pro', 'openrouter/openai/gpt-4.1',
+  ],
 };
 
 export async function listModels(req, res) {

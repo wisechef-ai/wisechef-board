@@ -61,9 +61,10 @@ export async function createClientKey(slug, plan = 'starter') {
   }
 
   const data = await res.json();
-  // The actual key string is ONLY returned on creation — store it immediately!
+  // API returns: { key: "sk-or-...", data: { hash, name, limit, ... } }
+  // The actual key string is at top level, metadata inside .data
   return {
-    key: data.data.key,
+    key: data.key,
     hash: data.data.hash,
     name: data.data.name,
     limit: data.data.limit,
