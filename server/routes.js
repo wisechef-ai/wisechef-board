@@ -161,6 +161,17 @@ router.get('/api/env', (_req, res) => {
   res.json({ hq: process.env.WISECHEF_HQ === 'true' });
 });
 
+// ──── Health check (unauthenticated, for monitoring / fleet probes) ────
+router.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'wisechef-board',
+    version: process.env.npm_package_version || '1.3.0',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
   if (!isOnboarded()) {
