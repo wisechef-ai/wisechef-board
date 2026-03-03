@@ -1,12 +1,23 @@
 import express from 'express';
 import http from 'http';
-import { HOST, PORT } from './config.js';
+import { HOST, PORT, AGENT_TYPES_ENABLED } from './config.js';
 import { setupWebSocket } from './broadcast.js';
 import { setupMiddleware } from './middleware.js';
 import router from './routes.js';
 
 const app = express();
 const server = http.createServer(app);
+
+// ── Stripe webhook MUST be registered before express.json() middleware ──
+// It needs the raw request body for signature verification.
+if (AGENT_TYPES_ENABLED) {
+  const { handleStripeWebhook } = await import('./controllers/stripe.js');
+  app.post(
+    '/api/webhook/stripe',
+    express.raw({ type: 'application/json' }),
+    handleStripeWebhook,
+  );
+}
 
 setupWebSocket(server);
 setupMiddleware(app);

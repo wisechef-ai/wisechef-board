@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Choose Your Agent — WiseChef</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface-hover: #222;
+      --border: #2a2a2a;
+      --border-hover: #444;
+      --text: #e8e8e8;
+      --muted: #888;
+      --accent: #e85d26;
+      --accent-hover: #ff6a2f;
+      --locked: #333;
+      --locked-text: #555;
+      --radius: 12px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 80px;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+      margin-bottom: 48px;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--accent); }
+
+    .header {
+      text-align: center;
+      max-width: 560px;
+      margin-bottom: 40px;
+    }
+    .header h1 {
+      font-size: clamp(26px, 5vw, 36px);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+    }
+    .header p {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .plan-badge {
+      display: inline-block;
+      background: #1a2a1a;
+      color: #5a9;
+      border: 1px solid #2a5a2a;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      margin-bottom: 24px;
+      letter-spacing: 0.3px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 880px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      position: relative;
+      text-align: left;
+    }
+    .card:not(.locked):hover {
+      border-color: var(--accent);
+      background: var(--surface-hover);
+      transform: translateY(-1px);
+    }
+    .card.selected {
+      border-color: var(--accent);
+      background: #1c1108;
+    }
+    .card.locked {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .card-icon { font-size: 32px; margin-bottom: 12px; }
+    .card-name {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .card-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      font-size: 11px;
+      background: #252525;
+      color: #aaa;
+      border-radius: 4px;
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+    }
+    .lock-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 11px;
+      background: #2a1a00;
+      color: #a86;
+      border: 1px solid #4a3a10;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-weight: 600;
+    }
+    .check-mark {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 22px;
+      height: 22px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+    .card.selected .check-mark { display: flex; }
+
+    .actions {
+      margin-top: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 880px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 16px 40px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      min-width: 260px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-skip {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 4px 8px;
+    }
+    .btn-skip:hover { color: var(--text); }
+
+    .status-msg {
+      font-size: 14px;
+      color: var(--muted);
+      min-height: 20px;
+      text-align: center;
+    }
+    .status-msg.error { color: #e85555; }
+    .status-msg.success { color: #5a9; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a href="/" class="logo">Wise<span>Chef</span> AI</a>
+
+  <div class="header">
+    <h1>Choose your agent type</h1>
+    <p>Pick the AI assistant that fits how you work. You can change this later.</p>
+  </div>
+
+  <div id="plan-badge" class="plan-badge" style="display:none"></div>
+
+  <div class="grid" id="grid">
+    <div style="color:var(--muted);padding:24px;text-align:center;width:100%">Loading agent types…</div>
+  </div>
+
+  <div class="actions">
+    <div class="status-msg" id="status"></div>
+    <button class="btn-primary" id="confirm-btn" disabled>Confirm selection →</button>
+    <button class="btn-skip" id="skip-btn">Skip for now (use default assistant)</button>
+  </div>
+
+  <script type="module">
+    let selected = null;
+
+    async function loadTypes() {
+      const res = await fetch('/api/agent-types');
+      if (!res.ok) {
+        document.getElementById('grid').innerHTML =
+          '<div style="color:#e85555;padding:24px">Failed to load agent types. <a href="/" style="color:#aaa">Go back</a></div>';
+        return;
+      }
+      const data = await res.json();
+      render(data);
+    }
+
+    function render({ types, current, plan }) {
+      // Show plan badge
+      if (plan) {
+        const badge = document.getElementById('plan-badge');
+        badge.textContent = `Your plan: ${plan.charAt(0).toUpperCase() + plan.slice(1)}`;
+        badge.style.display = 'inline-block';
+      }
+
+      if (!types || !types.length) {
+        document.getElementById('grid').innerHTML =
+          '<div style="color:var(--muted);padding:24px">No agent types configured yet.</div>';
+        return;
+      }
+
+      const grid = document.getElementById('grid');
+      grid.innerHTML = types.map(t => `
+        <div class="card ${t.locked ? 'locked' : ''} ${t.id === current ? 'selected' : ''}"
+             data-id="${t.id}" data-locked="${t.locked}" role="button" tabindex="${t.locked ? -1 : 0}"
+             aria-pressed="${t.id === current}">
+          <div class="card-icon">${t.icon}</div>
+          <div class="card-name">${t.name}</div>
+          <div class="card-desc">${t.description}</div>
+          <div class="card-tags">
+            ${(t.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
+          </div>
+          ${t.locked ? `<div class="lock-badge">🔒 ${t.planGate}</div>` : ''}
+          <div class="check-mark">✓</div>
+        </div>
+      `).join('');
+
+      // Pre-select current
+      if (current) {
+        selected = current;
+        updateConfirmButton();
+      }
+
+      grid.addEventListener('click', e => {
+        const card = e.target.closest('.card');
+        if (!card || card.dataset.locked === 'true') return;
+        select(card.dataset.id);
+      });
+      grid.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const card = e.target.closest('.card');
+        if (!card || card.dataset.locked === 'true') return;
+        select(card.dataset.id);
+      });
+    }
+
+    function select(id) {
+      selected = id;
+      document.querySelectorAll('.card').forEach(c => {
+        c.classList.toggle('selected', c.dataset.id === id);
+        c.setAttribute('aria-pressed', c.dataset.id === id);
+      });
+      updateConfirmButton();
+    }
+
+    function updateConfirmButton() {
+      document.getElementById('confirm-btn').disabled = !selected;
+    }
+
+    async function confirm() {
+      if (!selected) return;
+      const btn = document.getElementById('confirm-btn');
+      const status = document.getElementById('status');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Setting up your agent…';
+      status.textContent = '';
+      status.className = 'status-msg';
+
+      try {
+        const res = await fetch('/api/agent/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentTypeId: selected }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          status.textContent = data.error || 'Something went wrong. Please try again.';
+          status.className = 'status-msg error';
+          btn.disabled = false;
+          btn.textContent = 'Confirm selection →';
+          return;
+        }
+        status.textContent = `✓ ${data.agentType.name} selected! Redirecting…`;
+        status.className = 'status-msg success';
+        setTimeout(() => { window.location.href = '/'; }, 1000);
+      } catch {
+        status.textContent = 'Network error. Please try again.';
+        status.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'Confirm selection →';
+      }
+    }
+
+    document.getElementById('confirm-btn').addEventListener('click', confirm);
+    document.getElementById('skip-btn').addEventListener('click', () => {
+      window.location.href = '/';
+    });
+
+    loadTypes();
+  </script>
+</body>
+</html>

@@ -215,6 +215,9 @@ You are a chief of staff — the connective tissue of an organisation. You see p
 5. Protect your principal's attention. Filter noise, amplify signal.` },
 ];
 
+// ──── Agent Type Selector ────
+export const AGENT_TYPES_ENABLED = (process.env.AGENT_TYPES_ENABLED || "").toLowerCase() === "true";
+
 // ──── Plano Model Routing ────
 export const PLANO_ENABLED = (process.env.PLANO_ENABLED || "").toLowerCase() === "true";
 const parsedPlanoPort = Number.parseInt(process.env.PLANO_PORT || "", 10);

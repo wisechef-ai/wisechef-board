@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { __dirname } from './config.js';
+import { __dirname, AGENT_TYPES_ENABLED } from './config.js';
 
 import { getActivity, getTime } from './controllers/activity.js';
 import {
@@ -171,6 +171,16 @@ router.get('/health', (_req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// ──── Agent Type Selector (feature-flagged) ────
+if (AGENT_TYPES_ENABLED) {
+  const { getAgentTypes, selectAgentType } = await import('./controllers/agentTypes.js');
+  router.get('/api/agent-types', getAgentTypes);
+  router.post('/api/agent/select', selectAgentType);
+  router.get('/select-agent', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'pages', 'select-agent.html'));
+  });
+}
 
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {

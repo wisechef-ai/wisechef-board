@@ -335,9 +335,16 @@ ${a.cracks || '(to be filled in)'}
 - Summarise long threads and documents when asked.
 `;
 
-    fs.writeFileSync(path.join(WORKSPACE, 'SOUL.md'), soul);
+    // Only write SOUL.md if no agent type has been selected.
+    // Agent type selection writes its own SOUL.md + agent-type.json sentinel —
+    // overwriting would lose the user's chosen agent personality.
+    const agentTypeSentinel = path.join(WORKSPACE, 'agent-type.json');
+    if (!fs.existsSync(agentTypeSentinel)) {
+      fs.writeFileSync(path.join(WORKSPACE, 'SOUL.md'), soul);
+    } else {
+      console.log('[onboarding] agent-type.json sentinel found — skipping SOUL.md overwrite');
+    }
 
-    // Generate MEMORY.md stub
     const memory = `# MEMORY.md — ${name}
 
 ## Profile
