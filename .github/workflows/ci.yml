@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: ['*']
+    branches:
+      - '**'
   pull_request:
-    branches: [development, main, master]
+    branches:
+      - development
+      - main
+      - master
 
 jobs:
   build:
@@ -53,26 +57,16 @@ jobs:
           script: |
             set -euo pipefail
             cd /opt/wisechef/board
-
-            # Fetch latest
             git fetch origin
             git checkout feature/agent-type-selector
             git pull origin feature/agent-type-selector
-
-            # Install deps
             if [[ -f package-lock.json ]]; then
               npm ci
             else
               npm install --production=false
             fi
-
-            # Build
             npm run build
-
-            # Restart service
             sudo systemctl restart wisechef-board
-
-            # Verify
             sleep 2
             systemctl is-active wisechef-board
-            echo "✅ Deployed feature/agent-type-selector to dev.wisechef.ai"
+            echo "Deployed feature/agent-type-selector to dev.wisechef.ai"
