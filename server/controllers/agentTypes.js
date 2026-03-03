@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { __dirname, WORKSPACE_DIR } from '../config.js';
+import { __dirname, WORKSPACE } from '../config.js';
 
 // ──── Agent Type file loader ────
 
@@ -71,7 +71,7 @@ function getWorkspacePlan() {
 // ──── Sentinel helpers ────
 
 function getAgentTypeFile() {
-  return path.join(WORKSPACE_DIR, 'agent-type.json');
+  return path.join(WORKSPACE, 'agent-type.json');
 }
 
 export function readAgentTypeSentinel() {
@@ -151,7 +151,7 @@ export async function selectAgentType(req, res) {
   }
 
   // Write SOUL.md from template
-  const soulPath = path.join(WORKSPACE_DIR, 'SOUL.md');
+  const soulPath = path.join(WORKSPACE, 'SOUL.md');
   try {
     if (agentType.soulTemplate && !agentType.soulTemplate.includes('[PLACEHOLDER')) {
       fs.writeFileSync(soulPath, agentType.soulTemplate, 'utf8');

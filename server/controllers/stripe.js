@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import fs from 'fs';
 import path from 'path';
-import { WORKSPACE_DIR } from '../config.js';
+import { WORKSPACE } from '../config.js';
 
 // ──── Stripe webhook handler for wisechef-board ────
 //
