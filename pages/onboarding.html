@@ -106,7 +106,38 @@
             <p class="flavor" id="flavor"></p>
         </div>
 
-        <div class="card" id="wizard">
+        <div class="card" id="urlStep">
+            <div class="step-title" style="margin-bottom:8px">Tell me about your business 🔗</div>
+            <div class="step-sub" style="margin-bottom:20px">Paste your website, LinkedIn, or GitHub URL — I'll read it and set up your agent automatically.</div>
+
+            <div style="position:relative">
+                <div id="urlTypeIcon" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;pointer-events:none">🌐</div>
+                <input
+                    type="url"
+                    id="urlInput"
+                    placeholder="https://yourcompany.com or linkedin.com/in/you"
+                    style="width:100%;padding:12px 12px 12px 40px;background:#1e293b;border:1.5px solid #334155;border-radius:8px;color:#f1f5f9;font-size:0.95rem;outline:none;transition:border-color 0.15s;box-sizing:border-box"
+                    oninput="onUrlInput(this.value)"
+                    onfocus="this.style.borderColor='#f59e0b'"
+                    onblur="this.style.borderColor='#334155'"
+                />
+            </div>
+
+            <div id="urlPreview" style="display:none;margin-top:16px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px 16px">
+                <div id="urlPreviewContent"></div>
+            </div>
+
+            <div id="urlError" style="color:#ef4444;font-size:0.85rem;margin-top:8px;min-height:20px"></div>
+
+            <div class="buttons" style="margin-top:20px">
+                <button class="btn btn-next" id="urlReadBtn" onclick="readUrl()" disabled>Read it →</button>
+            </div>
+            <p style="text-align:center;margin-top:14px">
+                <a href="#" onclick="skipUrlStep(event)" style="color:#64748b;font-size:0.85rem;text-decoration:none">Skip — I'll fill in details manually →</a>
+            </p>
+        </div>
+
+        <div class="card" id="wizard" style="display:none">
             <div class="progress" id="progress"></div>
             <div class="step-title" id="stepTitle"></div>
             <div class="step-sub" id="stepSub"></div>
@@ -201,6 +232,138 @@
         }
     ];
 
+    // ── URL Step state ──────────────────────────────────────────────────────────
+    const URL_ICONS = {
+      website: '🌐', 'linkedin-profile': '💼', 'linkedin-company': '💼',
+      github: '🐙', instagram: '📸',
+    };
+    let urlScrapedContext = null; // populated after successful scrape
+
+    function detectUrlType(val) {
+      try {
+        const url = new URL(/^https?:\/\//i.test(val) ? val : `https://${val}`);
+        const host = url.hostname.replace(/^www\./,'').toLowerCase();
+        const path = url.pathname.toLowerCase();
+        if (host === 'linkedin.com' || host.endsWith('.linkedin.com')) {
+          return path.startsWith('/company/') ? 'linkedin-company' : 'linkedin-profile';
+        }
+        if (host === 'github.com') return 'github';
+        if (host === 'instagram.com') return 'instagram';
+        return 'website';
+      } catch { return 'website'; }
+    }
+
+    function onUrlInput(val) {
+      const btn = document.getElementById('urlReadBtn');
+      const icon = document.getElementById('urlTypeIcon');
+      const trimmed = val.trim();
+      btn.disabled = trimmed.length < 4;
+      // Reset preview if user edits
+      if (urlScrapedContext) { urlScrapedContext = null; document.getElementById('urlPreview').style.display = 'none'; }
+      document.getElementById('urlError').textContent = '';
+      if (trimmed.length > 4) {
+        const type = detectUrlType(trimmed);
+        icon.textContent = URL_ICONS[type] || '🌐';
+      }
+    }
+
+    async function readUrl() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) return;
+      const btn = document.getElementById('urlReadBtn');
+      const errEl = document.getElementById('urlError');
+      const preview = document.getElementById('urlPreview');
+      const previewContent = document.getElementById('urlPreviewContent');
+
+      errEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = '⏳ Reading…';
+      preview.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/onboarding/scrape-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          errEl.textContent = data.error || 'Failed to read that URL.';
+          if (data.fallback) {
+            errEl.innerHTML += ' <a href="#" onclick="skipUrlStep(event)" style="color:#94a3b8">Skip and fill manually →</a>';
+          }
+          btn.disabled = false;
+          btn.textContent = 'Read it →';
+          return;
+        }
+
+        urlScrapedContext = data.extracted;
+        // Pre-fill answers from extracted context
+        if (data.extracted.name) {
+          answers.organisation = answers.organisation || data.extracted.name;
+        }
+        if (data.extracted.description) {
+          answers.activities = answers.activities || data.extracted.description;
+        }
+
+        // Render preview card
+        const e = data.extracted;
+        const agentLabels = {
+          'generalist': '🤖 Personal Assistant', 'marketing': '📈 Marketing Agent',
+          'executive-assistant': '💼 Executive Assistant', 'health-coach': '🥗 Health Coach',
+          'security-auditor': '🔐 Security Auditor', 'sales-assistant': '💰 Sales Assistant',
+        };
+        previewContent.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:1.4rem">${URL_ICONS[data.sourceType] || '🌐'}</span>
+            <div>
+              <div style="font-weight:600;color:#f1f5f9">${e.name || 'Profile read'}</div>
+              <div style="font-size:0.8rem;color:#94a3b8">${data.sourceType.replace('-', ' ')}</div>
+            </div>
+          </div>
+          <p style="font-size:0.88rem;color:#cbd5e1;margin-bottom:10px">${e.description || ''}</p>
+          ${e.keyFacts.length ? `<ul style="margin:0 0 10px 0;padding-left:18px;font-size:0.82rem;color:#94a3b8">${e.keyFacts.map(f => `<li>${f}</li>`).join('')}</ul>` : ''}
+          <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#f59e0b">
+            <span>Recommended agent:</span>
+            <strong>${agentLabels[e.agentType] || e.agentType}</strong>
+          </div>
+          ${e.agentReason ? `<div style="font-size:0.78rem;color:#64748b;margin-top:4px">${e.agentReason}</div>` : ''}
+          <a href="#" onclick="editUrlResult(event)" style="display:block;margin-top:10px;font-size:0.8rem;color:#64748b">Edit manually instead →</a>
+        `;
+        preview.style.display = 'block';
+        btn.textContent = 'Looks good — continue →';
+        btn.disabled = false;
+        btn.onclick = startWizardWithContext;
+      } catch {
+        errEl.textContent = 'Network error — please try again.';
+        btn.disabled = false;
+        btn.textContent = 'Read it →';
+      }
+    }
+
+    function startWizardWithContext() {
+      document.getElementById('urlStep').style.display = 'none';
+      document.getElementById('wizard').style.display = 'block';
+      render();
+    }
+
+    function skipUrlStep(e) {
+      e.preventDefault();
+      document.getElementById('urlStep').style.display = 'none';
+      document.getElementById('wizard').style.display = 'block';
+      render();
+    }
+
+    function editUrlResult(e) {
+      e.preventDefault();
+      urlScrapedContext = null;
+      document.getElementById('urlPreview').style.display = 'none';
+      document.getElementById('urlReadBtn').textContent = 'Read it →';
+      document.getElementById('urlReadBtn').onclick = readUrl;
+    }
+
+    // ── Wizard state ────────────────────────────────────────────────────────
     let currentStep = 0;
     const answers = {};
 
@@ -421,8 +584,9 @@ ${s.cracks || '(items that slip)'}
 
     fetch('/api/onboarding/status')
         .then(r => r.json())
-        .then(d => { if (d.onboarded) window.location.href = '/'; else render(); })
-        .catch(() => render());
+        .then(d => { if (d.onboarded) window.location.href = '/'; })
+        .catch(() => {});
+    // Show URL step first — wizard is hidden until user skips or reads URL
     </script>
 </body>
 </html>

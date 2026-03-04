@@ -194,6 +194,13 @@ if (ONE_SHOT_ONBOARDING) {
   });
 }
 
+// ──── URL-to-Agent Onboarding — scrape URL and extract context ────
+// Available always (not behind a flag) — used by onboarding wizard step 0
+{
+  const { scrapeUrlHandler } = await import('./controllers/onboardingUrl.js');
+  router.post('/api/onboarding/scrape-url', scrapeUrlHandler);
+}
+
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
   if (!isOnboarded()) {
