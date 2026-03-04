@@ -30,6 +30,9 @@ export default function SoulEditor() {
   const [templates, setTemplates] = useState([])
   const [history, setHistory] = useState([])
   const [previewContent, setPreviewContent] = useState(null)
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiError, setAiError] = useState('')
   const textareaRef = useRef(null)
 
   const isDirty = content !== savedContent
@@ -96,6 +99,28 @@ export default function SoulEditor() {
     setContent(t.content)
   }
 
+  const generateWithAI = async () => {
+    if (!aiPrompt.trim()) return
+    setAiGenerating(true)
+    setAiError('')
+    try {
+      const res = await fetch('/api/onboarding/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: aiPrompt.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.soul_md) throw new Error(data.error || 'Empty response')
+      // Preview exactly like a template card click — user then clicks "Use Template" to apply
+      setPreviewContent(data.soul_md)
+    } catch (err) {
+      setAiError('Failed — try again')
+      console.error('[SoulEditor] AI generate error:', err)
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Tab') {
       e.preventDefault()
@@ -135,8 +160,15 @@ export default function SoulEditor() {
                 previewContent !== null && 'opacity-70')}
               spellCheck={false} />
             {previewContent !== null && (
-              <div className="absolute top-2 right-2 bg-yellow-500/20 text-yellow-400 text-xs px-2 py-1 rounded">
-                Preview — click editor to dismiss
+              <div className="absolute top-2 right-2 flex gap-1.5 items-center">
+                <button
+                  onClick={() => { setContent(previewContent); setPreviewContent(null) }}
+                  className="bg-primary text-primary-foreground text-xs px-2.5 py-1 rounded font-medium hover:bg-primary/90 transition-colors">
+                  Use this
+                </button>
+                <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-1 rounded">
+                  Preview
+                </span>
               </div>
             )}
           </div>
@@ -181,6 +213,32 @@ export default function SoulEditor() {
           <div className="flex-1 overflow-auto p-2">
             {rightTab === 'templates' && isSoul && (
               <div className="space-y-2">
+                {/* Generate with AI */}
+                <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Sparkles size={13} className="text-primary" />
+                    <span className="text-xs font-semibold text-primary">Generate with AI</span>
+                  </div>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={e => { setAiPrompt(e.target.value); setAiError('') }}
+                    placeholder="Describe yourself or your business in a few words…"
+                    rows={3}
+                    className="w-full text-xs bg-background border border-border rounded-md p-2 text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-primary/60 transition-colors"
+                  />
+                  {aiError && <p className="text-xs text-destructive mt-1">{aiError}</p>}
+                  <button
+                    onClick={generateWithAI}
+                    disabled={aiGenerating || !aiPrompt.trim()}
+                    className="mt-2 w-full text-xs font-medium py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    {aiGenerating
+                      ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full" />Generating…</>
+                      : <><Sparkles size={12} />Generate SOUL.md</>}
+                  </button>
+                </div>
+
+                {/* Template cards */}
                 {templates.map((t, i) => (
                   <div key={i} className="p-3 rounded-lg border border-border hover:border-primary/40 hover:shadow-[0_0_12px_rgba(168,85,247,0.15)] transition-all cursor-pointer group"
                     onClick={() => setPreviewContent(t.content)}>
