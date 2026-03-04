@@ -213,20 +213,16 @@
         }
 
         grid.innerHTML = channels.filter(c => !c.linked).map(c => {
-            const isSignal = c.id === 'signal';
             return `
-            <div class="channel-card ${selectedChannel === c.id ? 'selected' : ''} ${isSignal ? 'channel-coming-soon' : ''}"
-                 onclick="${isSignal ? '' : `selectChannel('${c.id}')`}"
-                 title="${isSignal ? 'Signal support coming soon' : ''}">
+            <div class="channel-card ${selectedChannel === c.id ? 'selected' : ''}"
+                 onclick="selectChannel('${c.id}')"
+                 title="">
                 <div class="icon">${c.icon}</div>
                 <div class="name">${c.name}</div>
                 <div class="desc">${c.description}</div>
-                ${isSignal
-                    ? `<span class="badge" style="background:#374151;color:#9ca3af;border:none">🔜 Coming soon</span>`
-                    : `<span class="badge ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? 'badge-qr' : 'badge-token'}">
-                        ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? '📷 QR Code' : '🔑 Bot Token'}
-                       </span>`
-                }
+                <span class="badge ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? 'badge-qr' : 'badge-token'}">
+                    ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? '📷 QR Code' : '🔑 Bot Token'}
+                </span>
             </div>`;
         }).join('');
     }
