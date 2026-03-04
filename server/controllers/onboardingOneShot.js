@@ -13,7 +13,7 @@ import { WORKSPACE, AGENT_TYPES_ENABLED } from '../config.js';
 //   Full pipeline: generate → write SOUL.md → write sentinel → write onboarding-complete.json
 //   Returns: { ok, redirect, agentType, introMessage }
 
-const VALID_TYPES = ['generalist', 'marketing', 'executive-assistant', 'health-coach', 'security-auditor'];
+const VALID_TYPES = ['generalist', 'marketing', 'executive-assistant', 'health-coach', 'security-auditor', 'sales-assistant'];
 
 const GENERATION_PROMPT = (userInput) => `You are configuring a personal AI assistant for WiseChef AI.
 
@@ -27,6 +27,7 @@ Available agent types:
 - executive-assistant: Scheduling, briefings, follow-ups, email management, admin
 - health-coach: Morning routines, wellness tracking, nutrition, lifestyle habits, biohacking
 - security-auditor: Vulnerability scanning, security reviews, infrastructure audits (technical)
+- sales-assistant: Sell products, qualify leads, draft pitches, follow up with prospects, close deals
 
 Return ONLY a valid JSON object with these exact fields:
 {
@@ -60,7 +61,7 @@ async function callOpenRouter(userInput) {
       'X-Title': 'WiseChef One-Shot Onboarding',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-haiku-4.5',
+      model: 'anthropic/claude-sonnet-4.6',
       messages: [{ role: 'user', content: GENERATION_PROMPT(userInput) }],
       max_tokens: 1500,
       temperature: 0.3,
