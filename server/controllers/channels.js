@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawn } from 'child_process';
-import { WORKSPACE, OPENCLAW_DIR } from '../config.js';
+import { WORKSPACE, OPENCLAW_DIR, AGENT_TYPES_ENABLED } from '../config.js';
 
 // ────────────────────────────────────────────────────────
 // Supported channels (Linux VM — no iMessage)
@@ -388,7 +388,10 @@ ${a.time_wasters || '(to be filled in)'}
     fs.writeFileSync(path.join(WORKSPACE, 'onboarding-complete.json'),
       JSON.stringify({ completed: new Date().toISOString(), answers }, null, 2));
 
-    res.json({ ok: true });
+    // When agent type selector is enabled, redirect client to picker after onboarding.
+    // The picker works independently of channel linking state.
+    const redirect = AGENT_TYPES_ENABLED ? '/select-agent' : '/';
+    res.json({ ok: true, redirect });
   } catch (e) {
     console.error('Onboarding error:', e);
     res.status(500).json({ error: 'Onboarding failed' });

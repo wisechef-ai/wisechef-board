@@ -173,8 +173,9 @@ router.get('/health', (_req, res) => {
 });
 
 // ──── Agent Type Selector (feature-flagged) ────
+let getAgentTypes, selectAgentType, readAgentTypeSentinel;
 if (AGENT_TYPES_ENABLED) {
-  const { getAgentTypes, selectAgentType } = await import('./controllers/agentTypes.js');
+  ({ getAgentTypes, selectAgentType, readAgentTypeSentinel } = await import('./controllers/agentTypes.js'));
   router.get('/api/agent-types', getAgentTypes);
   router.post('/api/agent/select', selectAgentType);
   router.get('/select-agent', (_req, res) => {
@@ -188,9 +189,17 @@ router.get('/', (req, res) => {
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
   }
   if (!hasLinkedChannel() && !req.query.skip) {
+    // When agent types are enabled, show picker before channel linking.
+    // Check sentinel — if no type picked yet, redirect to picker first.
+    if (AGENT_TYPES_ENABLED && readAgentTypeSentinel) {
+      const sentinel = readAgentTypeSentinel();
+      if (!sentinel) {
+        return res.redirect('/select-agent');
+      }
+    }
     return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
   }
-  // Onboarded + linked → serve the board SPA
+  // Onboarded + linked (or skip) → serve the board SPA
   return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
