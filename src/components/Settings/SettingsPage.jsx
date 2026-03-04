@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Clock, Globe, Save, Check, Loader2, Search, ChevronDown, Package, Zap, Layers, Sparkles } from 'lucide-react'
+import { Clock, Globe, Save, Check, Loader2, Search, ChevronDown, Package, Zap, Layers, Sparkles, AlertTriangle, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '../TimezoneContext'
 import PageSkeleton from '../PageSkeleton'
@@ -134,6 +134,12 @@ export default function SettingsPage() {
   const [boardUpdateResult, setVidclawUpdateResult] = useState(null)
   const [refreshCountdown, setRefreshCountdown] = useState(null)
 
+  // Factory reset state
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [resetMode, setResetMode] = useState('soft') // 'soft' | 'full'
+  const [resetting, setResetting] = useState(false)
+  const [resetError, setResetError] = useState('')
+
   const isDirty = heartbeat !== savedHeartbeat || timezone !== savedTimezone || maxConcurrent !== savedMaxConcurrent
 
   useEffect(() => {
@@ -206,6 +212,21 @@ export default function SettingsPage() {
       setVidclawUpdateResult({ success: false, error: e.message })
     } finally {
       setVidclawUpdating(false)
+    }
+  }
+
+  const handleFactoryReset = async () => {
+    setResetting(true)
+    setResetError('')
+    try {
+      const full = resetMode === 'full'
+      const res = await fetch(`/api/workspace/reset${full ? '?full=true' : ''}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Reset failed')
+      window.location.href = data.redirect || '/onboarding'
+    } catch (e) {
+      setResetError(e.message)
+      setResetting(false)
     }
   }
 
@@ -443,6 +464,122 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* ── Danger Zone ── */}
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <AlertTriangle size={16} className="text-destructive" />
+          <h3 className="font-medium text-sm text-destructive">Danger Zone</h3>
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Factory Reset</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Wipe your agent's identity and restart onboarding from scratch.
+            </p>
+          </div>
+          <button
+            onClick={() => { setResetModalOpen(true); setResetMode('soft'); setResetError('') }}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <RotateCcw size={13} />
+            Reset Agent
+          </button>
+        </div>
+      </div>
+
+      {/* ── Factory Reset Modal ── */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !resetting) setResetModalOpen(false) }}>
+          <div className="w-full max-w-md rounded-xl border border-border bg-card shadow-2xl p-6 space-y-5">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-destructive/10 shrink-0">
+                <AlertTriangle size={18} className="text-destructive" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-foreground">Reset Agent</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose how much to reset. This cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* Mode selector */}
+            <div className="space-y-2">
+              <button
+                onClick={() => setResetMode('soft')}
+                className={cn(
+                  'w-full text-left p-3 rounded-lg border transition-colors',
+                  resetMode === 'soft'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-border/80 hover:bg-accent/50'
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center',
+                    resetMode === 'soft' ? 'border-primary' : 'border-muted-foreground')}>
+                    {resetMode === 'soft' && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                  </div>
+                  <span className="text-sm font-medium">Soft Reset</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 ml-5">
+                  Restart onboarding flow only. Keeps your SOUL.md and MEMORY.md intact.
+                </p>
+              </button>
+
+              <button
+                onClick={() => setResetMode('full')}
+                className={cn(
+                  'w-full text-left p-3 rounded-lg border transition-colors',
+                  resetMode === 'full'
+                    ? 'border-destructive bg-destructive/5'
+                    : 'border-border hover:border-border/80 hover:bg-accent/50'
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center',
+                    resetMode === 'full' ? 'border-destructive' : 'border-muted-foreground')}>
+                    {resetMode === 'full' && <div className="w-1.5 h-1.5 rounded-full bg-destructive" />}
+                  </div>
+                  <span className="text-sm font-medium text-destructive">Full Reset</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 ml-5">
+                  Delete SOUL.md, MEMORY.md, and all onboarding data. Complete blank slate.
+                </p>
+              </button>
+            </div>
+
+            {resetError && (
+              <p className="text-xs text-destructive">{resetError}</p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setResetModalOpen(false)}
+                disabled={resetting}
+                className="flex-1 px-4 py-2 rounded-md text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFactoryReset}
+                disabled={resetting}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50',
+                  resetMode === 'full'
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                )}
+              >
+                {resetting
+                  ? <><Loader2 size={14} className="animate-spin" />Resetting…</>
+                  : <><RotateCcw size={14} />{resetMode === 'full' ? 'Full Reset' : 'Soft Reset'}</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save */}
       {error && (
