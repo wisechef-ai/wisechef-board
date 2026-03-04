@@ -121,13 +121,13 @@ function validateAndSanitize(parsed) {
  * Used by the frontend to preview before committing.
  */
 export async function generateOnboarding(req, res) {
-  const { userInput } = req.body;
-  if (!userInput || typeof userInput !== 'string' || userInput.trim().length < 5) {
+  const { userInput, description } = req.body; const input = userInput || description;
+  if (!input || typeof input !== 'string' || input.trim().length < 5) {
     return res.status(400).json({ error: 'Please describe yourself in at least a few words.' });
   }
 
   try {
-    const raw = await callOpenRouter(userInput.trim());
+    const raw = await callOpenRouter(input.trim());
     const result = validateAndSanitize(raw);
     res.json({ ok: true, ...result });
   } catch (err) {
@@ -142,14 +142,14 @@ export async function generateOnboarding(req, res) {
  * Body: { userInput: string }
  */
 export async function oneShotOnboarding(req, res) {
-  const { userInput } = req.body;
-  if (!userInput || typeof userInput !== 'string' || userInput.trim().length < 5) {
+  const { userInput, description } = req.body; const input = userInput || description;
+  if (!input || typeof input !== 'string' || input.trim().length < 5) {
     return res.status(400).json({ error: 'Please describe yourself in at least a few words.' });
   }
 
   let result;
   try {
-    const raw = await callOpenRouter(userInput.trim());
+    const raw = await callOpenRouter(input.trim());
     result = validateAndSanitize(raw);
   } catch (err) {
     console.error('[onboarding/one-shot] Generation error:', err.message);
