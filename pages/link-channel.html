@@ -38,6 +38,7 @@
         .channel-card:hover { border-color: #444; transform: translateY(-2px); }
         .channel-card.selected { border-color: #f59e0b; background: #1a1500; }
         .channel-card.linked { border-color: #22c55e; background: #0a1a0a; }
+        .channel-card.channel-coming-soon { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
         .channel-card .icon { font-size: 2rem; margin-bottom: 6px; }
         .channel-card .name { font-weight: 600; font-size: 0.95rem; }
         .channel-card .desc { color: #666; font-size: 0.75rem; margin-top: 4px; }
@@ -211,17 +212,23 @@
             document.getElementById('restartBtn').style.display = 'block';
         }
 
-        grid.innerHTML = channels.filter(c => !c.linked).map(c => `
-            <div class="channel-card ${selectedChannel === c.id ? 'selected' : ''}"
-                 onclick="selectChannel('${c.id}')">
+        grid.innerHTML = channels.filter(c => !c.linked).map(c => {
+            const isSignal = c.id === 'signal';
+            return `
+            <div class="channel-card ${selectedChannel === c.id ? 'selected' : ''} ${isSignal ? 'channel-coming-soon' : ''}"
+                 onclick="${isSignal ? '' : `selectChannel('${c.id}')`}"
+                 title="${isSignal ? 'Signal support coming soon' : ''}">
                 <div class="icon">${c.icon}</div>
                 <div class="name">${c.name}</div>
                 <div class="desc">${c.description}</div>
-                <span class="badge ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? 'badge-qr' : 'badge-token'}">
-                    ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? '📷 QR Code' : '🔑 Bot Token'}
-                </span>
-            </div>
-        `).join('');
+                ${isSignal
+                    ? `<span class="badge" style="background:#374151;color:#9ca3af;border:none">🔜 Coming soon</span>`
+                    : `<span class="badge ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? 'badge-qr' : 'badge-token'}">
+                        ${c.linkType === 'qr' || c.linkType === 'signal-qr' ? '📷 QR Code' : '🔑 Bot Token'}
+                       </span>`
+                }
+            </div>`;
+        }).join('');
     }
 
     function selectChannel(id) {
@@ -403,11 +410,12 @@
                 clearInterval(pollInterval);
                 qrDisplay.className = 'qr-container waiting';
                 qrDisplay.innerHTML = '✅ <b>Connected!</b>';
-                statusEl.innerHTML = '<div class="status-line status-ready">🎉 Successfully linked! Restarting gateway...</div>';
+                statusEl.innerHTML = '<div class="status-line status-ready">🎉 Successfully linked! Taking you to the dashboard…</div>';
                 btn.style.display = 'none';
                 document.getElementById('continueBtn').style.display = 'block';
                 document.getElementById('linkingNotice').style.display = 'none';
-                setTimeout(() => loadChannels(), 2000);
+                // Auto-redirect after brief pause so user sees success state
+                setTimeout(() => { window.location.href = '/'; }, 1500);
             } else if (data.status === 'failed' || data.status === 'timeout') {
                 clearInterval(pollInterval);
                 qrDisplay.className = 'qr-container waiting';
@@ -439,8 +447,8 @@
             });
             const data = await res.json();
             if (data.ok) {
-                alert(`${CHANNELS_MAP[channel]?.name || channel} connected! Gateway restarting...`);
-                loadChannels();
+                // Auto-redirect after token link — gateway restarting in background
+                setTimeout(() => { window.location.href = '/'; }, 1200);
             } else {
                 alert(`Error: ${data.error}`);
             }
