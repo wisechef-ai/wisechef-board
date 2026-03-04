@@ -76,7 +76,13 @@ function sendWelcomeMessage(channel, target) {
 // On-demand signal-cli installer
 let signalCliInstalling = false;
 function isSignalCliInstalled() {
-  try { execSync('which signal-cli 2>/dev/null', { timeout: 5000 }); return true; } catch { return false; }
+  try {
+    const paths = ['/usr/local/bin/signal-cli', '/opt/wisechef/bin/signal-cli'];
+    const found = paths.some(p => { try { require('fs').accessSync(p, require('fs').constants.X_OK); return true; } catch { return false; } });
+    if (found) return true;
+    execSync('which signal-cli 2>/dev/null', { timeout: 3000 });
+    return true;
+  } catch { return false; }
 }
 
 async function ensureSignalCli() {
@@ -107,7 +113,7 @@ async function ensureSignalCli() {
     ).trim().split('\n')[0];
     
     if (findBin) {
-      execSync(`rm -f /usr/local/bin/signal-cli && cp "${findBin}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
+      execSync(`mkdir -p /opt/wisechef/bin && rm -f /opt/wisechef/bin/signal-cli && cp "${findBin}" /opt/wisechef/bin/signal-cli && chmod +x /opt/wisechef/bin/signal-cli && (ln -sf /opt/wisechef/bin/signal-cli /usr/local/bin/signal-cli 2>/dev/null || true)`, { timeout: 5000 });
     } else {
       // Tar might extract directly to /opt/signal-cli as single file
       const candidates = [
@@ -118,7 +124,7 @@ async function ensureSignalCli() {
       ];
       const found = candidates.find(p => { try { fs.accessSync(p, fs.constants.F_OK); return true; } catch { return false; } });
       if (found) {
-        execSync(`rm -f /usr/local/bin/signal-cli && cp "${found}" /usr/local/bin/signal-cli && chmod +x /usr/local/bin/signal-cli`, { timeout: 5000 });
+        execSync(`mkdir -p /opt/wisechef/bin && rm -f /opt/wisechef/bin/signal-cli && cp "${found}" /opt/wisechef/bin/signal-cli && chmod +x /opt/wisechef/bin/signal-cli && (ln -sf /opt/wisechef/bin/signal-cli /usr/local/bin/signal-cli 2>/dev/null || true)`, { timeout: 5000 });
       }
     }
     
@@ -525,7 +531,8 @@ export async function startLinking(req, res) {
       status: 'waiting', error: null, startedAt: Date.now(), logs: [],
     };
 
-    const proc = spawn('signal-cli', ['link', '-n', 'WiseChef'], {
+    const signalCliBin = ['/usr/local/bin/signal-cli', '/opt/wisechef/bin/signal-cli'].find(p => { try { require('fs').accessSync(p, require('fs').constants.X_OK); return true; } catch { return false; } }) || 'signal-cli';
+  const proc = spawn(signalCliBin, ['link', '-n', 'WiseChef'], {
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
