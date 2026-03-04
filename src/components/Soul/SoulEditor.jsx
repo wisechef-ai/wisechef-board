@@ -7,7 +7,6 @@ const FILE_TABS = [
   { name: 'SOUL.md', label: 'Soul' },
   { name: 'IDENTITY.md', label: 'Identity' },
   { name: 'USER.md', label: 'User' },
-  { name: 'AGENTS.md', label: 'Agents' },
 ]
 
 function timeAgo(ts) {
