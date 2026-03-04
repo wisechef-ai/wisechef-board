@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { __dirname } from './config.js';
+import { __dirname, AGENT_TYPES_ENABLED, ONE_SHOT_ONBOARDING } from './config.js';
 
 import { getActivity, getTime } from './controllers/activity.js';
 import {
@@ -161,15 +161,60 @@ router.get('/api/env', (_req, res) => {
   res.json({ hq: process.env.WISECHEF_HQ === 'true' });
 });
 
+// ──── Health check (unauthenticated, for monitoring / fleet probes) ────
+router.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'wisechef-board',
+    version: process.env.npm_package_version || '1.3.0',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ──── Agent Type Selector (feature-flagged) ────
+let getAgentTypes, selectAgentType, readAgentTypeSentinel;
+if (AGENT_TYPES_ENABLED) {
+  ({ getAgentTypes, selectAgentType, readAgentTypeSentinel } = await import('./controllers/agentTypes.js'));
+  router.get('/api/agent-types', getAgentTypes);
+  router.post('/api/agent/select', selectAgentType);
+  router.get('/select-agent', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'pages', 'select-agent.html'));
+  });
+}
+
+// ──── One-Shot Onboarding (feature-flagged) ────
+if (ONE_SHOT_ONBOARDING) {
+  const { generateOnboarding, oneShotOnboarding } = await import('./controllers/onboardingOneShot.js');
+  router.post('/api/onboarding/generate', generateOnboarding);
+  router.post('/api/onboarding/one-shot', oneShotOnboarding);
+  // Advanced wizard still accessible at /onboarding/advanced
+  router.get('/onboarding/advanced', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+  });
+}
+
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
   if (!isOnboarded()) {
+    // One-shot mode: serve the fast identity page instead of the wizard
+    if (ONE_SHOT_ONBOARDING) {
+      return res.sendFile(path.join(__dirname, 'pages', 'onboarding-one-shot.html'));
+    }
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
   }
   if (!hasLinkedChannel() && !req.query.skip) {
+    // When agent types are enabled, show picker before channel linking.
+    // Check sentinel — if no type picked yet, redirect to picker first.
+    if (AGENT_TYPES_ENABLED && readAgentTypeSentinel) {
+      const sentinel = readAgentTypeSentinel();
+      if (!sentinel) {
+        return res.redirect('/select-agent');
+      }
+    }
     return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
   }
-  // Onboarded + linked → serve the board SPA
+  // Onboarded + linked (or skip) → serve the board SPA
   return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 

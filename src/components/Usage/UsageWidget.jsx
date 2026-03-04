@@ -158,8 +158,21 @@ export default function UsageWidget() {
   const fetchUsage = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/usage')
-      setUsage(await res.json())
+      // /api/usage-limits is the authoritative battery/byok source (usageGuard.js).
+      // /api/usage is fetched in parallel for model + usage details only.
+      const [limitsRes, legacyRes] = await Promise.all([
+        fetch('/api/usage-limits'),
+        fetch('/api/usage').catch(() => null),
+      ])
+      const limits = await limitsRes.json()
+      const legacy = legacyRes ? await legacyRes.json().catch(() => ({})) : {}
+      setUsage({
+        ...legacy,
+        battery: limits.battery,
+        byok: limits.byok,
+        limited: limits.limited,
+        plan: limits.plan,
+      })
     } catch {}
     setLoading(false)
   }, [])
@@ -187,8 +200,9 @@ export default function UsageWidget() {
 
   const bat = usage.battery || {}
   const byok = usage.byok
-  const credits = byok ? -1 : (bat.credits ?? bat.maxCredits ?? 50)
-  const maxCredits = bat.maxCredits || 50
+  // /api/usage-limits returns credits:-1 for BYOK; fall back to maxCredits for display
+  const maxCredits = (byok ? 50 : bat.maxCredits) || 50
+  const credits = byok ? -1 : (bat.credits ?? maxCredits)
   const { level, color } = getBatteryLevel(credits, maxCredits, byok)
 
   const displayModel = (usage.model || 'unknown')

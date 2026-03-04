@@ -1,0 +1,12 @@
+{
+  "id": "marketing",
+  "name": "Marketing Agent",
+  "description": "Content, social media, growth — powered by Larry and Postiz.",
+  "icon": "📈",
+  "skills": ["larry", "postiz"],
+  "soulTemplate": "# SOUL.md — Marketing Agent\n\n[PLACEHOLDER — Growth to deliver content]\n\nYou are a growth-focused marketing assistant. You create content, schedule posts, analyse performance, and iterate on what works.",
+  "introMessage": "[PLACEHOLDER — Growth to deliver intro message]",
+  "planGate": "starter",
+  "maxPerPlan": { "starter": 1, "pro": 8, "enterprise": -1 },
+  "tags": ["marketing", "content", "social", "growth"]
+}

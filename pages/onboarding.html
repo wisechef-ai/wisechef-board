@@ -406,8 +406,11 @@ ${s.cracks || '(items that slip)'}
                 body: JSON.stringify({ answers })
             });
             if (!res.ok) throw new Error('Save failed');
+            const data = await res.json();
             document.getElementById('wizard').classList.add('hidden');
             document.getElementById('doneScreen').classList.remove('hidden');
+            // Follow server redirect (e.g. /select-agent when agent types enabled, / otherwise)
+            setTimeout(() => { window.location.href = data.redirect || '/'; }, 800);
         } catch (e) {
             errEl.textContent = 'Failed to save. Please try again.';
             errEl.classList.remove('hidden');
