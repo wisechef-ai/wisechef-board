@@ -114,6 +114,10 @@ router.get('/api/workspace-file', getWorkspaceFile);
 router.put('/api/workspace-file', putWorkspaceFile);
 router.get('/api/workspace-file/history', getWorkspaceFileHistory);
 
+// Factory reset — DELETE /api/workspace/reset[?full=true]
+const { factoryReset } = await import('./controllers/workspaceReset.js');
+router.delete('/api/workspace/reset', factoryReset);
+
 // Soul
 router.get('/api/soul', getSoul);
 router.put('/api/soul', putSoul);
