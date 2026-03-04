@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Set up your assistant — WiseChef</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #777;
+      --accent: #e85d26;
+      --accent-hover: #ff6a2f;
+      --green: #22c55e;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+      margin-bottom: 48px;
+    }
+    .logo span { color: var(--accent); }
+
+    /* ── Screen: input ── */
+    #screen-input {
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .headline {
+      font-size: clamp(28px, 6vw, 42px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+      max-width: 420px;
+    }
+
+    .input-wrap {
+      width: 100%;
+      position: relative;
+    }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.6;
+      padding: 16px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--muted); }
+
+    .char-count {
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .examples {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .example-pill {
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: #aaa;
+      cursor: pointer;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .example-pill:hover { border-color: var(--accent); color: var(--text); }
+
+    .btn-primary {
+      margin-top: 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 16px 40px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      width: 100%;
+      max-width: 320px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .advanced-link {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .advanced-link:hover { color: #aaa; }
+
+    /* ── Screen: loading ── */
+    #screen-loading {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 24px;
+    }
+
+    .spinner-ring {
+      width: 56px;
+      height: 56px;
+      border: 3px solid #2a2a2a;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+    }
+    .loading-step {
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: color 0.3s;
+    }
+    .loading-step.active { color: var(--text); }
+    .loading-step.done { color: var(--green); }
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* ── Screen: result ── */
+    #screen-result {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 560px;
+      gap: 20px;
+    }
+
+    .result-header {
+      text-align: center;
+    }
+    .result-header h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .result-header p { color: var(--muted); font-size: 15px; }
+
+    .agent-card {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+    }
+    .agent-card-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .agent-icon { font-size: 36px; }
+    .agent-name { font-size: 18px; font-weight: 700; }
+    .agent-type-slug { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .intro-preview {
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #ccc;
+      font-style: italic;
+    }
+    .intro-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .skills-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .skill-tag {
+      font-size: 12px;
+      background: #222;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 10px;
+      color: #aaa;
+    }
+
+    .result-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .error-msg {
+      color: #e85555;
+      font-size: 14px;
+      text-align: center;
+      min-height: 20px;
+    }
+
+    @media (max-width: 480px) {
+      .headline { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<a href="/" class="logo">Wise<span>Chef</span> AI</a>
+
+<!-- Screen 1: Input -->
+<div id="screen-input">
+  <h1 class="headline">Who are you and<br/>what do you need?</h1>
+  <p class="sub">One sentence is enough. Your assistant will be configured around you — no forms, no steps.</p>
+
+  <div class="input-wrap">
+    <textarea id="user-input" placeholder="e.g. I'm a marketing consultant who manages social media for 5 clients and spends too much time on content creation." maxlength="500"></textarea>
+    <span class="char-count"><span id="char-num">0</span>/500</span>
+  </div>
+
+  <div class="examples">
+    <button class="example-pill" onclick="setExample(this)">I run a small e-commerce brand</button>
+    <button class="example-pill" onclick="setExample(this)">Startup founder, too many meetings</button>
+    <button class="example-pill" onclick="setExample(this)">Freelance developer, bad at admin</button>
+    <button class="example-pill" onclick="setExample(this)">Personal trainer focused on biohacking</button>
+    <button class="example-pill" onclick="setExample(this)">Marketing manager at a SaaS company</button>
+  </div>
+
+  <div class="error-msg" id="input-error"></div>
+  <button class="btn-primary" id="submit-btn" onclick="submit()">Set up my assistant →</button>
+  <a href="/onboarding/advanced" class="advanced-link">Advanced setup instead →</a>
+</div>
+
+<!-- Screen 2: Loading -->
+<div id="screen-loading">
+  <div class="spinner-ring"></div>
+  <div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:16px">Setting up your assistant…</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="step-read">
+        <div class="step-dot"></div>Reading your description
+      </div>
+      <div class="loading-step" id="step-think">
+        <div class="step-dot"></div>Choosing the right agent type
+      </div>
+      <div class="loading-step" id="step-build">
+        <div class="step-dot"></div>Building your SOUL.md
+      </div>
+      <div class="loading-step" id="step-save">
+        <div class="step-dot"></div>Saving configuration
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Screen 3: Result / Confirm -->
+<div id="screen-result">
+  <div class="result-header">
+    <h2>Your assistant is ready</h2>
+    <p>Here's what we configured based on your description.</p>
+  </div>
+
+  <div class="agent-card">
+    <div class="agent-card-top">
+      <div class="agent-icon" id="result-icon">🤖</div>
+      <div>
+        <div class="agent-name" id="result-name">Loading…</div>
+        <div class="agent-type-slug" id="result-slug"></div>
+      </div>
+    </div>
+    <div class="intro-label">First message from your agent</div>
+    <div class="intro-preview" id="result-intro"></div>
+    <div class="skills-row" id="result-skills"></div>
+  </div>
+
+  <div class="result-actions">
+    <div class="error-msg" id="result-error"></div>
+    <button class="btn-primary" id="confirm-btn" onclick="confirm()">Looks good — let's go →</button>
+    <button class="example-pill" onclick="goBack()" style="border-color:#444">← Start over</button>
+  </div>
+</div>
+
+<script>
+  const AGENT_META = {
+    'generalist':           { icon: '🤖', name: 'Personal Assistant' },
+    'marketing':            { icon: '📈', name: 'Marketing Agent' },
+    'executive-assistant':  { icon: '💼', name: 'Executive Assistant' },
+    'health-coach':         { icon: '🥗', name: 'Health Coach' },
+    'security-auditor':     { icon: '🔐', name: 'Security Auditor' },
+  };
+
+  let generatedResult = null;
+
+  const textarea = document.getElementById('user-input');
+  textarea.addEventListener('input', () => {
+    document.getElementById('char-num').textContent = textarea.value.length;
+  });
+
+  function setExample(btn) {
+    textarea.value = btn.textContent;
+    document.getElementById('char-num').textContent = textarea.value.length;
+    textarea.focus();
+  }
+
+  function show(screenId) {
+    ['screen-input', 'screen-loading', 'screen-result'].forEach(id => {
+      document.getElementById(id).style.display = id === screenId ? 'flex' : 'none';
+    });
+  }
+
+  function setLoadingStep(stepId) {
+    ['step-read', 'step-think', 'step-build', 'step-save'].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove('active', 'done');
+    });
+    const steps = ['step-read', 'step-think', 'step-build', 'step-save'];
+    const idx = steps.indexOf(stepId);
+    steps.forEach((id, i) => {
+      if (i < idx) document.getElementById(id).classList.add('done');
+      else if (i === idx) document.getElementById(id).classList.add('active');
+    });
+  }
+
+  function goBack() {
+    generatedResult = null;
+    document.getElementById('result-error').textContent = '';
+    show('screen-input');
+  }
+
+  async function submit() {
+    const input = textarea.value.trim();
+    const errEl = document.getElementById('input-error');
+    errEl.textContent = '';
+
+    if (input.length < 5) {
+      errEl.textContent = 'Please describe yourself a little more.';
+      return;
+    }
+
+    document.getElementById('submit-btn').disabled = true;
+    show('screen-loading');
+
+    // Animate loading steps
+    const stepTimings = [
+      ['step-read', 400],
+      ['step-think', 2000],
+      ['step-build', 4000],
+      ['step-save', 8000],
+    ];
+    stepTimings.forEach(([id, delay]) => {
+      setTimeout(() => setLoadingStep(id), delay);
+    });
+
+    try {
+      const res = await fetch('/api/onboarding/one-shot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userInput: input }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        show('screen-input');
+        document.getElementById('submit-btn').disabled = false;
+        document.getElementById('input-error').textContent = data.error || 'Something went wrong. Please try again.';
+        return;
+      }
+
+      generatedResult = data;
+
+      // Populate result screen
+      const meta = AGENT_META[data.agentType] || { icon: '🤖', name: data.agentType };
+      document.getElementById('result-icon').textContent = meta.icon;
+      document.getElementById('result-name').textContent = meta.name;
+      document.getElementById('result-slug').textContent = data.agentType;
+      document.getElementById('result-intro').textContent = data.introMessage || '';
+
+      const skillsEl = document.getElementById('result-skills');
+      skillsEl.innerHTML = (data.skills || []).map(s =>
+        `<span class="skill-tag">⚡ ${s}</span>`
+      ).join('');
+
+      setLoadingStep('step-save');
+      setTimeout(() => {
+        document.getElementById('result-error').textContent = '';
+        show('screen-result');
+      }, 600);
+
+    } catch {
+      show('screen-input');
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('input-error').textContent = 'Network error. Please try again.';
+    }
+  }
+
+  function confirm() {
+    if (!generatedResult) return;
+    const btn = document.getElementById('confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Launching…';
+    window.location.href = generatedResult.redirect || '/';
+  }
+
+  show('screen-input');
+</script>
+</body>
+</html>

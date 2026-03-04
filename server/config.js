@@ -218,6 +218,9 @@ You are a chief of staff — the connective tissue of an organisation. You see p
 // ──── Agent Type Selector ────
 export const AGENT_TYPES_ENABLED = (process.env.AGENT_TYPES_ENABLED || "").toLowerCase() === "true";
 
+// ──── One-Shot Onboarding ────
+export const ONE_SHOT_ONBOARDING = (process.env.ONE_SHOT_ONBOARDING || "").toLowerCase() === "true";
+
 // ──── Plano Model Routing ────
 export const PLANO_ENABLED = (process.env.PLANO_ENABLED || "").toLowerCase() === "true";
 const parsedPlanoPort = Number.parseInt(process.env.PLANO_PORT || "", 10);

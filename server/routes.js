@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { __dirname, AGENT_TYPES_ENABLED } from './config.js';
+import { __dirname, AGENT_TYPES_ENABLED, ONE_SHOT_ONBOARDING } from './config.js';
 
 import { getActivity, getTime } from './controllers/activity.js';
 import {
@@ -183,9 +183,24 @@ if (AGENT_TYPES_ENABLED) {
   });
 }
 
+// ──── One-Shot Onboarding (feature-flagged) ────
+if (ONE_SHOT_ONBOARDING) {
+  const { generateOnboarding, oneShotOnboarding } = await import('./controllers/onboardingOneShot.js');
+  router.post('/api/onboarding/generate', generateOnboarding);
+  router.post('/api/onboarding/one-shot', oneShotOnboarding);
+  // Advanced wizard still accessible at /onboarding/advanced
+  router.get('/onboarding/advanced', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+  });
+}
+
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
   if (!isOnboarded()) {
+    // One-shot mode: serve the fast identity page instead of the wizard
+    if (ONE_SHOT_ONBOARDING) {
+      return res.sendFile(path.join(__dirname, 'pages', 'onboarding-one-shot.html'));
+    }
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
   }
   if (!hasLinkedChannel() && !req.query.skip) {
