@@ -259,11 +259,3 @@ function notifyCEO(company, clientDir) {
 }
 
 
-import fs   from 'fs';
-import path from 'path';
-import { execSync } from 'child_process';
-
-const CLIENTS_DIR = path.resolve(process.env.HOME, 'clawd/wisechef/clients');
-const INBOX_FILE  = path.resolve(process.env.HOME, 'companies/wisechef/shared/inbox/to-ceo.md');
-
-// EOF
