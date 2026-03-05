@@ -21,7 +21,7 @@ import { listCredentials, putCredential, deleteCredential } from './controllers/
 import { getFleet, getClientStatus, deployClient, startHealthChecks } from './controllers/fleet.js';
 import { createChatSession, sendChatMessage } from './controllers/chat.js';
 import { usageGuard, getUsageLimits } from './middleware/usageGuard.js';
-import { enterpriseOnboard, enterpriseInterviewAck } from './controllers/enterprise.js';
+import { enterpriseOnboard, enterpriseInterviewAck, enterpriseProvision } from './controllers/enterprise.js';
 import {
   isOnboarded, hasLinkedChannel,
   getOnboardingStatus, completeOnboarding,
@@ -149,6 +149,7 @@ router.get('/api/usage-limits', getUsageLimits);
 
 // ──── Enterprise Onboarding ────
 router.post('/api/enterprise/onboard', enterpriseOnboard);
+router.post('/api/enterprise/provision', enterpriseProvision);
 router.post('/api/enterprise/interview-ack', enterpriseInterviewAck);
 router.get('/enterprise', (_req, res) => res.redirect('/#enterprise'));
 
