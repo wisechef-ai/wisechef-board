@@ -349,7 +349,7 @@
         }
         status.textContent = `✓ ${data.agentType.name} selected! Redirecting…`;
         status.className = 'status-msg success';
-        setTimeout(() => { window.location.href = '/'; }, 1000);
+        setTimeout(() => { window.location.href = window.__POST_ONBOARD_URL__ || '/dashboard'; }, 1000);
       } catch {
         status.textContent = 'Network error. Please try again.';
         status.className = 'status-msg error';
@@ -360,10 +360,12 @@
 
     document.getElementById('confirm-btn').addEventListener('click', confirm);
     document.getElementById('skip-btn').addEventListener('click', () => {
-      window.location.href = '/';
+      window.location.href = window.__POST_ONBOARD_URL__ || '/dashboard';
     });
 
     loadTypes();
   </script>
+
+    fetch('/api/config/public').then(r => r.json()).then(d => { window.__POST_ONBOARD_URL__ = d.postOnboardUrl; }).catch(() => {});
 </body>
 </html>
