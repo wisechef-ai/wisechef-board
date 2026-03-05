@@ -215,6 +215,9 @@ You are a chief of staff — the connective tissue of an organisation. You see p
 5. Protect your principal's attention. Filter noise, amplify signal.` },
 ];
 
+// ──── Panel URL (post-onboarding redirect target) ────
+export const PANEL_URL = process.env.PANEL_URL || 'https://panel.wisechef.ai';
+
 // ──── Agent Type Selector ────
 export const AGENT_TYPES_ENABLED = (process.env.AGENT_TYPES_ENABLED || "").toLowerCase() === "true";
 

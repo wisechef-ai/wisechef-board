@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { WORKSPACE, AGENT_TYPES_ENABLED } from '../config.js';
+import { WORKSPACE, AGENT_TYPES_ENABLED, PANEL_URL } from '../config.js';
 
 // ──── One-Shot Onboarding — AI-powered identity generation ────
 //
@@ -184,8 +184,8 @@ export async function oneShotOnboarding(req, res) {
       fs.writeFileSync(memoryPath, `# MEMORY.md\n\n## About Me\n${userInput.trim()}\n\n## Agent Type\n${agent_type}\n`, 'utf8');
     }
 
-    // Determine redirect — channel linking stays separate
-    const redirect = '/';
+    // Determine redirect — send to panel after onboarding
+    const redirect = PANEL_URL;
 
     res.json({
       ok: true,

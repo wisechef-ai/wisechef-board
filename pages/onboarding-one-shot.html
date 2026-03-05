@@ -489,12 +489,13 @@
     const btn = document.getElementById('confirm-btn');
     btn.disabled = true;
     btn.textContent = 'Launching…';
-    window.location.href = generatedResult.redirect || '/';
+    window.location.href = generatedResult.redirect || window.__PANEL_URL__ || 'https://panel.wisechef.ai';
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
   history.replaceState({ screen: 'screen-input' }, '', '#screen-input');
   navigate('screen-input', false);
+  fetch('/api/config/public').then(r => r.json()).then(d => { window.__PANEL_URL__ = d.panelUrl; }).catch(() => {});
 </script>
 </body>
 </html>
