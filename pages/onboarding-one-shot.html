@@ -409,7 +409,7 @@
   };
 
   let generatedResult = null;
-  let panelUrl = 'https://panel.wisechef.ai';
+  let panelUrl = '/dashboard';
 
   // ── Screen navigation (hash-based for browser back) ────────────────────
   const HISTORY_SCREENS = ['screen-url', 'screen-form', 'screen-result'];
@@ -615,7 +615,7 @@
   // ── Init ────────────────────────────────────────────────────────────────
   history.replaceState({ screen: 'screen-url' }, '', '#screen-url');
   navigate('screen-url', false);
-  fetch('/api/config/public').then(r => r.json()).then(d => { panelUrl = d.panelUrl || panelUrl; }).catch(() => {});
+  fetch('/api/config/public').then(r => r.json()).then(d => { panelUrl = d.postOnboardUrl || panelUrl; }).catch(() => {});
 
   // Enter key on URL input triggers scrape
   document.getElementById('url-input').addEventListener('keydown', e => {

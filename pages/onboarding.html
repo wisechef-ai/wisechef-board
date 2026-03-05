@@ -573,7 +573,7 @@ ${s.cracks || '(items that slip)'}
             document.getElementById('wizard').classList.add('hidden');
             document.getElementById('doneScreen').classList.remove('hidden');
             // Follow server redirect (e.g. /select-agent when agent types enabled, panel otherwise)
-            setTimeout(() => { window.location.href = data.redirect || window.__PANEL_URL__ || 'https://panel.wisechef.ai'; }, 800);
+            setTimeout(() => { window.location.href = data.redirect || window.__POST_ONBOARD_URL__ || '/dashboard'; }, 800);
         } catch (e) {
             errEl.textContent = 'Failed to save. Please try again.';
             errEl.classList.remove('hidden');
@@ -584,9 +584,9 @@ ${s.cracks || '(items that slip)'}
 
     fetch('/api/onboarding/status')
         .then(r => r.json())
-        .then(d => { if (d.onboarded) window.location.href = window.__PANEL_URL__ || 'https://panel.wisechef.ai'; })
+        .then(d => { if (d.onboarded) window.location.href = window.__POST_ONBOARD_URL__ || '/dashboard'; })
         .catch(() => {});
-    fetch('/api/config/public').then(r => r.json()).then(d => { window.__PANEL_URL__ = d.panelUrl; }).catch(() => {});
+    fetch('/api/config/public').then(r => r.json()).then(d => { window.__POST_ONBOARD_URL__ = d.postOnboardUrl; }).catch(() => {});
     // Show URL step first — wizard is hidden until user skips or reads URL
     </script>
 </body>

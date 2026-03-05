@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { __dirname, AGENT_TYPES_ENABLED, ONE_SHOT_ONBOARDING, PANEL_URL } from './config.js';
+import { __dirname, AGENT_TYPES_ENABLED, ONE_SHOT_ONBOARDING, POST_ONBOARD_URL } from './config.js';
 
 import { getActivity, getTime } from './controllers/activity.js';
 import {
@@ -64,7 +64,7 @@ router.get('/api/time', getTime);
 
 // Public config — safe to expose, no secrets
 router.get('/api/config/public', (_req, res) => {
-  res.json({ panelUrl: PANEL_URL });
+  res.json({ postOnboardUrl: POST_ONBOARD_URL });
 });
 
 // Tasks

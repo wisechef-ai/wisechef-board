@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { WORKSPACE, AGENT_TYPES_ENABLED, PANEL_URL } from '../config.js';
+import { WORKSPACE, AGENT_TYPES_ENABLED, POST_ONBOARD_URL } from '../config.js';
 
 // ──── One-Shot Onboarding — AI-powered identity generation ────
 //
@@ -215,7 +215,7 @@ export async function oneShotOnboarding(req, res) {
     }
 
     // Determine redirect — send to panel after onboarding
-    const redirect = PANEL_URL;
+    const redirect = POST_ONBOARD_URL;
 
     res.json({
       ok: true,
