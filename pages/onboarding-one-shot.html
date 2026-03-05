@@ -300,7 +300,7 @@
 
   <div class="error-msg" id="input-error"></div>
   <button class="btn-primary" id="submit-btn" onclick="submit()">Set up my assistant →</button>
-  <a href="/onboarding/advanced" class="advanced-link">Advanced setup instead →</a>
+  <button class="advanced-link" onclick="showManualStep()" style="background:none;border:none;cursor:pointer;font-family:inherit">More options →</button>
 </div>
 
 <!-- Screen 2: Loading -->
@@ -348,7 +348,7 @@
   <div class="result-actions">
     <div class="error-msg" id="result-error"></div>
     <button class="btn-primary" id="confirm-btn" onclick="confirm()">Looks good — let's go →</button>
-    <button class="example-pill" onclick="goBack()" style="border-color:#444">← Start over</button>
+    <button class="example-pill" onclick="history.back()" style="border-color:#444">← Back</button>
   </div>
 </div>
 
@@ -361,8 +361,50 @@
     'security-auditor':     { icon: '🔐', name: 'Security Auditor' },
   };
 
+  // ── Screens in order (loading is excluded from history) ──
+  const SCREENS = ['screen-input', 'screen-result'];
   let generatedResult = null;
 
+  // ── Hash-based routing (BUG 3 fix) ───────────────────────────────────────
+  function navigate(screenId, pushState = true) {
+    const all = ['screen-input', 'screen-loading', 'screen-result'];
+    all.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === screenId ? 'flex' : 'none';
+    });
+    // Never push loading to history so back skips it
+    if (pushState && screenId !== 'screen-loading') {
+      history.pushState({ screen: screenId }, '', '#' + screenId);
+    }
+  }
+
+  window.addEventListener('popstate', (e) => {
+    const screen = e.state?.screen;
+    if (screen && ['screen-input', 'screen-result'].includes(screen)) {
+      navigate(screen, false);
+      if (screen === 'screen-input') {
+        // reset result state cleanly
+        generatedResult = null;
+        document.getElementById('result-error').textContent = '';
+        document.getElementById('submit-btn').disabled = false;
+      }
+    } else {
+      // pre-history popstate — treat as going to input
+      navigate('screen-input', false);
+    }
+  });
+
+  // ── BUG 2 fix: "More options" goes to step 2 (same flow) ─────────────────
+  function showManualStep() {
+    // Just focus the textarea and scroll to it — we're already on step 1
+    const ta = document.getElementById('user-input');
+    ta.focus();
+    ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Give a hint in placeholder that they can write freely
+    ta.placeholder = 'Describe your role, company, and what you spend most time on — anything helps.';
+  }
+
+  // ── Textarea ─────────────────────────────────────────────────────────────
   const textarea = document.getElementById('user-input');
   textarea.addEventListener('input', () => {
     document.getElementById('char-num').textContent = textarea.value.length;
@@ -374,31 +416,19 @@
     textarea.focus();
   }
 
-  function show(screenId) {
-    ['screen-input', 'screen-loading', 'screen-result'].forEach(id => {
-      document.getElementById(id).style.display = id === screenId ? 'flex' : 'none';
-    });
-  }
-
+  // ── Loading steps ─────────────────────────────────────────────────────────
   function setLoadingStep(stepId) {
-    ['step-read', 'step-think', 'step-build', 'step-save'].forEach(id => {
-      const el = document.getElementById(id);
-      el.classList.remove('active', 'done');
-    });
     const steps = ['step-read', 'step-think', 'step-build', 'step-save'];
     const idx = steps.indexOf(stepId);
     steps.forEach((id, i) => {
-      if (i < idx) document.getElementById(id).classList.add('done');
-      else if (i === idx) document.getElementById(id).classList.add('active');
+      const el = document.getElementById(id);
+      el.classList.remove('active', 'done');
+      if (i < idx) el.classList.add('done');
+      else if (i === idx) el.classList.add('active');
     });
   }
 
-  function goBack() {
-    generatedResult = null;
-    document.getElementById('result-error').textContent = '';
-    show('screen-input');
-  }
-
+  // ── Submit ────────────────────────────────────────────────────────────────
   async function submit() {
     const input = textarea.value.trim();
     const errEl = document.getElementById('input-error');
@@ -410,18 +440,10 @@
     }
 
     document.getElementById('submit-btn').disabled = true;
-    show('screen-loading');
+    navigate('screen-loading', false); // loading not in history
 
-    // Animate loading steps
-    const stepTimings = [
-      ['step-read', 400],
-      ['step-think', 2000],
-      ['step-build', 4000],
-      ['step-save', 8000],
-    ];
-    stepTimings.forEach(([id, delay]) => {
-      setTimeout(() => setLoadingStep(id), delay);
-    });
+    const stepTimings = [['step-read',400],['step-think',2000],['step-build',4000],['step-save',8000]];
+    stepTimings.forEach(([id, delay]) => setTimeout(() => setLoadingStep(id), delay));
 
     try {
       const res = await fetch('/api/onboarding/one-shot', {
@@ -432,7 +454,7 @@
       const data = await res.json();
 
       if (!res.ok) {
-        show('screen-input');
+        navigate('screen-input');
         document.getElementById('submit-btn').disabled = false;
         document.getElementById('input-error').textContent = data.error || 'Something went wrong. Please try again.';
         return;
@@ -446,20 +468,17 @@
       document.getElementById('result-name').textContent = meta.name;
       document.getElementById('result-slug').textContent = data.agentType;
       document.getElementById('result-intro').textContent = data.introMessage || '';
-
-      const skillsEl = document.getElementById('result-skills');
-      skillsEl.innerHTML = (data.skills || []).map(s =>
-        `<span class="skill-tag">⚡ ${s}</span>`
-      ).join('');
+      document.getElementById('result-skills').innerHTML =
+        (data.skills || []).map(s => `<span class="skill-tag">⚡ ${s}</span>`).join('');
 
       setLoadingStep('step-save');
       setTimeout(() => {
         document.getElementById('result-error').textContent = '';
-        show('screen-result');
+        navigate('screen-result'); // pushes to history
       }, 600);
 
     } catch {
-      show('screen-input');
+      navigate('screen-input');
       document.getElementById('submit-btn').disabled = false;
       document.getElementById('input-error').textContent = 'Network error. Please try again.';
     }
@@ -473,7 +492,9 @@
     window.location.href = generatedResult.redirect || '/';
   }
 
-  show('screen-input');
+  // ── Init ──────────────────────────────────────────────────────────────────
+  history.replaceState({ screen: 'screen-input' }, '', '#screen-input');
+  navigate('screen-input', false);
 </script>
 </body>
 </html>

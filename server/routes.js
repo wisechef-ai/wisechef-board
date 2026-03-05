@@ -199,9 +199,9 @@ if (ONE_SHOT_ONBOARDING) {
   const { generateOnboarding, oneShotOnboarding } = await import('./controllers/onboardingOneShot.js');
   router.post('/api/onboarding/generate', generateOnboarding);
   router.post('/api/onboarding/one-shot', oneShotOnboarding);
-  // Advanced wizard still accessible at /onboarding/advanced
+  // /onboarding/advanced redirects to single canonical flow (no separate old wizard)
   router.get('/onboarding/advanced', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+    res.redirect('/onboarding');
   });
 }
 

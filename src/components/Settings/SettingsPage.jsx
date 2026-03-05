@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Clock, Globe, Save, Check, Loader2, Search, ChevronDown, Package, Zap, Layers, Sparkles, AlertTriangle, RotateCcw } from 'lucide-react'
+import { Clock, Globe, Save, Check, Loader2, Search, ChevronDown, Package, Zap, Layers, Sparkles, AlertTriangle, RotateCcw, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '../TimezoneContext'
 import PageSkeleton from '../PageSkeleton'
@@ -110,6 +110,8 @@ const TABS = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
+  const [agentName, setAgentName] = useState('')
+  const [savedAgentName, setSavedAgentName] = useState('')
   const [heartbeat, setHeartbeat] = useState('30m')
   const [savedHeartbeat, setSavedHeartbeat] = useState('30m')
   const [timezone, setTimezoneLocal] = useState('UTC')
@@ -140,12 +142,15 @@ export default function SettingsPage() {
   const [resetting, setResetting] = useState(false)
   const [resetError, setResetError] = useState('')
 
-  const isDirty = heartbeat !== savedHeartbeat || timezone !== savedTimezone || maxConcurrent !== savedMaxConcurrent
+  const isDirty = agentName !== savedAgentName || heartbeat !== savedHeartbeat || timezone !== savedTimezone || maxConcurrent !== savedMaxConcurrent
 
   useEffect(() => {
     fetch('/api/settings')
       .then(r => r.json())
       .then(d => {
+        const an = d.agentName || ''
+        setAgentName(an)
+        setSavedAgentName(an)
         setHeartbeat(d.heartbeatEvery || '30m')
         setSavedHeartbeat(d.heartbeatEvery || '30m')
         const tz = d.timezone || 'UTC'
@@ -237,13 +242,14 @@ export default function SettingsPage() {
       const r = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ heartbeatEvery: heartbeat, timezone, maxConcurrent }),
+        body: JSON.stringify({ heartbeatEvery: heartbeat, timezone, maxConcurrent, agentName }),
       })
       if (!r.ok) {
         const data = await r.json().catch(() => ({}))
         throw new Error(data.error || 'Save failed')
       }
       const data = await r.json()
+      setSavedAgentName(agentName)
       setSavedHeartbeat(heartbeat)
       setSavedTimezone(timezone)
       setSavedMaxConcurrent(maxConcurrent)
@@ -284,6 +290,26 @@ export default function SettingsPage() {
       {activeTab === 'routing' && <PlanoSettings />}
 
       {activeTab === 'general' && <>
+{/* Agent Name — first and most prominent */}
+      <div className="rounded-lg border border-primary/30 bg-card p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Bot size={16} className="text-primary" />
+          <h3 className="font-medium text-sm">Agent Name</h3>
+          <span className="text-xs text-muted-foreground ml-1">— how your assistant introduces itself</span>
+        </div>
+        <input
+          type="text"
+          value={agentName}
+          onChange={e => setAgentName(e.target.value.slice(0, 40))}
+          placeholder="e.g. Aria, Assistant, MARCO…"
+          maxLength={40}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+        />
+        <p className="text-xs text-muted-foreground">
+          This name appears in your agent's SOUL.md and first message. Max 40 characters.
+        </p>
+      </div>
+
 {/* Heartbeat Section */}
       <div className="rounded-lg border border-border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
