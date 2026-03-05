@@ -15,11 +15,26 @@ import { WORKSPACE, AGENT_TYPES_ENABLED, PANEL_URL } from '../config.js';
 
 const VALID_TYPES = ['generalist', 'marketing', 'executive-assistant', 'health-coach', 'security-auditor', 'sales-assistant'];
 
-const GENERATION_PROMPT = (userInput) => `You are configuring a personal AI assistant for WiseChef AI.
+const GENERATION_PROMPT = (userInput, { companyName, focusArea, language } = {}) => {
+  const structured = [
+    companyName ? `Company/Name: ${companyName}` : null,
+    focusArea   ? `Primary focus area: ${focusArea}` : null,
+    language    ? `Language for the agent: ${language}` : null,
+  ].filter(Boolean).join('\n');
 
-User description: "${userInput}"
+  // Map focus area to a recommended agent type hint
+  const focusHint = {
+    'Customer Support': 'Lean towards generalist or sales-assistant.',
+    'Operations':       'Lean towards executive-assistant.',
+    'Everything':       'Lean towards generalist.',
+  }[focusArea] || '';
 
-Based on this description, generate a complete agent configuration. Be specific and personal — use details from their description.
+  return `You are configuring a business AI assistant for WiseChef AI.
+
+${structured ? `Structured fields provided:\n${structured}\n` : ''}${userInput ? `Additional description: "${userInput}"` : ''}
+
+Based on these details, generate a complete agent configuration. Be specific — use the company name, focus area, and language provided.
+${focusHint}
 
 Available agent types:
 - generalist: General-purpose assistant, productivity, tasks, daily briefings
@@ -32,23 +47,24 @@ Available agent types:
 Return ONLY a valid JSON object with these exact fields:
 {
   "agent_type": "<one of the slugs above>",
-  "soul_md": "<full SOUL.md content as a string — minimum 200 words, personalised to their description>",
+  "soul_md": "<full SOUL.md content as a string — minimum 200 words, personalised to the company/person. Write in ${language || 'English'}.>",
   "skills": ["<skill-slug>", ...],
-  "intro_message": "<warm, personal first message from the agent. Reference their description. Ask one clarifying question. 2-4 sentences.>"
+  "intro_message": "<warm, personal first message from the agent, written in ${language || 'English'}. Reference the company/person. 2-3 sentences.>"
 }
 
 For soul_md, write a complete SOUL.md that includes:
-- # SOUL.md — [their name or role]
-- ## Identity (name, role, personality)
-- ## Communication Style (direct, warm, formal, etc. — inferred from their tone)
-- ## Priorities (what matters most to them based on their description)
-- ## How I Work (their work style, hours if mentioned, tools)
-- ## What I Avoid (inferred dislikes or time-wasters for their role)
+- # SOUL.md — [company/agent name]
+- ## Identity (name, role, personality — reference ${companyName || 'the company'})
+- ## Communication Style (inferred from focus area and industry)
+- ## Priorities (focus area: ${focusArea || 'general'})
+- ## How I Work (their work style, tools, ${language || 'English'} language)
+- ## What I Avoid (inferred from focus area)
 
 For skills, choose from: ["larry", "google-workspace", "healthcheck", "proactive-agent", "summarize"]
 Only include skills that genuinely fit their use case.`;
+};
 
-async function callOpenRouter(userInput) {
+async function callOpenRouter(userInput, structured = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
 
@@ -62,7 +78,7 @@ async function callOpenRouter(userInput) {
     },
     body: JSON.stringify({
       model: 'anthropic/claude-sonnet-4.6',
-      messages: [{ role: 'user', content: GENERATION_PROMPT(userInput) }],
+      messages: [{ role: 'user', content: GENERATION_PROMPT(userInput, structured) }],
       max_tokens: 1500,
       temperature: 0.3,
     }),
@@ -121,13 +137,14 @@ function validateAndSanitize(parsed) {
  * Used by the frontend to preview before committing.
  */
 export async function generateOnboarding(req, res) {
-  const { userInput, description } = req.body; const input = userInput || description;
+  const { userInput, description, companyName, focusArea, language } = req.body;
+  const input = userInput || description;
   if (!input || typeof input !== 'string' || input.trim().length < 5) {
     return res.status(400).json({ error: 'Please describe yourself in at least a few words.' });
   }
 
   try {
-    const raw = await callOpenRouter(input.trim());
+    const raw = await callOpenRouter(input.trim(), { companyName, focusArea, language });
     const result = validateAndSanitize(raw);
     res.json({ ok: true, ...result });
   } catch (err) {
@@ -139,17 +156,21 @@ export async function generateOnboarding(req, res) {
 /**
  * POST /api/onboarding/one-shot
  * Full pipeline: generate → write files → mark onboarding complete.
- * Body: { userInput: string }
+ * Body: { userInput: string, companyName?: string, focusArea?: string, language?: string }
  */
 export async function oneShotOnboarding(req, res) {
-  const { userInput, description } = req.body; const input = userInput || description;
-  if (!input || typeof input !== 'string' || input.trim().length < 5) {
+  const { userInput, description, companyName, focusArea, language } = req.body;
+  const rawInput = userInput || description;
+  if (!rawInput || typeof rawInput !== 'string' || rawInput.trim().length < 5) {
     return res.status(400).json({ error: 'Please describe yourself in at least a few words.' });
   }
 
+  // Build enriched prompt input from structured fields when available
+  const enrichedInput = rawInput.trim();
+
   let result;
   try {
-    const raw = await callOpenRouter(input.trim());
+    const raw = await callOpenRouter(enrichedInput, { companyName, focusArea, language });
     result = validateAndSanitize(raw);
   } catch (err) {
     console.error('[onboarding/one-shot] Generation error:', err.message);
@@ -173,7 +194,9 @@ export async function oneShotOnboarding(req, res) {
     fs.writeFileSync(path.join(WORKSPACE, 'onboarding-complete.json'), JSON.stringify({
       completed: new Date().toISOString(),
       method: 'one-shot',
-      userInput: userInput.trim(),
+      companyName: companyName || null,
+      focusArea: focusArea || null,
+      language: language || null,
       agentType: agent_type,
       skills,
     }, null, 2));
@@ -181,7 +204,14 @@ export async function oneShotOnboarding(req, res) {
     // Write MEMORY.md stub
     const memoryPath = path.join(WORKSPACE, 'MEMORY.md');
     if (!fs.existsSync(memoryPath)) {
-      fs.writeFileSync(memoryPath, `# MEMORY.md\n\n## About Me\n${userInput.trim()}\n\n## Agent Type\n${agent_type}\n`, 'utf8');
+      const memLines = [
+        '# MEMORY.md\n',
+        companyName ? `## Company\n${companyName}\n` : '',
+        `## Focus\n${focusArea || 'General'}\n`,
+        `## Language\n${language || 'English'}\n`,
+        `## Agent Type\n${agent_type}\n`,
+      ].join('\n');
+      fs.writeFileSync(memoryPath, memLines, 'utf8');
     }
 
     // Determine redirect — send to panel after onboarding
