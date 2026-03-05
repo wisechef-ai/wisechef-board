@@ -11,12 +11,13 @@ import AIProviderPage from './components/Settings/AIProviderPage'
 import ChatPage from './components/Chat/ChatPage'
 import MemoryManager from './components/Memory/MemoryManager'
 import FleetDashboard from './components/Fleet/FleetDashboard'
+import EnterpriseOnboarding from './components/Enterprise/EnterpriseOnboarding'
 import { TimezoneProvider } from './components/TimezoneContext'
 import { ThemeProvider } from './components/ThemeContext'
 import { SocketProvider } from './hooks/useSocket.jsx'
 import { NavProvider } from './hooks/useNav.jsx'
 
-const VALID_PAGES = new Set(['chat', 'kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet'])
+const VALID_PAGES = new Set(['chat', 'kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet', 'enterprise'])
 
 function getHashPage() {
   const hash = location.hash.replace('#', '')
@@ -53,6 +54,7 @@ export default function App() {
               {page === 'ai-provider' && <AIProviderPage />}
               {page === 'settings' && <SettingsPage />}
               {page === 'fleet' && <FleetDashboard />}
+              {page === 'enterprise' && <EnterpriseOnboarding />}
             </Layout>
           </NavProvider>
         </TimezoneProvider>

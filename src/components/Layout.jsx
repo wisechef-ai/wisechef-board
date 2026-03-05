@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server, MessageCircle, Cpu } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server, MessageCircle, Cpu, Building2 } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
 export default function Layout({ page, setPage, children }) {
@@ -34,6 +34,7 @@ export default function Layout({ page, setPage, children }) {
     { id: 'ai-provider', label: 'AI Provider', icon: Cpu },
     { id: 'link-channel', label: 'Link Channel', icon: Link2 },
     ...(isHQ ? [{ id: 'fleet', label: 'Fleet', icon: Server }] : []),
+    { id: 'enterprise', label: 'Enterprise', icon: Building2 },
     { id: 'settings', label: 'Settings', icon: Settings },
   ]
 
