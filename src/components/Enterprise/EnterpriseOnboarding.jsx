@@ -594,33 +594,105 @@ export default function EnterpriseOnboarding() {
       {/* PHASE 4 — Done                                                     */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {phase === PHASE.DONE && (
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
-          <div className="text-5xl mb-4">🎉</div>
-          <h3 className="text-lg font-bold mb-2">Workspace provisioned!</h3>
-          <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-            <strong>{companyJson?.name}</strong>'s AI team is configured.
-            {' '}SOUL.md, MEMORY.md and system prompts are live on the server.
-            Telegram group creation will complete once credentials are added.
-          </p>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex flex-col items-center text-center mb-6 pt-2">
+            <div className="text-4xl mb-3">🎉</div>
+            <h3 className="text-lg font-bold mb-1">Workspace provisioned!</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              <strong>{companyJson?.name}</strong>'s AI team is configured.
+              SOUL.md, MEMORY.md and system prompts are live on the server.
+            </p>
+          </div>
 
-          {provisionResult && (
-            <div className="bg-card border border-border rounded-lg p-4 text-left w-full max-w-sm mb-6 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Result</p>
-              <p className="text-xs"><span className="text-muted-foreground">Slug:</span> <code className="text-primary">{provisionResult.slug}</code></p>
-              <p className="text-xs"><span className="text-muted-foreground">Departments:</span> {provisionResult.departments}</p>
-              <p className="text-xs"><span className="text-muted-foreground">Files written:</span> {provisionResult.filesWritten ?? '—'}</p>
-              <p className="text-xs"><span className="text-muted-foreground">Groups:</span> <span className="text-amber-400">pending credentials</span></p>
+          {/* Agent cards */}
+          {provisionResult?.groups?.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                Agent workspaces
+              </p>
+              <div className="space-y-2">
+                {provisionResult.groups.map(g => (
+                  <div key={g.agentId} className="bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-semibold text-primary">{g.agentName}</span>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        <span className="text-xs text-muted-foreground">{g.agentRole}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{g.telegramGroupName}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {g.status === 'configured' ? (
+                        <>
+                          <span className="text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded px-2 py-0.5">✅ configured</span>
+                          {g.chatId && (
+                            <a
+                              href={`https://t.me/c/${g.chatId.replace(/^-100/, '')}`}
+                              target="_blank" rel="noreferrer"
+                              className="text-xs text-primary hover:underline"
+                            >Open ↗</a>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded px-2 py-0.5">⏳ pending</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          <div className="flex gap-2">
-            <button
-              onClick={restart}
-              className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent text-muted-foreground"
-            >
-              Onboard another company
-            </button>
+          {/* Summary row */}
+          <div className="bg-card border border-border rounded-lg p-3 mb-4 space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Summary</p>
+            {provisionResult && (
+              <>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Slug</span>
+                  <code className="text-primary">{provisionResult.slug}</code>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Workspace files</span>
+                  <span>{provisionResult.files?.length ?? 0} written</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Gateway restarted</span>
+                  <span>{provisionResult.gatewayRestarted ? '✅ yes' : '⚠️ manual restart needed'}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Telegram groups</span>
+                  <span className="text-amber-400">
+                    {provisionResult.groups?.filter(g=>g.status==='configured').length ?? 0} configured,{' '}
+                    {provisionResult.groups?.filter(g=>g.status==='pending').length ?? 0} pending
+                  </span>
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Download company.json */}
+          {companyJson && (
+            <button
+              onClick={() => {
+                const blob = new Blob([JSON.stringify(companyJson, null, 2)], { type: 'application/json' })
+                const url  = URL.createObjectURL(blob)
+                const a    = document.createElement('a')
+                a.href = url; a.download = `${companyJson.slug}-company.json`; a.click()
+                URL.revokeObjectURL(url)
+              }}
+              className="w-full mb-3 px-4 py-2.5 text-sm border border-border rounded-lg hover:bg-accent text-foreground flex items-center justify-center gap-2"
+            >
+              ⬇ Download company.json
+            </button>
+          )}
+
+          <button
+            onClick={restart}
+            className="w-full px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent text-muted-foreground"
+          >
+            Onboard another company
+          </button>
         </div>
       )}
     </div>

@@ -11,12 +11,20 @@ import fs   from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 
-const CLIENTS_DIR       = path.resolve(process.env.HOME, 'clawd/wisechef/clients');
-const INBOX_FILE        = path.resolve(process.env.HOME, 'companies/wisechef/shared/inbox/to-ceo.md');
-const ENTERPRISE_CLI    = path.resolve(process.env.HOME, 'companies/wisechef/wisechef-enterprise/cli.js');
+const CLIENTS_DIR    = path.resolve(process.env.HOME, 'clawd/wisechef/clients');
+const INBOX_FILE     = path.resolve(process.env.HOME, 'companies/wisechef/shared/inbox/to-ceo.md');
+const ENTERPRISE_CLI = path.resolve(process.env.HOME, 'companies/wisechef/wisechef-enterprise/cli.js');
+// Client openclaw paths — env-overridable for dev (where it's under ~wisechef/)
+const OPENCLAW_WS   = process.env.OPENCLAW_WORKSPACE   || '/root/.openclaw/workspace';
+const OPENCLAW_JSON = process.env.OPENCLAW_CONFIG_PATH || '/root/.openclaw/openclaw.json';
 
 // ── POST /api/enterprise/provision ──────────────────────────────────────────
-// Full provisioning: save company.json → generate workspace → restart gateway
+// Full provisioning:
+//   1. Save company.json
+//   2. node wisechef-enterprise/cli.js generate → SOUL/MEMORY/HEARTBEAT/system-prompts
+//   3. Patch openclaw.json with per-dept systemPrompts + existing chatIds
+//   4. systemctl restart openclaw-gateway.service
+//   5. Return { ok, files: [...], groups: [...] }
 export async function enterpriseProvision(req, res) {
   const { company } = req.body || {};
   if (!company?.slug || !company?.departments?.length) {
@@ -27,73 +35,137 @@ export async function enterpriseProvision(req, res) {
   const clientDir = path.join(CLIENTS_DIR, slug);
 
   try {
-    // 1. Save company.json
+    // ── 1. Save company.json ───────────────────────────────────────────────
     fs.mkdirSync(clientDir, { recursive: true });
     const companyPath = path.join(clientDir, 'company.json');
     fs.writeFileSync(companyPath, JSON.stringify(company, null, 2));
-    console.log(`[enterprise/provision] company.json → ${companyPath}`);
+    console.log(`[provision] company.json → ${companyPath}`);
 
-    // 2. Generate workspace files (SOUL, MEMORY, HEARTBEAT, system-prompts)
-    //    Uses wisechef-enterprise CLI on HQ workspace (this VPS is dev/HQ)
-    const workspaceRoot = path.resolve(process.env.HOME, '.openclaw/workspace');
-    let filesWritten = 0;
-    let generateLog  = '';
+    // ── 2. Generate workspace files ────────────────────────────────────────
+    let files = [];
     try {
-      generateLog = execSync(
-        `node '${ENTERPRISE_CLI}' generate --config '${companyPath}' --workspace '${workspaceRoot}'`,
+      const out = execSync(
+        `node '${ENTERPRISE_CLI}' generate --config '${companyPath}' --workspace '${OPENCLAW_WS}'`,
         { timeout: 30000, encoding: 'utf8', maxBuffer: 512 * 1024 }
       );
-      filesWritten = (generateLog.match(/✅/g) || []).length;
-      console.log(`[enterprise/provision] generate OK — ${filesWritten} files`);
+      // CLI logs lines like "✅ wrote SOUL.md" or "✅ system-prompts/marco.txt"
+      files = (out.match(/✅[^\n]+/g) || []).map(l => l.replace(/✅\s*/, '').trim());
+      console.log(`[provision] generate OK — ${files.length} files`);
     } catch (genErr) {
-      console.warn('[enterprise/provision] generate failed (non-fatal):', genErr.message);
-      generateLog = genErr.stderr || genErr.message;
+      console.warn('[provision] generate non-fatal:', (genErr.stderr || genErr.message).slice(0, 200));
     }
 
-    // 3. Restart gateway so new SOUL.md + system prompts are loaded
+    // ── 3. Patch openclaw.json ─────────────────────────────────────────────
+    let groups = [];
+    try {
+      groups = patchOpencLawJson(company, clientDir);
+      console.log(`[provision] openclaw.json patched — ${groups.length} group entries`);
+    } catch (patchErr) {
+      console.warn('[provision] openclaw.json patch non-fatal:', patchErr.message);
+      // Build groups list from company.json even if patch failed
+      groups = company.departments.map(d => ({
+        agentId: d.id, agentName: d.agentName, agentRole: d.agentRole,
+        telegramGroupName: d.telegramGroupName, chatId: null, status: 'pending',
+      }));
+    }
+
+    // ── 4. Restart gateway ─────────────────────────────────────────────────
     let gatewayRestarted = false;
     try {
-      execSync('openclaw gateway restart', { timeout: 15000, encoding: 'utf8' });
+      execSync('systemctl restart openclaw-gateway.service', { timeout: 15000, encoding: 'utf8' });
       gatewayRestarted = true;
-    } catch (gwErr) {
-      console.warn('[enterprise/provision] gateway restart warning:', gwErr.message);
+    } catch {
+      try {
+        // fallback for dev VPS where it may be named differently
+        execSync('openclaw gateway restart', { timeout: 12000, encoding: 'utf8' });
+        gatewayRestarted = true;
+      } catch (e2) {
+        console.warn('[provision] gateway restart failed (non-fatal):', e2.message);
+      }
     }
 
-    // 4. Write pending marker for gramjs group creation (needs provisioner session)
-    fs.writeFileSync(
-      path.join(clientDir, 'provisioning-pending.json'),
-      JSON.stringify({
-        status:          'pending-telegram',
-        slug,
-        filesWritten,
-        gatewayRestarted,
-        createdAt:       new Date().toISOString(),
-        note:            'Telegram group creation pending. Run: wisechef-enterprise provision --config company.json --auto-groups',
-      }, null, 2)
-    );
+    // ── 5. Write markers ───────────────────────────────────────────────────
+    fs.writeFileSync(path.join(clientDir, 'provisioning-pending.json'), JSON.stringify({
+      status: 'pending-telegram', slug, files, groups, gatewayRestarted,
+      createdAt: new Date().toISOString(),
+      note: 'Run: wisechef-enterprise provision --config company.json --auto-groups',
+    }, null, 2));
+    fs.writeFileSync(path.join(clientDir, 'intake.json'), JSON.stringify({
+      company, receivedAt: new Date().toISOString(),
+    }, null, 2));
 
-    // 5. Save intake
-    fs.writeFileSync(
-      path.join(clientDir, 'intake.json'),
-      JSON.stringify({ company, receivedAt: new Date().toISOString() }, null, 2)
-    );
-
-    // 6. Notify CEO inbox
     notifyCEO(company, clientDir);
 
-    res.json({
-      ok:              true,
-      slug,
-      companyName:     company.name,
-      departments:     company.departments.length,
-      filesWritten,
-      gatewayRestarted,
-      telegramGroups:  'pending',
-    });
+    res.json({ ok: true, slug, companyName: company.name, files, groups, gatewayRestarted });
+
   } catch (err) {
-    console.error('[enterprise/provision] error:', err);
+    console.error('[provision] error:', err);
     res.status(500).json({ error: err.message });
   }
+}
+
+// ── Patch openclaw.json with systemPrompts and existing chatIds ──────────────
+function patchOpencLawJson(company, clientDir) {
+  // Load existing chatIds from deployment.json (keyed by dept.id or agentName)
+  let chatIds = {};
+  try {
+    const dep = JSON.parse(fs.readFileSync(path.join(clientDir, 'deployment.json'), 'utf8'));
+    chatIds = dep.chatIds || dep.groups || {};
+  } catch { /* no deployment yet — all groups will be pending */ }
+
+  // Load or init openclaw.json
+  let config = {};
+  try { config = JSON.parse(fs.readFileSync(OPENCLAW_JSON, 'utf8')); } catch {}
+  if (!config.channels)                     config.channels = {};
+  if (!config.channels.telegram)            config.channels.telegram = {};
+  const tg = config.channels.telegram;
+  tg.enabled      = true;
+  tg.dmPolicy     = 'disabled';      // NEVER 'pairing'
+  tg.groupPolicy  = 'allowlist';
+  if (!tg.groups) tg.groups = {};
+
+  const groups = [];
+  for (const dept of company.departments) {
+    // Read generated system prompt if available
+    let systemPrompt = '';
+    try {
+      systemPrompt = fs.readFileSync(
+        path.join(OPENCLAW_WS, 'system-prompts', `${dept.id}.txt`), 'utf8'
+      ).trim();
+    } catch {}
+
+    // Resolve chatId — try by dept.id, agentName, agentId keys
+    const chatId = chatIds[dept.id] || chatIds[dept.agentName?.toLowerCase()]
+      || chatIds[dept.agentName] || null;
+
+    const entry = {
+      requireMention: false,
+      groupPolicy:    'open',
+      enabled:        true,
+      ...(systemPrompt && { systemPrompt }),
+    };
+
+    if (chatId) {
+      tg.groups[chatId] = entry;
+    }
+
+    groups.push({
+      agentId:           dept.id,
+      agentName:         dept.agentName,
+      agentRole:         dept.agentRole,
+      telegramGroupName: dept.telegramGroupName || `${company.name} — ${dept.name}`,
+      chatId:            chatId || null,
+      status:            chatId ? 'configured' : 'pending',
+      inviteLink:        null,
+    });
+  }
+
+  // Write back only if the file exists (don't create it on remote if missing)
+  if (fs.existsSync(OPENCLAW_JSON)) {
+    fs.writeFileSync(OPENCLAW_JSON, JSON.stringify(config, null, 2));
+  }
+
+  return groups;
 }
 
 // ── POST /api/enterprise/onboard (legacy — kept for backwards compat) ─────────
