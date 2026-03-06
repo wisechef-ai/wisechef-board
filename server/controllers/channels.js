@@ -628,7 +628,7 @@ export function submitToken(req, res) {
   ensureChannelConfig(channel);
 
   try {
-    const args = ['channels', 'add', '--channel', channel];
+    const args = ['openclaw', 'channels', 'add', '--channel', channel];
     if (channel === 'telegram' || channel === 'discord') {
       args.push('--token', token || botToken);
     } else if (channel === 'slack') {
