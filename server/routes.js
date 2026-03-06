@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { __dirname, AGENT_TYPES_ENABLED, ONE_SHOT_ONBOARDING } from './config.js';
+import { __dirname, AGENT_TYPES_ENABLED, ONE_SHOT_ONBOARDING, POST_ONBOARD_URL } from './config.js';
 
 import { getActivity, getTime } from './controllers/activity.js';
 import {
@@ -21,6 +21,7 @@ import { listCredentials, putCredential, deleteCredential } from './controllers/
 import { getFleet, getClientStatus, deployClient, startHealthChecks } from './controllers/fleet.js';
 import { createChatSession, sendChatMessage } from './controllers/chat.js';
 import { usageGuard, getUsageLimits } from './middleware/usageGuard.js';
+import { enterpriseOnboard, enterpriseInterviewAck, enterpriseProvision } from './controllers/enterprise.js';
 import {
   isOnboarded, hasLinkedChannel,
   getOnboardingStatus, completeOnboarding,
@@ -60,6 +61,11 @@ router.get('/api/gateway/status', gatewayStatus);
 // Activity
 router.get('/api/activity', getActivity);
 router.get('/api/time', getTime);
+
+// Public config — safe to expose, no secrets
+router.get('/api/config/public', (_req, res) => {
+  res.json({ postOnboardUrl: POST_ONBOARD_URL });
+});
 
 // Tasks
 router.get('/api/tasks', listTasks);
@@ -146,6 +152,12 @@ router.post('/api/chat/send', usageGuard, sendChatMessage);
 // Usage limits
 router.get('/api/usage-limits', getUsageLimits);
 
+// ──── Enterprise Onboarding ────
+router.post('/api/enterprise/onboard', enterpriseOnboard);
+router.post('/api/enterprise/provision', enterpriseProvision);
+router.post('/api/enterprise/interview-ack', enterpriseInterviewAck);
+router.get('/enterprise', (_req, res) => res.redirect('/#enterprise'));
+
 router.get('/api/plano/status', getPlanoStatus);
 router.post('/api/plano/start', startPlano);
 router.post('/api/plano/stop', stopPlano);
@@ -192,9 +204,9 @@ if (ONE_SHOT_ONBOARDING) {
   const { generateOnboarding, oneShotOnboarding } = await import('./controllers/onboardingOneShot.js');
   router.post('/api/onboarding/generate', generateOnboarding);
   router.post('/api/onboarding/one-shot', oneShotOnboarding);
-  // Advanced wizard still accessible at /onboarding/advanced
+  // /onboarding/advanced redirects to single canonical flow (no separate old wizard)
   router.get('/onboarding/advanced', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+    res.redirect('/onboarding');
   });
 }
 

@@ -159,7 +159,7 @@
             </div>
         </div>
 
-        <a href="/?skip=1" class="skip-link">Skip for now — I'll use the web chat only</a>
+        <a href="/dashboard" class="skip-link">Skip for now — I'll use the web chat only</a>
     </div>
 
     <script>
@@ -411,7 +411,7 @@
                 document.getElementById('continueBtn').style.display = 'block';
                 document.getElementById('linkingNotice').style.display = 'none';
                 // Auto-redirect after brief pause so user sees success state
-                setTimeout(() => { window.location.href = '/'; }, 1500);
+                setTimeout(() => { window.location.href = window.__POST_ONBOARD_URL__ || '/dashboard'; }, 1500);
             } else if (data.status === 'failed' || data.status === 'timeout') {
                 clearInterval(pollInterval);
                 qrDisplay.className = 'qr-container waiting';
@@ -444,7 +444,7 @@
             const data = await res.json();
             if (data.ok) {
                 // Auto-redirect after token link — gateway restarting in background
-                setTimeout(() => { window.location.href = '/'; }, 1200);
+                setTimeout(() => { window.location.href = window.__POST_ONBOARD_URL__ || '/dashboard'; }, 1200);
             } else {
                 alert(`Error: ${data.error}`);
             }
@@ -508,11 +508,12 @@
     }
 
     function goToDashboard() {
-        window.location.href = '/';
+        window.location.href = window.__POST_ONBOARD_URL__ || '/dashboard';
     }
 
     // Init
     loadChannels();
+    fetch('/api/config/public').then(r => r.json()).then(d => { window.__POST_ONBOARD_URL__ = d.postOnboardUrl; }).catch(() => {});
 
     // ── Minimal QR Code renderer (uses external lib) ──
     // Load qrcode.js from CDN for rendering sgnl:// URIs

@@ -38,299 +38,338 @@
       color: var(--text);
       text-decoration: none;
       margin-bottom: 48px;
+      letter-spacing: -0.3px;
     }
     .logo span { color: var(--accent); }
 
-    /* ── Screen: input ── */
-    #screen-input {
+    /* ── Shared screen wrapper ── */
+    .screen {
       width: 100%;
-      max-width: 560px;
-      display: flex;
+      max-width: 480px;
+      display: none;
       flex-direction: column;
       align-items: center;
-      text-align: center;
+      gap: 24px;
     }
+    .screen.active { display: flex; }
 
+    /* ── URL step ── */
     .headline {
-      font-size: clamp(28px, 6vw, 42px);
+      font-size: clamp(22px, 5vw, 32px);
       font-weight: 800;
-      letter-spacing: -1px;
-      line-height: 1.15;
-      margin-bottom: 12px;
+      text-align: center;
+      line-height: 1.2;
+      letter-spacing: -0.5px;
     }
     .sub {
+      font-size: 15px;
       color: var(--muted);
-      font-size: 16px;
-      line-height: 1.6;
-      margin-bottom: 32px;
-      max-width: 420px;
+      text-align: center;
+      line-height: 1.5;
+      max-width: 400px;
     }
 
-    .input-wrap {
+    .url-row {
       width: 100%;
-      position: relative;
+      display: flex;
+      gap: 8px;
     }
-    textarea {
-      width: 100%;
-      min-height: 120px;
+    .url-input {
+      flex: 1;
       background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 15px;
       color: var(--text);
-      font-family: var(--font);
-      font-size: 16px;
-      line-height: 1.6;
-      padding: 16px;
-      resize: vertical;
       outline: none;
       transition: border-color 0.15s;
     }
-    textarea:focus { border-color: var(--accent); }
-    textarea::placeholder { color: var(--muted); }
+    .url-input:focus { border-color: var(--accent); }
+    .url-input::placeholder { color: var(--muted); }
 
-    .char-count {
-      position: absolute;
-      bottom: 10px;
-      right: 14px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .examples {
-      margin-top: 12px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-    }
-    .example-pill {
-      background: #1a1a1a;
+    .btn-scrape {
+      padding: 14px 20px;
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 6px 14px;
-      font-size: 13px;
-      color: #aaa;
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
-      transition: border-color 0.1s, color 0.1s;
+      white-space: nowrap;
+      transition: border-color 0.15s, background 0.15s;
     }
-    .example-pill:hover { border-color: var(--accent); color: var(--text); }
+    .btn-scrape:hover { border-color: var(--accent); background: #1e1e1e; }
+    .btn-scrape:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .skip-link {
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-family: var(--font);
+      text-decoration: underline;
+    }
+    .skip-link:hover { color: var(--text); }
+
+    .scrape-status {
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 18px;
+      text-align: center;
+    }
+    .scrape-status.ok { color: var(--green); }
+    .scrape-status.err { color: #f87171; }
+
+    /* ── Form step ── */
+    .form-card {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .field-group { display: flex; flex-direction: column; gap: 8px; }
+    .field-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .text-input {
+      width: 100%;
+      background: #1e1e1e;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      font-family: var(--font);
+      transition: border-color 0.15s;
+    }
+    .text-input:focus { border-color: var(--accent); }
+    .text-input::placeholder { color: #555; }
+
+    .radio-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .radio-pill {
+      position: relative;
+    }
+    .radio-pill input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .radio-pill label {
+      display: block;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .radio-pill input:checked + label {
+      border-color: var(--accent);
+      background: rgba(232, 93, 38, 0.12);
+      color: var(--accent);
+    }
+    .radio-pill label:hover { border-color: #444; }
 
     .btn-primary {
-      margin-top: 24px;
+      width: 100%;
+      padding: 16px;
       background: var(--accent);
       color: #fff;
       border: none;
-      border-radius: 8px;
-      padding: 16px 40px;
+      border-radius: 10px;
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
       transition: background 0.15s, transform 0.1s;
-      width: 100%;
-      max-width: 320px;
+      letter-spacing: -0.2px;
     }
-    .btn-primary:hover:not(:disabled) {
-      background: var(--accent-hover);
-      transform: translateY(-1px);
-    }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .advanced-link {
-      margin-top: 16px;
+    .back-btn {
       font-size: 13px;
       color: var(--muted);
-      text-decoration: none;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: var(--font);
+      padding: 0;
     }
-    .advanced-link:hover { color: #aaa; }
+    .back-btn:hover { color: var(--text); }
 
-    /* ── Screen: loading ── */
-    #screen-loading {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 24px;
-    }
+    .error-msg { font-size: 13px; color: #f87171; min-height: 16px; text-align: center; }
 
+    /* ── Loading step ── */
     .spinner-ring {
-      width: 56px;
-      height: 56px;
-      border: 3px solid #2a2a2a;
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .loading-steps {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      text-align: left;
-    }
+    .loading-steps { display: flex; flex-direction: column; gap: 10px; width: 100%; }
     .loading-step {
-      font-size: 14px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: color 0.3s;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; color: var(--muted); transition: color 0.3s;
     }
     .loading-step.active { color: var(--text); }
     .loading-step.done { color: var(--green); }
     .step-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
     }
 
-    /* ── Screen: result ── */
-    #screen-result {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      max-width: 560px;
-      gap: 20px;
-    }
-
-    .result-header {
-      text-align: center;
-    }
-    .result-header h2 {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-    .result-header p { color: var(--muted); font-size: 15px; }
-
+    /* ── Result step ── */
     .agent-card {
       width: 100%;
       background: var(--surface);
-      border: 1.5px solid var(--accent);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px 24px;
-    }
-    .agent-card-top {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 12px;
-    }
-    .agent-icon { font-size: 36px; }
-    .agent-name { font-size: 18px; font-weight: 700; }
-    .agent-type-slug { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-    .intro-preview {
-      background: #1a1a1a;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
-      font-size: 14px;
-      line-height: 1.6;
-      color: #ccc;
-      font-style: italic;
-    }
-    .intro-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .skills-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 12px;
-    }
-    .skill-tag {
-      font-size: 12px;
-      background: #222;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 3px 10px;
-      color: #aaa;
-    }
-
-    .result-actions {
+      padding: 24px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
+      gap: 16px;
     }
+    .agent-card-top { display: flex; align-items: center; gap: 14px; }
+    .agent-icon { font-size: 36px; }
+    .agent-name { font-size: 20px; font-weight: 700; }
+    .agent-type-slug { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .intro-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .intro-preview { font-size: 14px; color: #ccc; line-height: 1.5; background: #1a1a1a; padding: 12px; border-radius: 8px; }
+    .skills-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .skill-tag { font-size: 12px; background: #222; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; color: var(--muted); }
 
-    .error-msg {
-      color: #e85555;
-      font-size: 14px;
-      text-align: center;
-      min-height: 20px;
-    }
+    .result-actions { width: 100%; display: flex; flex-direction: column; gap: 12px; }
 
-    @media (max-width: 480px) {
-      .headline { font-size: 28px; }
+    @media (max-width: 520px) {
+      .radio-row { flex-direction: column; }
+      .radio-pill label { text-align: center; }
     }
   </style>
 </head>
 <body>
 
-<a href="/" class="logo">Wise<span>Chef</span> AI</a>
+<a class="logo" href="/">Wise<span>Chef</span></a>
 
-<!-- Screen 1: Input -->
-<div id="screen-input">
-  <h1 class="headline">Who are you and<br/>what do you need?</h1>
-  <p class="sub">One sentence is enough. Your assistant will be configured around you — no forms, no steps.</p>
+<!-- ──── Step 1: URL (optional) ──── -->
+<div id="screen-url" class="screen active">
+  <h1 class="headline">Set up your<br/>AI assistant</h1>
+  <p class="sub">Paste your website or LinkedIn URL to auto-fill your details, or skip straight to the form.</p>
 
-  <div class="input-wrap">
-    <textarea id="user-input" placeholder="e.g. I'm a marketing consultant who manages social media for 5 clients and spends too much time on content creation." maxlength="500"></textarea>
-    <span class="char-count"><span id="char-num">0</span>/500</span>
+  <div class="url-row">
+    <input id="url-input" class="url-input" type="url"
+      placeholder="https://yourcompany.com or linkedin.com/in/you"
+      autocomplete="off" />
+    <button class="btn-scrape" id="scrape-btn" onclick="doScrape()">Analyse →</button>
   </div>
+  <div id="scrape-status" class="scrape-status"></div>
 
-  <div class="examples">
-    <button class="example-pill" onclick="setExample(this)">I run a small e-commerce brand</button>
-    <button class="example-pill" onclick="setExample(this)">Startup founder, too many meetings</button>
-    <button class="example-pill" onclick="setExample(this)">Freelance developer, bad at admin</button>
-    <button class="example-pill" onclick="setExample(this)">Personal trainer focused on biohacking</button>
-    <button class="example-pill" onclick="setExample(this)">Marketing manager at a SaaS company</button>
-  </div>
-
-  <div class="error-msg" id="input-error"></div>
-  <button class="btn-primary" id="submit-btn" onclick="submit()">Set up my assistant →</button>
-  <a href="/onboarding/advanced" class="advanced-link">Advanced setup instead →</a>
+  <button class="skip-link" onclick="showForm()">Skip → fill in manually</button>
 </div>
 
-<!-- Screen 2: Loading -->
-<div id="screen-loading">
+<!-- ──── Step 2: 4-field form ──── -->
+<div id="screen-form" class="screen">
+  <h1 class="headline" style="margin-bottom:-8px">Almost there</h1>
+  <p class="sub">Confirm a few details and we'll launch your agent.</p>
+
+  <div class="form-card">
+    <!-- Company / Name -->
+    <div class="field-group">
+      <div class="field-label">Company or your name</div>
+      <input id="f-name" class="text-input" type="text"
+        placeholder="e.g. Acme Corp, Jan Kowalski…" maxlength="80" />
+    </div>
+
+    <!-- Focus area -->
+    <div class="field-group">
+      <div class="field-label">Main focus</div>
+      <div class="radio-row">
+        <div class="radio-pill">
+          <input type="radio" name="focus" id="f-support" value="Customer Support" checked />
+          <label for="f-support">💬 Customer Support</label>
+        </div>
+        <div class="radio-pill">
+          <input type="radio" name="focus" id="f-ops" value="Operations" />
+          <label for="f-ops">⚙️ Operations</label>
+        </div>
+        <div class="radio-pill">
+          <input type="radio" name="focus" id="f-everything" value="Everything" />
+          <label for="f-everything">🚀 Everything</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Language -->
+    <div class="field-group">
+      <div class="field-label">Language</div>
+      <div class="radio-row">
+        <div class="radio-pill">
+          <input type="radio" name="lang" id="f-en" value="English" checked />
+          <label for="f-en">🇬🇧 English</label>
+        </div>
+        <div class="radio-pill">
+          <input type="radio" name="lang" id="f-pl" value="Polish" />
+          <label for="f-pl">🇵🇱 Polish</label>
+        </div>
+        <div class="radio-pill">
+          <input type="radio" name="lang" id="f-de" value="German" />
+          <label for="f-de">🇩🇪 German</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-msg" id="form-error"></div>
+    <button class="btn-primary" id="launch-btn" onclick="launch()">Launch my agent →</button>
+  </div>
+
+  <button class="back-btn" onclick="goBack('screen-url')">← Back</button>
+</div>
+
+<!-- ──── Step 3: Loading ──── -->
+<div id="screen-loading" class="screen">
   <div class="spinner-ring"></div>
   <div>
-    <div style="font-size:18px;font-weight:700;margin-bottom:16px">Setting up your assistant…</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:16px;text-align:center">Setting up your agent…</div>
     <div class="loading-steps">
-      <div class="loading-step" id="step-read">
-        <div class="step-dot"></div>Reading your description
-      </div>
-      <div class="loading-step" id="step-think">
-        <div class="step-dot"></div>Choosing the right agent type
-      </div>
       <div class="loading-step" id="step-build">
         <div class="step-dot"></div>Building your SOUL.md
       </div>
+      <div class="loading-step" id="step-config">
+        <div class="step-dot"></div>Configuring skills &amp; tools
+      </div>
       <div class="loading-step" id="step-save">
-        <div class="step-dot"></div>Saving configuration
+        <div class="step-dot"></div>Saving your agent
+      </div>
+      <div class="loading-step" id="step-done">
+        <div class="step-dot"></div>Almost ready!
       </div>
     </div>
   </div>
 </div>
 
-<!-- Screen 3: Result / Confirm -->
-<div id="screen-result">
-  <div class="result-header">
-    <h2>Your assistant is ready</h2>
-    <p>Here's what we configured based on your description.</p>
-  </div>
+<!-- ──── Step 4: Result ──── -->
+<div id="screen-result" class="screen">
+  <h2 style="font-size:24px;font-weight:800;text-align:center">Your agent is ready ✅</h2>
 
   <div class="agent-card">
     <div class="agent-card-top">
@@ -347,8 +386,8 @@
 
   <div class="result-actions">
     <div class="error-msg" id="result-error"></div>
-    <button class="btn-primary" id="confirm-btn" onclick="confirm()">Looks good — let's go →</button>
-    <button class="example-pill" onclick="goBack()" style="border-color:#444">← Start over</button>
+    <button class="btn-primary" id="confirm-btn" onclick="confirm()">Open my panel →</button>
+    <button class="back-btn" onclick="history.back()">← Back</button>
   </div>
 </div>
 
@@ -359,109 +398,209 @@
     'executive-assistant':  { icon: '💼', name: 'Executive Assistant' },
     'health-coach':         { icon: '🥗', name: 'Health Coach' },
     'security-auditor':     { icon: '🔐', name: 'Security Auditor' },
+    'sales-assistant':      { icon: '💰', name: 'Sales Assistant' },
+  };
+
+  // Focus → agent type hint (server still decides final type)
+  const FOCUS_AGENT_MAP = {
+    'Customer Support': 'generalist',
+    'Operations':       'executive-assistant',
+    'Everything':       'generalist',
   };
 
   let generatedResult = null;
+  let panelUrl = '/dashboard';
 
-  const textarea = document.getElementById('user-input');
-  textarea.addEventListener('input', () => {
-    document.getElementById('char-num').textContent = textarea.value.length;
+  // ── Screen navigation (hash-based for browser back) ────────────────────
+  const HISTORY_SCREENS = ['screen-url', 'screen-form', 'screen-result'];
+
+  function navigate(screenId, pushState = true) {
+    document.querySelectorAll('.screen').forEach(el => {
+      el.classList.remove('active');
+      el.style.display = '';
+    });
+    const el = document.getElementById(screenId);
+    if (el) el.classList.add('active');
+
+    if (pushState && HISTORY_SCREENS.includes(screenId)) {
+      history.pushState({ screen: screenId }, '', '#' + screenId);
+    }
+  }
+
+  function goBack(screenId) {
+    if (history.length > 1) {
+      history.back();
+    } else {
+      navigate(screenId);
+    }
+  }
+
+  window.addEventListener('popstate', (e) => {
+    const screen = e.state?.screen;
+    if (screen && HISTORY_SCREENS.includes(screen)) {
+      navigate(screen, false);
+      if (screen === 'screen-url') resetScrapeStatus();
+      if (screen === 'screen-form') { document.getElementById('launch-btn').disabled = false; }
+    } else {
+      navigate('screen-url', false);
+    }
   });
 
-  function setExample(btn) {
-    textarea.value = btn.textContent;
-    document.getElementById('char-num').textContent = textarea.value.length;
-    textarea.focus();
+  // ── Scrape ──────────────────────────────────────────────────────────────
+  function resetScrapeStatus() {
+    const el = document.getElementById('scrape-status');
+    el.textContent = '';
+    el.className = 'scrape-status';
   }
 
-  function show(screenId) {
-    ['screen-input', 'screen-loading', 'screen-result'].forEach(id => {
-      document.getElementById(id).style.display = id === screenId ? 'flex' : 'none';
-    });
+  function detectLanguage(text) {
+    if (!text) return null;
+    const lower = text.toLowerCase();
+    const plSignals = /\b(jest|oraz|przez|który|firma|usług|nasz|jesteś|spółka|ulica)\b/;
+    const deSignals = /\b(und|die|der|das|ist|von|mit|für|wir|haben|werden)\b/;
+    if (plSignals.test(lower)) return 'Polish';
+    if (deSignals.test(lower)) return 'German';
+    return 'English';
   }
+
+  async function doScrape() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) { showForm(); return; }
+
+    const statusEl = document.getElementById('scrape-status');
+    const btn = document.getElementById('scrape-btn');
+    statusEl.textContent = 'Analysing…';
+    statusEl.className = 'scrape-status';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/onboarding/scrape-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        statusEl.textContent = data.error || 'Couldn\'t read that URL — continue manually.';
+        statusEl.className = 'scrape-status err';
+        btn.disabled = false;
+        setTimeout(() => showForm(), 1800);
+        return;
+      }
+
+      // Pre-fill form fields
+      const { extracted } = data;
+      if (extracted?.name) {
+        document.getElementById('f-name').value = extracted.name;
+      }
+
+      // Auto-detect language from scraped description text
+      const detectedLang = detectLanguage(extracted?.description || '');
+      if (detectedLang) selectRadio('lang', detectedLang);
+
+      statusEl.textContent = '✓ Details filled in — check them below.';
+      statusEl.className = 'scrape-status ok';
+      setTimeout(() => showForm(), 900);
+
+    } catch {
+      statusEl.textContent = 'Network error — continue manually.';
+      statusEl.className = 'scrape-status err';
+      btn.disabled = false;
+      setTimeout(() => showForm(), 1800);
+    }
+  }
+
+  function selectRadio(name, value) {
+    const radios = document.querySelectorAll(`input[name="${name}"]`);
+    let matched = false;
+    radios.forEach(r => {
+      if (r.value === value) { r.checked = true; matched = true; }
+    });
+    // fallback: first radio
+    if (!matched && radios.length) radios[0].checked = true;
+  }
+
+  function showForm() {
+    document.getElementById('scrape-btn').disabled = false;
+    navigate('screen-form');
+  }
+
+  // ── Loading steps ───────────────────────────────────────────────────────
+  const STEPS = ['step-build', 'step-config', 'step-save', 'step-done'];
 
   function setLoadingStep(stepId) {
-    ['step-read', 'step-think', 'step-build', 'step-save'].forEach(id => {
+    const idx = STEPS.indexOf(stepId);
+    STEPS.forEach((id, i) => {
       const el = document.getElementById(id);
       el.classList.remove('active', 'done');
-    });
-    const steps = ['step-read', 'step-think', 'step-build', 'step-save'];
-    const idx = steps.indexOf(stepId);
-    steps.forEach((id, i) => {
-      if (i < idx) document.getElementById(id).classList.add('done');
-      else if (i === idx) document.getElementById(id).classList.add('active');
+      if (i < idx) el.classList.add('done');
+      else if (i === idx) el.classList.add('active');
     });
   }
 
-  function goBack() {
-    generatedResult = null;
-    document.getElementById('result-error').textContent = '';
-    show('screen-input');
-  }
-
-  async function submit() {
-    const input = textarea.value.trim();
-    const errEl = document.getElementById('input-error');
+  // ── Launch ──────────────────────────────────────────────────────────────
+  async function launch() {
+    const name = document.getElementById('f-name').value.trim();
+    const focus = document.querySelector('input[name="focus"]:checked')?.value || 'Customer Support';
+    const language = document.querySelector('input[name="lang"]:checked')?.value || 'English';
+    const errEl = document.getElementById('form-error');
     errEl.textContent = '';
 
-    if (input.length < 5) {
-      errEl.textContent = 'Please describe yourself a little more.';
+    if (!name) {
+      errEl.textContent = 'Please enter your company or name.';
+      document.getElementById('f-name').focus();
       return;
     }
 
-    document.getElementById('submit-btn').disabled = true;
-    show('screen-loading');
+    document.getElementById('launch-btn').disabled = true;
 
-    // Animate loading steps
-    const stepTimings = [
-      ['step-read', 400],
-      ['step-think', 2000],
-      ['step-build', 4000],
-      ['step-save', 8000],
-    ];
-    stepTimings.forEach(([id, delay]) => {
-      setTimeout(() => setLoadingStep(id), delay);
-    });
+    // Build a rich description for the generation prompt
+    const userInput = [
+      `Company/Name: ${name}`,
+      `Focus area: ${focus}`,
+      `Language: ${language}`,
+    ].join('. ');
+
+    navigate('screen-loading', false); // loading not in history
+    const timings = [['step-build',300],['step-config',2200],['step-save',4500],['step-done',7500]];
+    timings.forEach(([id, delay]) => setTimeout(() => setLoadingStep(id), delay));
 
     try {
       const res = await fetch('/api/onboarding/one-shot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userInput: input }),
+        body: JSON.stringify({ userInput, companyName: name, focusArea: focus, language }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        show('screen-input');
-        document.getElementById('submit-btn').disabled = false;
-        document.getElementById('input-error').textContent = data.error || 'Something went wrong. Please try again.';
+        navigate('screen-form');
+        document.getElementById('launch-btn').disabled = false;
+        document.getElementById('form-error').textContent = data.error || 'Something went wrong. Try again.';
         return;
       }
 
       generatedResult = data;
 
-      // Populate result screen
       const meta = AGENT_META[data.agentType] || { icon: '🤖', name: data.agentType };
       document.getElementById('result-icon').textContent = meta.icon;
-      document.getElementById('result-name').textContent = meta.name;
+      document.getElementById('result-name').textContent = name || meta.name;
       document.getElementById('result-slug').textContent = data.agentType;
       document.getElementById('result-intro').textContent = data.introMessage || '';
+      document.getElementById('result-skills').innerHTML =
+        (data.skills || []).map(s => `<span class="skill-tag">⚡ ${s}</span>`).join('');
 
-      const skillsEl = document.getElementById('result-skills');
-      skillsEl.innerHTML = (data.skills || []).map(s =>
-        `<span class="skill-tag">⚡ ${s}</span>`
-      ).join('');
-
-      setLoadingStep('step-save');
+      setLoadingStep('step-done');
       setTimeout(() => {
         document.getElementById('result-error').textContent = '';
-        show('screen-result');
+        navigate('screen-result');
       }, 600);
 
     } catch {
-      show('screen-input');
-      document.getElementById('submit-btn').disabled = false;
-      document.getElementById('input-error').textContent = 'Network error. Please try again.';
+      navigate('screen-form');
+      document.getElementById('launch-btn').disabled = false;
+      document.getElementById('form-error').textContent = 'Network error. Please try again.';
     }
   }
 
@@ -469,11 +608,19 @@
     if (!generatedResult) return;
     const btn = document.getElementById('confirm-btn');
     btn.disabled = true;
-    btn.textContent = 'Launching…';
-    window.location.href = generatedResult.redirect || '/';
+    btn.textContent = 'Opening…';
+    window.location.href = generatedResult.redirect || panelUrl;
   }
 
-  show('screen-input');
+  // ── Init ────────────────────────────────────────────────────────────────
+  history.replaceState({ screen: 'screen-url' }, '', '#screen-url');
+  navigate('screen-url', false);
+  fetch('/api/config/public').then(r => r.json()).then(d => { panelUrl = d.postOnboardUrl || panelUrl; }).catch(() => {});
+
+  // Enter key on URL input triggers scrape
+  document.getElementById('url-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doScrape();
+  });
 </script>
 </body>
 </html>
