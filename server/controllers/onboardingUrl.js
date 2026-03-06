@@ -57,7 +57,7 @@ async function callOpenRouter(sourceType, rawText) {
       'X-Title': 'WiseChef URL Onboarding',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-haiku-4.5',
+      model: process.env.OPENROUTER_MODEL || 'openrouter/anthropic/claude-sonnet-4.6',
       messages: [{ role: 'user', content: EXTRACT_PROMPT(sourceType, rawText) }],
       max_tokens: 600,
       temperature: 0.2,

@@ -77,7 +77,7 @@ async function callOpenRouter(userInput, structured = {}) {
       'X-Title': 'WiseChef One-Shot Onboarding',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4.6',
+      model: process.env.OPENROUTER_MODEL || 'openrouter/anthropic/claude-sonnet-4.6',
       messages: [{ role: 'user', content: GENERATION_PROMPT(userInput, structured) }],
       max_tokens: 1500,
       temperature: 0.3,
