@@ -8,7 +8,7 @@ import {
   runTask, getTaskQueue, pickupTask, completeTask, deleteTask, bulkDeleteTasks,
   getCalendar, getRunHistory, toggleSchedule, getCapacity, reportStatusCheck,
 } from './controllers/tasks.js';
-import { getUsage } from './controllers/usage.js';
+import { getUsage, getCurrentMonthUsage } from './controllers/usage.js';
 import { getOpenclawVersion, updateOpenclaw } from './controllers/openclaw.js';
 import { listModels, setModel, getHeartbeat, postHeartbeat, getProviderKeys, setProviderKey, removeProviderKey, loginProvider, startDeviceFlow, pollDeviceFlow } from './controllers/models.js';
 import { listSkills, toggleSkill, createSkill, getSkillContent, deleteSkill } from './controllers/skills.js';
@@ -80,6 +80,7 @@ router.get('/api/calendar', getCalendar);
 
 // Usage
 router.get('/api/usage', getUsage);
+router.get('/api/usage/current-month', getCurrentMonthUsage);
 
 // OpenClaw
 router.get('/api/openclaw/version', getOpenclawVersion);
