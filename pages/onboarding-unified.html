@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WiseChef Onboarding</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #121212;
+      --card: #1a1a1a;
+      --card-hover: #202020;
+      --text: #ffffff;
+      --muted: #a4a4a4;
+      --border: #2a2a2a;
+      --accent: #6366f1;
+      --accent-soft: rgba(99, 102, 241, 0.25);
+      --ok: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background:
+        radial-gradient(1300px 500px at 10% -10%, rgba(99, 102, 241, 0.18), transparent 55%),
+        radial-gradient(1000px 600px at 90% 0%, rgba(34, 197, 94, 0.08), transparent 50%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tier-badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      background: var(--accent-soft);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      min-height: 74vh;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
+    }
+
+    .progress {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .dot {
+      flex: 1;
+      height: 6px;
+      border-radius: 999px;
+      background: #212121;
+      transition: all .25s ease;
+    }
+
+    .dot.active {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.17);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 3.7vw, 2.1rem);
+    }
+
+    .muted {
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field {
+      margin-top: 14px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #d8d8d8;
+      font-size: 0.92rem;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      background: #111;
+      color: #fff;
+      border: 1px solid #2d2d2d;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+      transition: border-color .18s ease, box-shadow .18s ease;
+    }
+
+    textarea { min-height: 104px; resize: vertical; }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid #343434;
+      background: #171717;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: #4b4b4b;
+      background: #1f1f1f;
+    }
+
+    .btn:active { transform: translateY(0); }
+
+    .btn.primary {
+      border-color: var(--accent);
+      background: linear-gradient(180deg, #7578f8, #5a5de0);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn.primary:hover {
+      background: linear-gradient(180deg, #8285ff, #6366f1);
+      border-color: #8f91ff;
+    }
+
+    .btn.ghost { background: transparent; }
+
+    .message {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #3a3a3a;
+      background: #141414;
+      color: #d7d7d7;
+      font-size: 0.92rem;
+    }
+
+    .message.error {
+      border-color: rgba(239, 68, 68, 0.75);
+      color: #fecaca;
+      background: rgba(127, 29, 29, 0.2);
+    }
+
+    .message.ok {
+      border-color: rgba(34, 197, 94, 0.7);
+      color: #bbf7d0;
+      background: rgba(20, 83, 45, 0.2);
+    }
+
+    .counter {
+      margin-top: 12px;
+      color: #d2d2ff;
+      font-size: 0.95rem;
+    }
+
+    .roles-wrapper {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      max-height: 56vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .category {
+      margin-top: 18px;
+      font-size: 0.84rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9b9b9b;
+    }
+
+    .role-card {
+      position: relative;
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      min-height: 128px;
+      transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    .role-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(99, 102, 241, 0.5);
+      background: var(--card-hover);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(99, 102, 241, 0.18) inset;
+    }
+
+    .role-card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.22), 0 10px 32px rgba(99, 102, 241, 0.2);
+    }
+
+    .role-check {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #d2d3ff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: opacity .2s ease;
+    }
+
+    .role-card.selected .role-check { opacity: 1; }
+
+    .emoji { font-size: 1.35rem; margin-bottom: 6px; }
+    .name { font-weight: 700; margin-bottom: 6px; }
+    .desc { color: #b6b6b6; font-size: 0.9rem; line-height: 1.35; }
+
+    .agent-card {
+      border: 1px solid #313131;
+      border-radius: 12px;
+      background: #141414;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .slider-wrap {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+      color: #b5b5b5;
+      font-size: 0.85rem;
+    }
+
+    input[type='range'] { accent-color: var(--accent); }
+
+    .review {
+      border: 1px solid #2f2f2f;
+      border-radius: 12px;
+      background: #131313;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .review ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: #d7d7d7;
+    }
+
+    .launch {
+      min-height: 55vh;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 4px solid rgba(99, 102, 241, 0.2);
+      border-top-color: var(--accent);
+      animation: spin .9s linear infinite;
+      margin: 0 auto 14px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 740px) {
+      .panel { padding: 16px; border-radius: 14px; min-height: 82vh; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .roles-wrapper { grid-template-columns: 1fr; max-height: 48vh; }
+      .btn { width: 100%; }
+      .row .btn { flex: 1; }
+      .topbar { margin-bottom: 10px; }
+      .tier-badge { font-size: 0.74rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="brand">🍳 WiseChef</div>
+      <div class="tier-badge" id="tierBadge">Starter</div>
+    </div>
+
+    <div class="panel">
+      <div class="progress" id="progress"></div>
+      <div id="screen"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      tier: 'starter',
+      limit: 1,
+      steps: [],
+      stepIndex: 0,
+      roles: [],
+      selectedRoleIds: [],
+      business: {
+        url: '',
+        name: '',
+        description: '',
+        industry: '',
+        size: '',
+        language: 'English'
+      },
+      custom: {},
+      launchStarted: false,
+      loadingTier: true,
+      loadingRoles: true,
+      message: null,
+      messageType: 'info'
+    };
+
+    const categories = ['Leadership', 'Engineering', 'Business', 'Growth', 'People'];
+
+    function tierConfig(tier) {
+      if (tier === 'enterprise') return { limit: 20, steps: ['company', 'roles', 'customize', 'telegram', 'review'] };
+      if (tier === 'pro') return { limit: 3, steps: ['business', 'roles', 'launch'] };
+      return { limit: 1, steps: ['business', 'roles', 'launch'] };
+    }
+
+    function setMessage(msg, type) {
+      state.message = msg;
+      state.messageType = type || 'info';
+      render();
+    }
+
+    function clearMessage() {
+      state.message = null;
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function roleById(id) {
+      return state.roles.find((r) => r.id === id);
+    }
+
+    function selectedRoles() {
+      return state.selectedRoleIds.map(roleById).filter(Boolean);
+    }
+
+    function ensureCustom(roleId) {
+      if (!state.custom[roleId]) {
+        const role = roleById(roleId);
+        state.custom[roleId] = {
+          displayName: role ? role.name : roleId,
+          personality: role?.personality?.formality ?? 0.7,
+          priorityFocus: role?.shortDescription || '',
+          telegramGroup: ''
+        };
+      }
+      return state.custom[roleId];
+    }
+
+    function removeCustom(roleId) {
+      delete state.custom[roleId];
+    }
+
+    async function init() {
+      await Promise.all([loadTier(), loadRoles()]);
+      const conf = tierConfig(state.tier);
+      state.limit = conf.limit;
+      state.steps = conf.steps;
+      state.loadingTier = false;
+      state.loadingRoles = false;
+      render();
+    }
+
+    async function loadTier() {
+      try {
+        const res = await fetch('/api/onboarding/tier');
+        if (!res.ok) throw new Error('Tier lookup failed');
+        const data = await res.json();
+        const tier = ['starter', 'pro', 'enterprise'].includes(data.tier) ? data.tier : 'starter';
+        const conf = tierConfig(tier);
+        state.tier = tier;
+        state.limit = Number(data?.limits?.agents) > 0 ? Number(data.limits.agents) : conf.limit;
+        state.steps = conf.steps;
+      } catch (_err) {
+        const conf = tierConfig('starter');
+        state.tier = 'starter';
+        state.limit = conf.limit;
+        state.steps = conf.steps;
+      }
+      document.getElementById('tierBadge').textContent = state.tier;
+    }
+
+    async function loadRoles() {
+      try {
+        const res = await fetch('/api/onboarding/roles');
+        if (!res.ok) throw new Error('Role lookup failed');
+        const data = await res.json();
+        state.roles = Array.isArray(data.roles) ? data.roles : [];
+      } catch (_err) {
+        setMessage('Could not load role templates. Please refresh.', 'error');
+      }
+    }
+
+    function nextStep() {
+      if (state.stepIndex < state.steps.length - 1) {
+        state.stepIndex += 1;
+      }
+      render();
+      if (state.steps[state.stepIndex] === 'launch' && !state.launchStarted) {
+        launchStarterOrPro();
+      }
+    }
+
+    function prevStep() {
+      if (state.stepIndex > 0) {
+        state.stepIndex -= 1;
+        render();
+      }
+    }
+
+    function canProceedFromBusiness() {
+      return Boolean(state.business.name && state.business.description && state.business.language);
+    }
+
+    function canProceedFromCompany() {
+      return Boolean(state.business.name && state.business.description && state.business.industry && state.business.size && state.business.language);
+    }
+
+    function validateRoleSelection() {
+      if (state.selectedRoleIds.length < 1) {
+        setMessage('Select at least one role to continue.', 'error');
+        return false;
+      }
+      if (state.selectedRoleIds.length > state.limit) {
+        setMessage(`You can select up to ${state.limit} roles on this tier.`, 'error');
+        return false;
+      }
+      clearMessage();
+      return true;
+    }
+
+    async function scrapeUrl() {
+      if (!state.business.url) {
+        setMessage('Add a URL first, then click scrape.', 'error');
+        return;
+      }
+      setMessage('Scraping website and extracting context...', 'info');
+      try {
+        const res = await fetch('/api/onboarding/scrape-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: state.business.url })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'URL scrape failed');
+        const ext = data.extracted || {};
+        if (ext.name && !state.business.name) state.business.name = ext.name;
+        if (ext.description && !state.business.description) state.business.description = ext.description;
+        if (ext.industry && !state.business.industry) state.business.industry = ext.industry;
+        setMessage('Context added from your URL. You can edit any field before continuing.', 'ok');
+      } catch (err) {
+        setMessage(err.message || 'Could not scrape this URL. Fill fields manually.', 'error');
+      }
+      render();
+    }
+
+    function toggleRole(roleId) {
+      const current = new Set(state.selectedRoleIds);
+      if (current.has(roleId)) {
+        current.delete(roleId);
+        removeCustom(roleId);
+      } else {
+        if (current.size >= state.limit) {
+          setMessage(`Tier limit reached (${state.limit}). Remove one role to add another.`, 'error');
+          return;
+        }
+        current.add(roleId);
+        ensureCustom(roleId);
+      }
+      state.selectedRoleIds = Array.from(current);
+      clearMessage();
+      render();
+    }
+
+    async function launchStarterOrPro() {
+      state.launchStarted = true;
+      setMessage('Preparing your assistant...', 'info');
+
+      const selected = selectedRoles();
+      const roleLabel = selected.map((r) => r.name).join(', ');
+      const composite = `${state.business.description}\nPreferred role(s): ${roleLabel || 'Generalist'}\nCompany: ${state.business.name}`;
+
+      try {
+        const res = await fetch('/api/onboarding/one-shot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userInput: composite,
+            companyName: state.business.name,
+            focusArea: roleLabel || 'Everything',
+            language: state.business.language
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Launch failed');
+        window.location.href = data.redirect || '/';
+      } catch (err) {
+        state.launchStarted = false;
+        setMessage(err.message || 'Onboarding failed. Please try again.', 'error');
+      }
+    }
+
+    async function launchEnterprise() {
+      const agents = state.selectedRoleIds.map((roleId) => {
+        const c = ensureCustom(roleId);
+        return {
+          roleId,
+          displayName: c.displayName,
+          personality: { formality: Number(c.personality) || 0.7 },
+          priorityFocus: c.priorityFocus,
+          telegramGroup: c.telegramGroup
+        };
+      });
+
+      setMessage('Provisioning your team...', 'info');
+      try {
+        const res = await fetch('/api/onboarding/unified', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company: {
+              name: state.business.name,
+              description: state.business.description,
+              industry: state.business.industry,
+              size: state.business.size,
+              language: state.business.language
+            },
+            agents,
+            tier: state.tier
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Launch failed');
+        window.location.href = data.redirect || '/dashboard';
+      } catch (err) {
+        setMessage(err.message || 'Could not launch your team.', 'error');
+      }
+    }
+
+    function progressHtml() {
+      return state.steps.map((_, idx) => `<div class="dot ${idx <= state.stepIndex ? 'active' : ''}"></div>`).join('');
+    }
+
+    function navButtons(opts) {
+      const parts = [];
+      if (opts.back) parts.push('<button class="btn ghost" data-act="back">Back</button>');
+      if (opts.next) parts.push(`<button class="btn primary" data-act="next">${opts.nextLabel || 'Continue'}</button>`);
+      return `<div class="row">${parts.join('')}</div>`;
+    }
+
+    function businessScreen() {
+      return `
+        <h1>Your Business</h1>
+        <p class="muted">Add your details manually or paste a website URL and import context.</p>
+
+        <div class="field">
+          <label for="urlInput">Website URL (optional)</label>
+          <input id="urlInput" placeholder="https://your-company.com" value="${escapeHtml(state.business.url)}" />
+        </div>
+
+        <div class="row">
+          <button class="btn" data-act="scrape">Scrape URL</button>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="nameInput">Company name</label>
+            <input id="nameInput" value="${escapeHtml(state.business.name)}" />
+          </div>
+          <div class="field">
+            <label for="langInput">Language</label>
+            <input id="langInput" placeholder="English" value="${escapeHtml(state.business.language)}" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="descInput">What do you do?</label>
+          <textarea id="descInput" placeholder="Describe your business, audience, and priorities">${escapeHtml(state.business.description)}</textarea>
+        </div>
+
+        ${navButtons({ back: state.stepIndex > 0, next: true, nextLabel: 'Continue' })}
+      `;
+    }
+
+    function companyScreen() {
+      return `
+        <h1>Your Company</h1>
+        <p class="muted">Tell us about your organization so we can configure your agent team correctly.</p>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="nameInput">Company name</label>
+            <input id="nameInput" value="${escapeHtml(state.business.name)}" />
+          </div>
+          <div class="field">
+            <label for="industryInput">Industry</label>
+            <input id="industryInput" placeholder="SaaS, E-commerce, Healthcare..." value="${escapeHtml(state.business.industry)}" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="sizeInput">Company size</label>
+            <select id="sizeInput">
+              <option value="">Select size...</option>
+              ${['1-10', '11-50', '51-200', '200+'].map((size) => `<option ${state.business.size === size ? 'selected' : ''}>${size}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="langInput">Language</label>
+            <input id="langInput" value="${escapeHtml(state.business.language)}" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="descInput">What you do</label>
+          <textarea id="descInput">${escapeHtml(state.business.description)}</textarea>
+        </div>
+
+        ${navButtons({ back: true, next: true, nextLabel: 'Continue' })}
+      `;
+    }
+
+    function roleCards(list) {
+      return list.map((role) => {
+        const selected = state.selectedRoleIds.includes(role.id);
+        return `
+          <div class="role-card ${selected ? 'selected' : ''}" data-role="${escapeHtml(role.id)}">
+            <div class="role-check">✓</div>
+            <div class="emoji">${escapeHtml(role.emoji || '🤖')}</div>
+            <div class="name">${escapeHtml(role.name)}</div>
+            <div class="desc">${escapeHtml(role.shortDescription || '')}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function rolesScreen() {
+      const header = state.tier === 'starter' ? 'Pick Your Agent' : 'Build Your Team';
+      const subtitle = state.tier === 'starter'
+        ? 'Select exactly one role to launch with.'
+        : `Select up to ${state.limit} roles for this workspace.`;
+
+      let rolesHtml = '';
+      if (state.tier === 'enterprise') {
+        for (const category of categories) {
+          const items = state.roles.filter((r) => r.category === category);
+          if (items.length === 0) continue;
+          rolesHtml += `<div class="category">${escapeHtml(category)}</div><div class="roles-wrapper">${roleCards(items)}</div>`;
+        }
+      } else {
+        rolesHtml = `<div class="roles-wrapper">${roleCards(state.roles)}</div>`;
+      }
+
+      return `
+        <h1>${header}</h1>
+        <p class="muted">${subtitle}</p>
+        <div class="counter">${state.selectedRoleIds.length}/${state.limit} selected</div>
+        ${rolesHtml}
+        ${navButtons({ back: true, next: true, nextLabel: 'Continue' })}
+      `;
+    }
+
+    function customizeScreen() {
+      const cards = selectedRoles().map((role) => {
+        const c = ensureCustom(role.id);
+        return `
+          <div class="agent-card">
+            <div class="name">${escapeHtml(role.emoji || '🤖')} ${escapeHtml(role.name)}</div>
+            <div class="field">
+              <label>Display name</label>
+              <input data-custom="displayName:${escapeHtml(role.id)}" value="${escapeHtml(c.displayName)}" />
+            </div>
+            <div class="slider-wrap">
+              <span>Formal</span>
+              <input type="range" min="0" max="1" step="0.05" data-custom="personality:${escapeHtml(role.id)}" value="${escapeHtml(c.personality)}" />
+              <span>Casual</span>
+            </div>
+            <div class="field">
+              <label>Priority focus</label>
+              <input data-custom="priorityFocus:${escapeHtml(role.id)}" value="${escapeHtml(c.priorityFocus)}" placeholder="What this role should optimize" />
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <h1>Customize Agents</h1>
+        <p class="muted">Tune each role before launch. You can edit these later.</p>
+        ${cards}
+        ${navButtons({ back: true, next: true, nextLabel: 'Continue' })}
+      `;
+    }
+
+    function telegramScreen() {
+      const cards = selectedRoles().map((role) => {
+        const c = ensureCustom(role.id);
+        return `
+          <div class="agent-card">
+            <div class="name">${escapeHtml(role.emoji || '🤖')} ${escapeHtml(c.displayName || role.name)}</div>
+            <div class="field">
+              <label>Telegram group link or ID</label>
+              <input data-custom="telegramGroup:${escapeHtml(role.id)}" value="${escapeHtml(c.telegramGroup || '')}" placeholder="https://t.me/yourgroup or -100..." />
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <h1>Connect Telegram</h1>
+        <p class="muted">We'll set up your bot in each group. You can skip this step and configure channels later.</p>
+        ${cards}
+        <div class="row">
+          <button class="btn ghost" data-act="back">Back</button>
+          <button class="btn" data-act="skip-telegram">Skip for now</button>
+          <button class="btn primary" data-act="next">Continue</button>
+        </div>
+      `;
+    }
+
+    function reviewScreen() {
+      const roles = selectedRoles();
+      const list = roles.map((role) => {
+        const c = ensureCustom(role.id);
+        return `<li><strong>${escapeHtml(c.displayName || role.name)}</strong> (${escapeHtml(role.name)})${c.telegramGroup ? ` - Telegram: ${escapeHtml(c.telegramGroup)}` : ''}</li>`;
+      }).join('');
+
+      return `
+        <h1>Review & Launch</h1>
+        <p class="muted">Confirm your setup and launch your team.</p>
+
+        <div class="review">
+          <div><strong>Company:</strong> ${escapeHtml(state.business.name)}</div>
+          <div><strong>Industry:</strong> ${escapeHtml(state.business.industry)}</div>
+          <div><strong>Size:</strong> ${escapeHtml(state.business.size)}</div>
+          <div><strong>Language:</strong> ${escapeHtml(state.business.language)}</div>
+          <div style="margin-top:8px;"><strong>Agents:</strong></div>
+          <ul>${list}</ul>
+        </div>
+
+        <div class="row">
+          <button class="btn ghost" data-act="back">Back</button>
+          <button class="btn primary" data-act="launch-enterprise">Launch My Team</button>
+        </div>
+      `;
+    }
+
+    function launchScreen() {
+      return `
+        <div class="launch">
+          <div>
+            <div class="spinner"></div>
+            <h1>Launching...</h1>
+            <p class="muted">Setting up your WiseChef assistant and workspace now.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function currentScreenHtml() {
+      if (state.loadingTier || state.loadingRoles) {
+        return launchScreen();
+      }
+      const screen = state.steps[state.stepIndex];
+      if (screen === 'business') return businessScreen();
+      if (screen === 'company') return companyScreen();
+      if (screen === 'roles') return rolesScreen();
+      if (screen === 'customize') return customizeScreen();
+      if (screen === 'telegram') return telegramScreen();
+      if (screen === 'review') return reviewScreen();
+      if (screen === 'launch') return launchScreen();
+      return '<h1>Unknown step</h1>';
+    }
+
+    function render() {
+      const progress = document.getElementById('progress');
+      const screen = document.getElementById('screen');
+      progress.innerHTML = progressHtml();
+
+      const message = state.message
+        ? `<div class="message ${state.messageType === 'error' ? 'error' : (state.messageType === 'ok' ? 'ok' : '')}">${escapeHtml(state.message)}</div>`
+        : '';
+      screen.innerHTML = currentScreenHtml() + message;
+      bindInputs();
+    }
+
+    function bindInputs() {
+      const byId = (id) => document.getElementById(id);
+
+      const url = byId('urlInput');
+      if (url) url.oninput = (e) => { state.business.url = e.target.value; };
+
+      const name = byId('nameInput');
+      if (name) name.oninput = (e) => { state.business.name = e.target.value; };
+
+      const desc = byId('descInput');
+      if (desc) desc.oninput = (e) => { state.business.description = e.target.value; };
+
+      const lang = byId('langInput');
+      if (lang) lang.oninput = (e) => { state.business.language = e.target.value; };
+
+      const industry = byId('industryInput');
+      if (industry) industry.oninput = (e) => { state.business.industry = e.target.value; };
+
+      const size = byId('sizeInput');
+      if (size) size.onchange = (e) => { state.business.size = e.target.value; };
+
+      document.querySelectorAll('[data-role]').forEach((card) => {
+        card.onclick = () => toggleRole(card.getAttribute('data-role'));
+      });
+
+      document.querySelectorAll('[data-custom]').forEach((input) => {
+        input.oninput = (e) => {
+          const [field, roleId] = e.target.getAttribute('data-custom').split(':');
+          const c = ensureCustom(roleId);
+          c[field] = field === 'personality' ? Number(e.target.value) : e.target.value;
+        };
+      });
+
+      document.querySelectorAll('[data-act]').forEach((button) => {
+        button.onclick = async () => {
+          const action = button.getAttribute('data-act');
+          if (action === 'scrape') return scrapeUrl();
+          if (action === 'back') return prevStep();
+          if (action === 'skip-telegram') {
+            for (const roleId of state.selectedRoleIds) {
+              ensureCustom(roleId).telegramGroup = '';
+            }
+            nextStep();
+            return;
+          }
+          if (action === 'launch-enterprise') return launchEnterprise();
+          if (action === 'next') {
+            clearMessage();
+            const step = state.steps[state.stepIndex];
+            if (step === 'business' && !canProceedFromBusiness()) {
+              return setMessage('Please complete company name, language, and description.', 'error');
+            }
+            if (step === 'company' && !canProceedFromCompany()) {
+              return setMessage('Please complete all company details before continuing.', 'error');
+            }
+            if (step === 'roles' && !validateRoleSelection()) return;
+            nextStep();
+          }
+        };
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -65,3 +65,12 @@ All endpoints are served on `localhost:3333`.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/calendar` | Get activity data from memory files |
+
+## Onboarding
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/onboarding/tier` | Get detected tier and agent limits |
+| GET | `/api/onboarding/roles` | List all role templates used by onboarding |
+| POST | `/api/onboarding/unified` | Run unified onboarding provisioning flow |
+| POST | `/api/onboarding/one-shot` | Fast generation flow used by Starter/Pro launch |

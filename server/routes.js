@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { __dirname, AGENT_TYPES_ENABLED, ONE_SHOT_ONBOARDING, POST_ONBOARD_URL } from './config.js';
+import { __dirname, AGENT_TYPES_ENABLED, POST_ONBOARD_URL } from './config.js';
 
 import { getActivity, getTime } from './controllers/activity.js';
 import {
@@ -20,6 +20,7 @@ import { getPlanoStatus, startPlano, stopPlano, getPlanoConfig, putPlanoConfig }
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
 import { getFleet, getClientStatus, deployClient, startHealthChecks } from './controllers/fleet.js';
 import { createChatSession, sendChatMessage } from './controllers/chat.js';
+import { getOnboardingTier, getOnboardingRoles, unifiedOnboarding } from './controllers/onboardingUnified.js';
 import { usageGuard, getUsageLimits } from './middleware/usageGuard.js';
 import { enterpriseOnboard, enterpriseInterviewAck, enterpriseProvision } from './controllers/enterprise.js';
 import {
@@ -35,7 +36,7 @@ const router = Router();
 
 // Onboarding pages served as static HTML (before SPA takes over)
 router.get('/onboarding', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+  res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
 });
 
 router.get('/link', (_req, res) => {
@@ -46,6 +47,9 @@ router.get('/link', (_req, res) => {
 // ──── Onboarding API ────
 router.get('/api/onboarding/status', getOnboardingStatus);
 router.post('/api/onboarding/complete', completeOnboarding);
+router.get('/api/onboarding/tier', getOnboardingTier);
+router.get('/api/onboarding/roles', getOnboardingRoles);
+router.post('/api/onboarding/unified', unifiedOnboarding);
 
 // ──── Channel Management API ────
 router.get('/api/channels', listChannels);
@@ -199,8 +203,8 @@ if (AGENT_TYPES_ENABLED) {
   });
 }
 
-// ──── One-Shot Onboarding (feature-flagged) ────
-if (ONE_SHOT_ONBOARDING) {
+// ──── One-Shot Onboarding ────
+{
   const { generateOnboarding, oneShotOnboarding } = await import('./controllers/onboardingOneShot.js');
   router.post('/api/onboarding/generate', generateOnboarding);
   router.post('/api/onboarding/one-shot', oneShotOnboarding);
@@ -220,11 +224,7 @@ if (ONE_SHOT_ONBOARDING) {
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
   if (!isOnboarded()) {
-    // One-shot mode: serve the fast identity page instead of the wizard
-    if (ONE_SHOT_ONBOARDING) {
-      return res.sendFile(path.join(__dirname, 'pages', 'onboarding-one-shot.html'));
-    }
-    return res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+    return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
   }
   if (!hasLinkedChannel() && !req.query.skip) {
     // When agent types are enabled, show picker before channel linking.
@@ -243,6 +243,18 @@ router.get('/', (req, res) => {
 
 // SPA fallback — all other routes serve the React app
 router.get('*', (req, res) => {
+  if (!isOnboarded()) {
+    return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
+  }
+  if (!hasLinkedChannel() && !req.query.skip) {
+    if (AGENT_TYPES_ENABLED && readAgentTypeSentinel) {
+      const sentinel = readAgentTypeSentinel();
+      if (!sentinel) {
+        return res.redirect('/select-agent');
+      }
+    }
+    return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
+  }
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
