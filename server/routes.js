@@ -166,7 +166,7 @@ router.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'wisechef-board',
-    version: process.env.npm_package_version || '1.3.0',
+    version: process.env.npm_package_version || '26.03.2',
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
   });
