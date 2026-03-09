@@ -160,7 +160,7 @@ router.get('/api/usage-limits', getUsageLimits);
 router.post('/api/enterprise/onboard', enterpriseOnboard);
 router.post('/api/enterprise/provision', enterpriseProvision);
 router.post('/api/enterprise/interview-ack', enterpriseInterviewAck);
-router.get('/enterprise', (_req, res) => res.redirect('/#enterprise'));
+router.get('/enterprise', (_req, res) => res.redirect('/enterprise/'));
 
 router.get('/api/plano/status', getPlanoStatus);
 router.post('/api/plano/start', startPlano);

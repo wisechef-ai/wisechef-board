@@ -530,11 +530,9 @@ export default function EnterpriseOnboarding() {
           <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3 mb-4">
             <p className="text-xs font-medium text-emerald-400 mb-1.5">✅ What happens when you click Provision:</p>
             <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• <code>company.json</code> saved to <code>~/clawd/wisechef/clients/{companyJson.slug}/</code></li>
-              <li>• SOUL.md, MEMORY.md, HEARTBEAT.md written to server workspace</li>
-              <li>• System prompts generated for each agent</li>
-              <li>• Gateway restarted</li>
-              <li>• Telegram group creation: <span className="text-amber-400">manual step (pending credentials)</span></li>
+              <li>• Company configuration and AI agent prompts generated</li>
+              <li>• SOUL.md, MEMORY.md, HEARTBEAT.md initialized</li>
+              <li>• Gateway configured and restarted</li>
             </ul>
           </div>
 

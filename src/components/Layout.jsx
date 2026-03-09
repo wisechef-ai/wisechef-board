@@ -95,7 +95,15 @@ export default function Layout({ page, setPage, children }) {
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => item.id === 'link-channel' ? (window.location.href = '/link') : setPage(item.id)}
+              onClick={() => {
+                if (item.id === 'link-channel') {
+                  window.location.href = '/link';
+                } else if (item.id === 'enterprise') {
+                  window.location.href = '/enterprise/';
+                } else {
+                  setPage(item.id);
+                }
+              }}
               className={cn(
                 'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                 page === item.id
