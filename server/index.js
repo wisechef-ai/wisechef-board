@@ -4,6 +4,7 @@ import { HOST, PORT, AGENT_TYPES_ENABLED } from './config.js';
 import { setupWebSocket } from './broadcast.js';
 import { setupMiddleware } from './middleware.js';
 import router from './routes.js';
+import { mountEnterprise } from './enterprise-mount.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -21,6 +22,7 @@ if (AGENT_TYPES_ENABLED) {
 
 setupWebSocket(server);
 setupMiddleware(app);
+mountEnterprise(app);
 app.use(router);
 
 if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
