@@ -162,7 +162,7 @@ function ensureChannelConfig(channel) {
   
   if (!config.channels) config.channels = {};
   
-  // Add channel if not present
+  // Add channel if not present — returns true if gateway was restarted
   if (!config.channels[channel]) {
     config.channels[channel] = {};
     fs.mkdirSync(OPENCLAW_DIR, { recursive: true });
@@ -171,7 +171,9 @@ function ensureChannelConfig(channel) {
     
     // Restart gateway to pick up new config
     try { restartGateway(); } catch (e) { console.error('Gateway restart after config:', e.message); }
+    return true; // gateway was restarted
   }
+  return false; // no restart needed
 }
 
 function getGatewayToken() {
@@ -451,7 +453,12 @@ export async function startLinking(req, res) {
   const ch = CHANNELS[channel];
 
   // Ensure openclaw.json exists with this channel configured
-  ensureChannelConfig(channel);
+  const gatewayRestarted = ensureChannelConfig(channel);
+
+  // If gateway was just restarted, wait for it to be ready before spawning login
+  if (gatewayRestarted) {
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
 
   // Kill existing session
   if (linkingSessions.has(channel)) {
