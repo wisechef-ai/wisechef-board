@@ -68,7 +68,7 @@ function ensureUniqueAgentDir(baseName, used) {
 }
 
 export function getOnboardingTier(_req, res) {
-  const tier = normalizeTier(process.env.WISECHEF_TIER);
+  const tier = normalizeTier(process.env.WISECHEF_PLAN || process.env.WISECHEF_TIER);
   res.json({ tier, limits: { agents: TIER_LIMITS[tier] } });
 }
 
@@ -80,7 +80,7 @@ export function getOnboardingRoles(_req, res) {
 export function unifiedOnboarding(req, res) {
   try {
     const payload = req.body || {};
-    const tier = normalizeTier(payload.tier || process.env.WISECHEF_TIER);
+    const tier = normalizeTier(payload.tier || process.env.WISECHEF_PLAN || process.env.WISECHEF_TIER);
     const maxAgents = TIER_LIMITS[tier];
 
     const companyIn = payload.company && typeof payload.company === 'object' ? payload.company : {};

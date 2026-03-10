@@ -77,12 +77,12 @@ async function callOpenRouter(userInput, structured = {}) {
       'X-Title': 'WiseChef One-Shot Onboarding',
     },
     body: JSON.stringify({
-      model: 'openai/gpt-5.4',
+      model: (process.env.WISECHEF_MODEL || 'google/gemini-2.5-flash').replace('openrouter/', ''),
       messages: [{ role: 'user', content: GENERATION_PROMPT(userInput, structured) }],
       max_tokens: 1500,
       temperature: 0.3,
     }),
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(45000),
   });
 
   if (!response.ok) {
