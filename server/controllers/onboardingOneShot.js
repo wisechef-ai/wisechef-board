@@ -13,7 +13,7 @@ import { WORKSPACE, AGENT_TYPES_ENABLED, POST_ONBOARD_URL } from '../config.js';
 //   Full pipeline: generate → write SOUL.md → write sentinel → write onboarding-complete.json
 //   Returns: { ok, redirect, agentType, introMessage }
 
-const VALID_TYPES = ['generalist', 'marketing', 'executive-assistant', 'health-coach', 'security-auditor', 'sales-assistant'];
+const VALID_TYPES = ['personal-assistant', 'ruthless-mentor', 'executive-assistant', 'generalist'];
 
 const GENERATION_PROMPT = (userInput, { companyName, focusArea, language } = {}) => {
   const structured = [
@@ -77,7 +77,7 @@ async function callOpenRouter(userInput, structured = {}) {
       'X-Title': 'WiseChef One-Shot Onboarding',
     },
     body: JSON.stringify({
-      model: (process.env.WISECHEF_MODEL || 'google/gemini-2.5-flash').replace('openrouter/', ''),
+      model: (process.env.WISECHEF_MODEL || 'anthropic/claude-sonnet-4.6').replace('openrouter/', ''),
       messages: [{ role: 'user', content: GENERATION_PROMPT(userInput, structured) }],
       max_tokens: 1500,
       temperature: 0.3,
