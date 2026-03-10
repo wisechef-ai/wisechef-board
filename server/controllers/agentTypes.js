@@ -4,7 +4,7 @@ import { __dirname, WORKSPACE } from '../config.js';
 
 // ──── Agent Type file loader ────
 
-const TYPES_DIR = path.join(__dirname, '..', 'src', 'agent-types');
+const TYPES_DIR = path.join(__dirname, 'src', 'agent-types');
 
 /**
  * Load all agent type JSON files from src/agent-types/
