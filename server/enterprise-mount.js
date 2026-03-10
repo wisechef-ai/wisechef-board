@@ -19,11 +19,11 @@ const ENTERPRISE_DIST = path.join(__dirname, '..', 'enterprise-dist');
 const MANIFEST_PATH = '/opt/wisechef/manifest.json';
 const LOCAL_ENTERPRISE_PORT = parseInt(process.env.PAPERCLIP_PORT || '3100', 10);
 
-// Agent limits per plan tier (includes the auto-created CEO/personal assistant)
-const AGENT_LIMITS = {
-  starter: 1,     // CEO only
-  pro: 4,         // CEO + 3
-  enterprise: 20, // CEO + 19
+// Team agent limits per plan tier (CEO/personal assistant is FREE and doesn't count)
+const TEAM_AGENT_LIMITS = {
+  starter: 3,      // 3 team agents across all companies
+  pro: 10,         // 10 team agents
+  enterprise: 50,  // 50 team agents
 };
 
 // Read manifest for company context
@@ -36,25 +36,49 @@ function readManifest() {
 }
 
 /**
- * Get current agent count for a company from the enterprise panel.
- * Returns a promise that resolves to the count.
+ * Get all agents across all companies from the enterprise panel.
+ * Returns { total, teamAgents, ceoAgents } — ceo agents are free.
  */
-function getAgentCount(companyId) {
-  return new Promise((resolve) => {
-    const req = http.get(
-      `http://127.0.0.1:${LOCAL_ENTERPRISE_PORT}/api/companies/${companyId}/agents`,
-      { timeout: 5000 },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk) => data += chunk);
-        res.on('end', () => {
-          try { resolve(JSON.parse(data).length); }
-          catch { resolve(0); }
+function getAllAgents() {
+  return new Promise(async (resolve) => {
+    try {
+      // First get all companies
+      const companies = await new Promise((res) => {
+        const r = http.get(`http://127.0.0.1:${LOCAL_ENTERPRISE_PORT}/api/companies`, { timeout: 5000 }, (resp) => {
+          let data = '';
+          resp.on('data', chunk => data += chunk);
+          resp.on('end', () => { try { res(JSON.parse(data)); } catch { res([]); } });
         });
+        r.on('error', () => res([]));
+        r.on('timeout', () => { r.destroy(); res([]); });
+      });
+
+      // Then get agents for each company
+      let allAgents = [];
+      for (const company of companies) {
+        const agents = await new Promise((res) => {
+          const r = http.get(`http://127.0.0.1:${LOCAL_ENTERPRISE_PORT}/api/companies/${company.id}/agents`, { timeout: 5000 }, (resp) => {
+            let data = '';
+            resp.on('data', chunk => data += chunk);
+            resp.on('end', () => { try { res(JSON.parse(data)); } catch { res([]); } });
+          });
+          r.on('error', () => res([]));
+          r.on('timeout', () => { r.destroy(); res([]); });
+        });
+        allAgents = allAgents.concat(agents);
       }
-    );
-    req.on('error', () => resolve(0));
-    req.on('timeout', () => { req.destroy(); resolve(0); });
+
+      const ceoAgents = allAgents.filter(a => a.role === 'ceo');
+      const teamAgents = allAgents.filter(a => a.role !== 'ceo');
+
+      resolve({
+        total: allAgents.length,
+        teamAgents: teamAgents.length,
+        ceoAgents: ceoAgents.length,
+      });
+    } catch {
+      resolve({ total: 0, teamAgents: 0, ceoAgents: 0 });
+    }
   });
 }
 
@@ -108,8 +132,6 @@ function proxyRequest(req, res) {
   });
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    // express.json() has already consumed the raw body stream,
-    // so we must re-serialize req.body instead of piping
     if (req.body && typeof req.body === 'object') {
       const bodyStr = JSON.stringify(req.body);
       proxyReq.setHeader('content-length', Buffer.byteLength(bodyStr));
@@ -139,7 +161,6 @@ export function mountEnterprise(app) {
   // Company context endpoint — enriches manifest with live DB data
   app.get('/enterprise/api/container-context', async (req, res) => {
     const manifest = readManifest();
-    // If manifest doesn't have companyId, fetch from enterprise panel DB
     let companyId = manifest.companyId || null;
     let companyName = manifest.companyName || null;
     if (!companyId) {
@@ -169,54 +190,58 @@ export function mountEnterprise(app) {
   });
 
   // Provisioning status endpoint — tells the Personal Assistant view
-  // that this container is running and healthy (for iframe embedding)
+  // that this container is running and healthy
   app.get('/api/provisioning/company/:companyId/status', async (req, res) => {
     const manifest = readManifest();
     const slug = manifest.slug || 'unknown';
-    // Count agents from enterprise panel
-    let agentCount = 0;
-    try {
-      const agents = await new Promise((resolve) => {
-        const r = http.get(`http://127.0.0.1:${LOCAL_ENTERPRISE_PORT}/api/companies/${req.params.companyId}/agents`, { timeout: 3000 }, (resp) => {
-          let data = '';
-          resp.on('data', chunk => data += chunk);
-          resp.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve([]); } });
-        });
-        r.on('error', () => resolve([]));
-        r.on('timeout', () => { r.destroy(); resolve([]); });
-      });
-      agentCount = Array.isArray(agents) ? agents.length : 0;
-    } catch {}
+    const { total } = await getAllAgents();
     res.json({
       running: true,
       healthy: true,
       hostname: `${slug}.wisechef.ai`,
-      agentCount,
+      agentCount: total,
       plan: process.env.WISECHEF_PLAN || 'starter',
     });
   });
 
-  // Plan tier endpoint (for frontend to show limits)
-  app.get('/enterprise/api/plan', (req, res) => {
+  // Plan tier endpoint — returns limits and current usage for frontend
+  app.get('/enterprise/api/plan', async (req, res) => {
     const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
-    const limit = AGENT_LIMITS[plan] || AGENT_LIMITS.starter;
-    res.json({ plan, agentLimit: limit });
+    const limit = TEAM_AGENT_LIMITS[plan] || TEAM_AGENT_LIMITS.starter;
+    const { teamAgents, ceoAgents } = await getAllAgents();
+    res.json({
+      plan,
+      teamAgentLimit: limit,
+      teamAgentsUsed: teamAgents,
+      teamAgentsRemaining: Math.max(0, limit - teamAgents),
+      ceoAgents,
+      // Legacy compat
+      agentLimit: limit,
+    });
   });
 
   // Agent limit enforcement — intercept POST to create agents
+  // CEO role doesn't count toward the limit; limit is GLOBAL across all companies
   app.post('/enterprise/api/companies/:companyId/agents', async (req, res, next) => {
     const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
-    const limit = AGENT_LIMITS[plan] || AGENT_LIMITS.starter;
-    const companyId = req.params.companyId;
+    const limit = TEAM_AGENT_LIMITS[plan] || TEAM_AGENT_LIMITS.starter;
+    const incomingRole = req.body?.role || '';
 
-    const currentCount = await getAgentCount(companyId);
-    if (currentCount >= limit) {
+    // CEO/personal-assistant agents are free — always allow
+    if (incomingRole === 'ceo') {
+      return proxyRequest(req, res);
+    }
+
+    // Count team agents globally (across all companies, excluding CEOs)
+    const { teamAgents } = await getAllAgents();
+    if (teamAgents >= limit) {
       return res.status(403).json({
         error: 'Agent limit reached',
-        message: `Your ${plan} plan allows up to ${limit} agent(s). Upgrade your plan to add more.`,
+        message: `Your ${plan} plan allows up to ${limit} team agent(s). You have ${teamAgents}. Upgrade your plan to add more.`,
         plan,
         limit,
-        current: currentCount,
+        used: teamAgents,
+        remaining: 0,
       });
     }
 
@@ -227,14 +252,20 @@ export function mountEnterprise(app) {
   // API proxy to local enterprise server (all other routes)
   app.all('/enterprise/api/*', proxyRequest);
 
-  // Static files
+  // Static files — short cache for HTML (so patches take effect fast), long for assets
   app.use('/enterprise', express.static(ENTERPRISE_DIST, {
     maxAge: '1h',
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
     index: 'index.html',
   }));
 
   // SPA fallback
   app.get('/enterprise/*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(ENTERPRISE_DIST, 'index.html'));
   });
 
