@@ -136,15 +136,63 @@ export function mountEnterprise(app) {
 
   console.log('[enterprise] Mounting enterprise panel at /enterprise/ (local SQLite backend)');
 
-  // Company context endpoint
-  app.get('/enterprise/api/container-context', (req, res) => {
+  // Company context endpoint — enriches manifest with live DB data
+  app.get('/enterprise/api/container-context', async (req, res) => {
     const manifest = readManifest();
+    // If manifest doesn't have companyId, fetch from enterprise panel DB
+    let companyId = manifest.companyId || null;
+    let companyName = manifest.companyName || null;
+    if (!companyId) {
+      try {
+        const companies = await new Promise((resolve) => {
+          const r = http.get(`http://127.0.0.1:${LOCAL_ENTERPRISE_PORT}/api/companies`, { timeout: 3000 }, (resp) => {
+            let data = '';
+            resp.on('data', chunk => data += chunk);
+            resp.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve([]); } });
+          });
+          r.on('error', () => resolve([]));
+          r.on('timeout', () => { r.destroy(); resolve([]); });
+        });
+        if (companies.length > 0) {
+          companyId = companies[0].id;
+          companyName = companies[0].name;
+        }
+      } catch {}
+    }
     res.json({
-      companyId: manifest.companyId || null,
+      companyId,
       companySlug: manifest.slug || null,
-      companyName: manifest.companyName || null,
+      companyName: companyName || manifest.name || null,
       gatewayToken: manifest.gatewayToken || null,
       boardUrl: `https://${manifest.slug || 'unknown'}.wisechef.ai`,
+    });
+  });
+
+  // Provisioning status endpoint — tells the Personal Assistant view
+  // that this container is running and healthy (for iframe embedding)
+  app.get('/api/provisioning/company/:companyId/status', async (req, res) => {
+    const manifest = readManifest();
+    const slug = manifest.slug || 'unknown';
+    // Count agents from enterprise panel
+    let agentCount = 0;
+    try {
+      const agents = await new Promise((resolve) => {
+        const r = http.get(`http://127.0.0.1:${LOCAL_ENTERPRISE_PORT}/api/companies/${req.params.companyId}/agents`, { timeout: 3000 }, (resp) => {
+          let data = '';
+          resp.on('data', chunk => data += chunk);
+          resp.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve([]); } });
+        });
+        r.on('error', () => resolve([]));
+        r.on('timeout', () => { r.destroy(); resolve([]); });
+      });
+      agentCount = Array.isArray(agents) ? agents.length : 0;
+    } catch {}
+    res.json({
+      running: true,
+      healthy: true,
+      hostname: `${slug}.wisechef.ai`,
+      agentCount,
+      plan: process.env.WISECHEF_PLAN || 'starter',
     });
   });
 
