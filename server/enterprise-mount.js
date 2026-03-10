@@ -44,6 +44,7 @@ function proxyRequest(req, res) {
   // Forward headers, add company context
   const headers = { ...req.headers };
   delete headers.host;
+  delete headers['content-length']; // will be re-set when we serialize body
   headers['x-company-id'] = manifest.companyId || '';
   headers['x-gateway-token'] = manifest.gatewayToken || '';
   headers['x-company-slug'] = manifest.slug || '';
@@ -83,7 +84,18 @@ function proxyRequest(req, res) {
 
   // Pipe request body
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    req.pipe(proxyReq);
+    // express.json() has already consumed the raw body stream,
+    // so we must re-serialize req.body instead of piping
+    if (req.body && typeof req.body === 'object') {
+      const bodyStr = JSON.stringify(req.body);
+      proxyReq.setHeader('content-length', Buffer.byteLength(bodyStr));
+      proxyReq.end(bodyStr);
+    } else if (typeof req.body === 'string') {
+      proxyReq.setHeader('content-length', Buffer.byteLength(req.body));
+      proxyReq.end(req.body);
+    } else {
+      proxyReq.end();
+    }
   } else {
     proxyReq.end();
   }
