@@ -19,6 +19,7 @@ import { getSettings, postSettings } from './controllers/settings.js';
 import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
 import { createChatSession, sendChatMessage } from './controllers/chat.js';
+import { getUsageLimits } from './middleware/usageGuard.js';
 import { listAgents, agentsStatus, updateAgent } from './controllers/agents.js';
 import {
   isOnboarded, hasLinkedChannel,
@@ -141,6 +142,9 @@ router.post('/api/wisechef-board/update', updateBoard);
 // ──── Chat (proxied to OpenClaw gateway) ────
 router.post('/api/chat/session', createChatSession);
 router.post('/api/chat/send', sendChatMessage);
+
+// ──── Usage limits (battery widget) ────
+router.get('/api/usage-limits', getUsageLimits);
 
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
