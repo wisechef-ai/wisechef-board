@@ -261,7 +261,7 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
             console.log('[fix-urls] Patched ' + patched + ' agents → ' + correctUrl);
         }
 
-        fixUrls().catch(e => console.error('[fix-urls] Error:', e.message));
+        fixUrls().then(() => process.exit(0)).catch(e => { console.error('[fix-urls] Error:', e.message); process.exit(1); });
         " 2>&1 || echo "[fix-urls] Script failed (non-fatal)"
 
         # Bootstrap Paperclip company + Chef agent from manifest
@@ -341,7 +341,7 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
                 console.log('[bootstrap] Chef agent already exists');
             }
         }
-        bootstrap().catch(e => console.error('[bootstrap] Error:', e.message));
+        bootstrap().then(() => process.exit(0)).catch(e => { console.error('[bootstrap] Error:', e.message); process.exit(1); });
         " 2>&1 || echo "[bootstrap] Script failed (non-fatal)"
     fi
 
