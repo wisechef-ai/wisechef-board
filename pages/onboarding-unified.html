@@ -427,6 +427,16 @@
       state.steps = conf.steps;
       state.loadingTier = false;
       state.loadingRoles = false;
+
+      // Pre-select recommended role for starter plan
+      if (state.tier === 'starter' && state.selectedRoleIds.length === 0) {
+        const recommended = state.roles.find(r => r.recommended);
+        if (recommended) {
+          state.selectedRoleIds = [recommended.id];
+          ensureCustom(recommended.id);
+        }
+      }
+
       render();
     }
 
@@ -562,7 +572,7 @@
         });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.error || 'Launch failed');
-        window.location.href = data.redirect || '/';
+        window.location.href = data.redirect || '/dashboard';
       } catch (err) {
         state.launchStarted = false;
         setMessage(err.message || 'Onboarding failed. Please try again.', 'error');
@@ -693,11 +703,13 @@
     function roleCards(list) {
       return list.map((role) => {
         const selected = state.selectedRoleIds.includes(role.id);
+        const badge = role.recommended ? '<div style="font-size:10px;color:#22c55e;font-weight:600;margin-top:2px">★ Recommended</div>' : '';
         return `
           <div class="role-card ${selected ? 'selected' : ''}" data-role="${escapeHtml(role.id)}">
             <div class="role-check">✓</div>
             <div class="emoji">${escapeHtml(role.emoji || '🤖')}</div>
             <div class="name">${escapeHtml(role.name)}</div>
+            ${badge}
             <div class="desc">${escapeHtml(role.shortDescription || '')}</div>
           </div>
         `;
@@ -705,9 +717,9 @@
     }
 
     function rolesScreen() {
-      const header = state.tier === 'starter' ? 'Pick Your Agent' : 'Build Your Team';
+      const header = state.tier === 'starter' ? 'Choose Your Chef' : 'Build Your Team';
       const subtitle = state.tier === 'starter'
-        ? 'Select exactly one role to launch with.'
+        ? 'Pick one personality for your AI assistant.'
         : `Select up to ${state.limit} roles for this workspace.`;
 
       let rolesHtml = '';
