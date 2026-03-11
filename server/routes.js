@@ -46,7 +46,7 @@ router.post('/api/onboarding/complete', completeOnboarding);
 // Onboarding: role templates
 router.get('/api/onboarding/roles', (_req, res) => {
   try {
-    const rolesDir = path.join(__dirname, 'templates', 'roles');
+    const rolesDir = path.join(__dirname, 'server', 'templates', 'roles');
     const files = fs.readdirSync(rolesDir).filter(f => f.endsWith('.json'));
     const roles = files.map(f => {
       const data = JSON.parse(fs.readFileSync(path.join(rolesDir, f), 'utf-8'));
