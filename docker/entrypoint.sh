@@ -32,7 +32,15 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       "model": {
         "primary": "$WISECHEF_MODEL"
       }
-    }
+    },
+    "list": [
+      {
+        "id": "main",
+        "identity": {
+          "name": "Chef"
+        }
+      }
+    ]
   }
 }
 EOF
