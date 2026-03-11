@@ -25,6 +25,9 @@ import {
   listChannels, startLinking, getQrStatus, submitToken, unlinkChannel,
   gatewayRestart, gatewayStatus,
 } from './controllers/channels.js';
+import { oneShotOnboarding, generateOnboarding } from './controllers/onboardingOneShot.js';
+import { unifiedOnboarding, getOnboardingRoles, getOnboardingTier } from './controllers/onboardingUnified.js';
+import { scrapeUrlHandler } from './controllers/onboardingUrl.js';
 
 const router = Router();
 
@@ -42,48 +45,12 @@ router.get('/link', (_req, res) => {
 // ──── Onboarding API ────
 router.get('/api/onboarding/status', getOnboardingStatus);
 router.post('/api/onboarding/complete', completeOnboarding);
-
-// Onboarding: role templates
-router.get('/api/onboarding/roles', (_req, res) => {
-  try {
-    const rolesDir = path.join(__dirname, 'server', 'templates', 'roles');
-    const files = fs.readdirSync(rolesDir).filter(f => f.endsWith('.json'));
-    const roles = files.map(f => {
-      const data = JSON.parse(fs.readFileSync(path.join(rolesDir, f), 'utf-8'));
-      return {
-        id: data.id,
-        name: data.name,
-        emoji: data.emoji || '🤖',
-        category: data.category || 'General',
-        shortDescription: data.shortDescription || data.name,
-        recommended: data.recommended || false,
-      };
-    });
-    res.json({ roles });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to load role templates', detail: err.message });
-  }
-});
-
-// Onboarding: tier info from manifest
-router.get('/api/onboarding/tier', (_req, res) => {
-  try {
-    const manifestPath = '/opt/wisechef/manifest.json';
-    let plan = 'starter';
-    if (fs.existsSync(manifestPath)) {
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-      plan = manifest.plan || 'starter';
-    }
-    const limits = {
-      starter: { agents: 1 },
-      pro: { agents: 5 },
-      enterprise: { agents: 20 },
-    };
-    res.json({ tier: plan, limits: limits[plan] || limits.starter });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to determine tier', detail: err.message });
-  }
-});
+router.get('/api/onboarding/roles', getOnboardingRoles);
+router.get('/api/onboarding/tier', getOnboardingTier);
+router.post('/api/onboarding/one-shot', oneShotOnboarding);
+router.post('/api/onboarding/generate', generateOnboarding);
+router.post('/api/onboarding/unified', unifiedOnboarding);
+router.post('/api/onboarding/scrape-url', scrapeUrlHandler);
 
 // ──── Channel Management API ────
 router.get('/api/channels', listChannels);
