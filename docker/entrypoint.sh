@@ -22,7 +22,7 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
     mkdir -p /root/.openclaw
 
     # All plans use the same model
-    WISECHEF_MODEL="${WISECHEF_MODEL:-openrouter/anthropic/claude-sonnet-4.6}"
+    WISECHEF_MODEL="${WISECHEF_MODEL:-openrouter/anthropic/claude-sonnet-4-6}"
     echo "🤖 Model for ${WISECHEF_PLAN:-starter} plan: $WISECHEF_MODEL"
 
     # Generate gateway token if not provided
