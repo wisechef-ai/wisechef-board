@@ -186,9 +186,10 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         const fs = require('fs');
 
         const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
-        const hostname = manifest.hostname;
-        const gatewayToken = manifest.gatewayToken || '';
         const slug = manifest.slug;
+        const hostname = manifest.hostname || (slug ? slug + '.wisechef.ai' : null);
+        if (!hostname) { console.log('[fix-urls] No hostname or slug in manifest — skipping'); process.exit(0); }
+        const gatewayToken = manifest.gatewayToken || '';
         const correctUrl = 'wss://' + hostname + '/gateway';
         const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
 

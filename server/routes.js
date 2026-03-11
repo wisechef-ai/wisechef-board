@@ -31,7 +31,7 @@ const router = Router();
 
 // Onboarding pages served as static HTML (before SPA takes over)
 router.get('/onboarding', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+  res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
 });
 
 router.get('/link', (_req, res) => {
@@ -130,7 +130,7 @@ router.post('/api/wisechef-board/update', updateBoard);
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
   if (!isOnboarded()) {
-    return res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
+    return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
   }
   if (!hasLinkedChannel() && !req.query.skip) {
     return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
