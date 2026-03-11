@@ -264,13 +264,17 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         fixUrls().catch(e => console.error('[fix-urls] Error:', e.message));
         " 2>&1 || echo "[fix-urls] Script failed (non-fatal)"
 
-        # Rename company to customer's name from manifest
-        echo "🏢 Setting company name from manifest..."
+        # Bootstrap Paperclip company + Chef agent from manifest
+        echo "🏢 Bootstrapping company from manifest..."
         node -e "
         const http = require('http');
         const fs = require('fs');
         const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
         const companyName = manifest.name || manifest.slug || 'My Company';
+        const slug = manifest.slug || 'default';
+        const hostname = manifest.hostname || (slug + '.wisechef.ai');
+        const gatewayToken = manifest.gatewayToken || '';
+        const correctUrl = 'wss://' + hostname + '/gateway';
         const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
 
         function apiCall(method, apiPath, body) {
@@ -291,16 +295,54 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
             });
         }
 
-        async function renameCompany() {
-            const companies = await apiCall('GET', '/api/companies');
-            if (!Array.isArray(companies) || companies.length === 0) return;
-            const company = companies[0];
-            if (company.name !== 'Random-cmp' && company.name !== companyName) return; // already customized
-            await apiCall('PATCH', '/api/companies/' + company.id, { name: companyName, description: companyName + ' — powered by WiseChef' });
-            console.log('[rename] Company → ' + companyName);
+        async function bootstrap() {
+            let companies = await apiCall('GET', '/api/companies');
+            if (!Array.isArray(companies)) companies = [];
+
+            let company;
+            if (companies.length === 0) {
+                // Fresh DB — create company
+                company = await apiCall('POST', '/api/companies', {
+                    name: companyName,
+                    description: companyName + ' — powered by WiseChef'
+                });
+                console.log('[bootstrap] Created company: ' + companyName);
+            } else {
+                company = companies[0];
+                // Rename if still default
+                if (company.name === 'Random-cmp') {
+                    await apiCall('PATCH', '/api/companies/' + company.id, {
+                        name: companyName,
+                        description: companyName + ' — powered by WiseChef'
+                    });
+                    console.log('[bootstrap] Renamed company → ' + companyName);
+                } else {
+                    console.log('[bootstrap] Company already set: ' + company.name);
+                }
+            }
+
+            // Check if Chef agent exists
+            const agents = await apiCall('GET', '/api/companies/' + company.id + '/agents');
+            const hasChef = Array.isArray(agents) && agents.some(a => a.role === 'general' || a.name === 'Chef');
+            if (!hasChef) {
+                await apiCall('POST', '/api/companies/' + company.id + '/agents', {
+                    name: 'Chef',
+                    role: 'general',
+                    title: 'Personal Assistant',
+                    adapterType: 'openclaw',
+                    adapterConfig: {
+                        url: correctUrl,
+                        authToken: gatewayToken,
+                        agentId: slug + '-general'
+                    }
+                });
+                console.log('[bootstrap] Created Chef agent → ' + correctUrl);
+            } else {
+                console.log('[bootstrap] Chef agent already exists');
+            }
         }
-        renameCompany().catch(e => console.error('[rename] Error:', e.message));
-        " 2>&1 || echo "[rename] Script failed (non-fatal)"
+        bootstrap().catch(e => console.error('[bootstrap] Error:', e.message));
+        " 2>&1 || echo "[bootstrap] Script failed (non-fatal)"
     fi
 
     cd /opt/wisechef/board
