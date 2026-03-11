@@ -329,7 +329,7 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
                     name: 'Chef',
                     role: 'general',
                     title: 'Personal Assistant',
-                    adapterType: 'openclaw',
+                    adapterType: 'openclaw_gateway',
                     adapterConfig: {
                         url: correctUrl,
                         authToken: gatewayToken,
