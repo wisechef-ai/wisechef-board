@@ -21,6 +21,9 @@ if [ ! -f "$FIRST_BOOT_SENTINEL" ]; then
     # Remove stale Paperclip API key (will be re-claimed after Paperclip starts)
     rm -f /opt/wisechef/workspace/paperclip-claimed-api-key.json 2>/dev/null || true
     rm -f /root/.openclaw/workspace/paperclip-claimed-api-key.json 2>/dev/null || true
+    # Remove stale OpenClaw config so it gets recreated with correct gateway token
+    rm -f /root/.openclaw/openclaw.json 2>/dev/null || true
+    rm -f /root/.openclaw/provider-keys.json 2>/dev/null || true
     touch "$FIRST_BOOT_SENTINEL"
     echo "✅ Clean state ready"
 fi
