@@ -3,6 +3,18 @@ set -e
 
 echo "🚀 Starting WiseChef container for ${CLIENT_NAME:-Unknown Client}"
 
+# ── Clean Paperclip data on first boot ──
+# Docker images baked via `docker commit` include stale DB data from the source container.
+# We detect first boot by checking for a sentinel file.
+FIRST_BOOT_SENTINEL="/opt/wisechef/.first-boot-done"
+if [ ! -f "$FIRST_BOOT_SENTINEL" ]; then
+    echo "🧹 First boot — wiping stale Paperclip data for clean start..."
+    rm -rf /root/.paperclip/instances/default/data 2>/dev/null || true
+    rm -rf /root/.paperclip/instances/default/workspaces 2>/dev/null || true
+    touch "$FIRST_BOOT_SENTINEL"
+    echo "✅ Clean Paperclip state ready"
+fi
+
 # Initialize OpenClaw config if not exists
 if [ ! -f /root/.openclaw/openclaw.json ]; then
     echo "📝 Initializing OpenClaw configuration..."
