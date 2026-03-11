@@ -195,7 +195,7 @@ function saveChannelLink(channel) {
   data[channel] = { linkedAt: new Date().toISOString() };
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 
-  // Ensure Chef branding in openclaw config
+  // Ensure Chef branding + dmPolicy in openclaw config
   try {
     const cfgPath = path.join(process.env.HOME || '/root', '.openclaw/openclaw.json');
     const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
@@ -212,6 +212,10 @@ function saveChannelLink(channel) {
         main.identity.name = 'Chef';
       }
     }
+    // SECURITY: Set dmPolicy to "allowlist" — never "pairing" (leaks codes to strangers)
+    if (!cfg.channels) cfg.channels = {};
+    if (!cfg.channels[channel]) cfg.channels[channel] = {};
+    cfg.channels[channel].dmPolicy = 'allowlist';
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
   } catch (e) {
     console.error('[branding] Failed to set Chef branding:', e.message);

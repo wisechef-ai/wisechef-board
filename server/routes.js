@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { __dirname, AGENT_TYPES_ENABLED, POST_ONBOARD_URL } from './config.js';
+import { __dirname } from './config.js';
 
 import { getActivity, getTime } from './controllers/activity.js';
 import {
@@ -10,19 +10,14 @@ import {
 } from './controllers/tasks.js';
 import { getUsage } from './controllers/usage.js';
 import { getOpenclawVersion, updateOpenclaw } from './controllers/openclaw.js';
-import { listModels, setModel, getHeartbeat, postHeartbeat, getProviderKeys, setProviderKey, removeProviderKey, loginProvider, startDeviceFlow, pollDeviceFlow } from './controllers/models.js';
+import { listModels, setModel, getHeartbeat, postHeartbeat } from './controllers/models.js';
 import { listSkills, toggleSkill, createSkill, getSkillContent, deleteSkill } from './controllers/skills.js';
 import { listFiles, getFileContent, downloadFile, getWorkspaceFile, putWorkspaceFile, getWorkspaceFileHistory } from './controllers/files.js';
 import { getSoul, putSoul, getSoulHistory, revertSoul, getSoulTemplates } from './controllers/soul.js';
 import { getSettings, postSettings } from './controllers/settings.js';
 import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
-import { getPlanoStatus, startPlano, stopPlano, getPlanoConfig, putPlanoConfig } from './controllers/plano.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
-import { getFleet, getClientStatus, deployClient, startHealthChecks } from './controllers/fleet.js';
-import { createChatSession, sendChatMessage } from './controllers/chat.js';
-import { getOnboardingTier, getOnboardingRoles, unifiedOnboarding } from './controllers/onboardingUnified.js';
-import { usageGuard, getUsageLimits } from './middleware/usageGuard.js';
-import { enterpriseOnboard, enterpriseInterviewAck, enterpriseProvision } from './controllers/enterprise.js';
+import { listAgents, agentsStatus, updateAgent } from './controllers/agents.js';
 import {
   isOnboarded, hasLinkedChannel,
   getOnboardingStatus, completeOnboarding,
@@ -36,20 +31,16 @@ const router = Router();
 
 // Onboarding pages served as static HTML (before SPA takes over)
 router.get('/onboarding', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
+  res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
 });
 
 router.get('/link', (_req, res) => {
-  if (!isOnboarded()) return res.redirect('/onboarding');
   res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
 });
 
 // ──── Onboarding API ────
 router.get('/api/onboarding/status', getOnboardingStatus);
 router.post('/api/onboarding/complete', completeOnboarding);
-router.get('/api/onboarding/tier', getOnboardingTier);
-router.get('/api/onboarding/roles', getOnboardingRoles);
-router.post('/api/onboarding/unified', unifiedOnboarding);
 
 // ──── Channel Management API ────
 router.get('/api/channels', listChannels);
@@ -65,11 +56,6 @@ router.get('/api/gateway/status', gatewayStatus);
 // Activity
 router.get('/api/activity', getActivity);
 router.get('/api/time', getTime);
-
-// Public config — safe to expose, no secrets
-router.get('/api/config/public', (_req, res) => {
-  res.json({ postOnboardUrl: POST_ONBOARD_URL });
-});
 
 // Tasks
 router.get('/api/tasks', listTasks);
@@ -98,14 +84,6 @@ router.post('/api/openclaw/update', updateOpenclaw);
 // Models & Heartbeat
 router.get('/api/models', listModels);
 router.post('/api/model', setModel);
-
-// Provider API keys (BYOK)
-router.get('/api/providers', getProviderKeys);
-router.post('/api/providers', setProviderKey);
-router.post('/api/providers/login', loginProvider);
-router.post('/api/providers/device/start', startDeviceFlow);
-router.post('/api/providers/device/poll', pollDeviceFlow);
-router.delete('/api/providers/:provider', removeProviderKey);
 router.get('/api/heartbeat', getHeartbeat);
 router.post('/api/heartbeat', postHeartbeat);
 
@@ -124,10 +102,6 @@ router.get('/api/workspace-file', getWorkspaceFile);
 router.put('/api/workspace-file', putWorkspaceFile);
 router.get('/api/workspace-file/history', getWorkspaceFileHistory);
 
-// Factory reset — DELETE /api/workspace/reset[?full=true]
-const { factoryReset } = await import('./controllers/workspaceReset.js');
-router.delete('/api/workspace/reset', factoryReset);
-
 // Soul
 router.get('/api/soul', getSoul);
 router.put('/api/soul', putSoul);
@@ -144,117 +118,29 @@ router.get('/api/credentials', listCredentials);
 router.put('/api/credentials/:name', putCredential);
 router.delete('/api/credentials/:name', deleteCredential);
 
+// Agents
+router.get('/api/agents', listAgents);
+router.get('/api/agents/status', agentsStatus);
+router.put('/api/agents/:id', updateAgent);
+
 // WiseChef Board
 router.get('/api/wisechef-board/version', getBoardVersion);
 router.post('/api/wisechef-board/update', updateBoard);
 
-// Plano Model Routing
-// Chat
-router.post('/api/chat/session', createChatSession);
-router.post('/api/chat/send', usageGuard, sendChatMessage);
-
-// Usage limits
-router.get('/api/usage-limits', getUsageLimits);
-
-// ──── Enterprise Onboarding ────
-router.post('/api/enterprise/onboard', enterpriseOnboard);
-router.post('/api/enterprise/provision', enterpriseProvision);
-router.post('/api/enterprise/interview-ack', enterpriseInterviewAck);
-router.get('/enterprise', (_req, res) => res.redirect('/enterprise/'));
-
-router.get('/api/plano/status', getPlanoStatus);
-router.post('/api/plano/start', startPlano);
-router.post('/api/plano/stop', stopPlano);
-router.get('/api/plano/config', getPlanoConfig);
-router.put('/api/plano/config', putPlanoConfig);
-
-// Fleet Management (only active on HQ)
-if (process.env.WISECHEF_HQ === 'true') {
-  router.get('/api/fleet', getFleet);
-  router.get('/api/fleet/:clientId/status', getClientStatus);
-  router.post('/api/fleet/:clientId/deploy', deployClient);
-  startHealthChecks();
-}
-
-// HQ flag for client-side
-router.get('/api/env', (_req, res) => {
-  res.json({ hq: process.env.WISECHEF_HQ === 'true' });
-});
-
-// ──── Health check (unauthenticated, for monitoring / fleet probes) ────
-router.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'wisechef-board',
-    version: process.env.npm_package_version || '1.3.0',
-    uptime: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ──── Agent Type Selector (feature-flagged) ────
-let getAgentTypes, selectAgentType, readAgentTypeSentinel;
-if (AGENT_TYPES_ENABLED) {
-  ({ getAgentTypes, selectAgentType, readAgentTypeSentinel } = await import('./controllers/agentTypes.js'));
-  router.get('/api/agent-types', getAgentTypes);
-  router.post('/api/agent/select', selectAgentType);
-  router.get('/select-agent', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'pages', 'select-agent.html'));
-  });
-}
-
-// ──── One-Shot Onboarding ────
-{
-  const { generateOnboarding, oneShotOnboarding } = await import('./controllers/onboardingOneShot.js');
-  router.post('/api/onboarding/generate', generateOnboarding);
-  router.post('/api/onboarding/one-shot', oneShotOnboarding);
-  // /onboarding/advanced redirects to single canonical flow (no separate old wizard)
-  router.get('/onboarding/advanced', (_req, res) => {
-    res.redirect('/onboarding');
-  });
-}
-
-// ──── URL-to-Agent Onboarding — scrape URL and extract context ────
-// Available always (not behind a flag) — used by onboarding wizard step 0
-{
-  const { scrapeUrlHandler } = await import('./controllers/onboardingUrl.js');
-  router.post('/api/onboarding/scrape-url', scrapeUrlHandler);
-}
-
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
   if (!isOnboarded()) {
-    return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
+    return res.sendFile(path.join(__dirname, 'pages', 'onboarding.html'));
   }
   if (!hasLinkedChannel() && !req.query.skip) {
-    // When agent types are enabled, show picker before channel linking.
-    // Check sentinel — if no type picked yet, redirect to picker first.
-    if (AGENT_TYPES_ENABLED && readAgentTypeSentinel) {
-      const sentinel = readAgentTypeSentinel();
-      if (!sentinel) {
-        return res.redirect('/select-agent');
-      }
-    }
     return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
   }
-  // Onboarded + linked (or skip) → serve the board SPA
+  // Onboarded + linked → serve the board SPA
   return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // SPA fallback — all other routes serve the React app
 router.get('*', (req, res) => {
-  if (!isOnboarded()) {
-    return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
-  }
-  if (!hasLinkedChannel() && !req.query.skip) {
-    if (AGENT_TYPES_ENABLED && readAgentTypeSentinel) {
-      const sentinel = readAgentTypeSentinel();
-      if (!sentinel) {
-        return res.redirect('/select-agent');
-      }
-    }
-    return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
-  }
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 

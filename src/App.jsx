@@ -7,21 +7,18 @@ import SkillsManager from './components/Skills/SkillsManager'
 import SoulEditor from './components/Soul/SoulEditor'
 import CredentialsManager from './components/Credentials/CredentialsManager'
 import SettingsPage from './components/Settings/SettingsPage'
-import AIProviderPage from './components/Settings/AIProviderPage'
-import ChatPage from './components/Chat/ChatPage'
 import MemoryManager from './components/Memory/MemoryManager'
-import FleetDashboard from './components/Fleet/FleetDashboard'
-import EnterpriseOnboarding from './components/Enterprise/EnterpriseOnboarding'
+import AgentsPage from './components/Agents/AgentsPage'
 import { TimezoneProvider } from './components/TimezoneContext'
 import { ThemeProvider } from './components/ThemeContext'
 import { SocketProvider } from './hooks/useSocket.jsx'
 import { NavProvider } from './hooks/useNav.jsx'
 
-const VALID_PAGES = new Set(['chat', 'kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings', 'fleet', 'enterprise'])
+const VALID_PAGES = new Set(['kanban', 'calendar', 'files', 'skills', 'soul', 'credentials', 'settings', 'agents'])
 
 function getHashPage() {
   const hash = location.hash.replace('#', '')
-  return VALID_PAGES.has(hash) ? hash : 'chat'
+  return VALID_PAGES.has(hash) ? hash : 'kanban'
 }
 
 export default function App() {
@@ -46,15 +43,12 @@ export default function App() {
             <Layout page={page} setPage={setPage}>
               {page === 'kanban' && <Board />}
               {page === 'calendar' && <CalendarView />}
-              {page === 'chat' && <ChatPage />}
               {page === 'files' && <FileBrowser />}
               {page === 'skills' && <SkillsManager />}
               {page === 'soul' && <SoulEditor />}
               {page === 'credentials' && <CredentialsManager />}
-              {page === 'ai-provider' && <AIProviderPage />}
+              {page === 'agents' && <AgentsPage />}
               {page === 'settings' && <SettingsPage />}
-              {page === 'fleet' && <FleetDashboard />}
-              {page === 'enterprise' && <EnterpriseOnboarding />}
             </Layout>
           </NavProvider>
         </TimezoneProvider>

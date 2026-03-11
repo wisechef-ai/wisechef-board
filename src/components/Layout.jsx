@@ -1,42 +1,25 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Server, MessageCircle, Cpu, Building2 } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Bot } from 'lucide-react'
 import { useTheme } from './ThemeContext'
+
+const navItems = [
+  { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
+  { id: 'agents', label: 'Agents', icon: Bot },
+  { id: 'calendar', label: 'Activity', icon: Calendar },
+  { id: 'files', label: 'Files', icon: FolderOpen },
+  { id: 'skills', label: 'Skills', icon: Puzzle },
+  { id: 'soul', label: 'Soul', icon: Heart },
+  { id: 'credentials', label: 'Credentials', icon: KeyRound },
+  { id: 'link-channel', label: 'Link Channel', icon: Link2 },
+  { id: 'settings', label: 'Settings', icon: Settings },
+]
 
 export default function Layout({ page, setPage, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const [updateAvailable, setUpdateAvailable] = useState(null)
-  const [isHQ, setIsHQ] = useState(false)
-  const [hasLinkedChannel, setHasLinkedChannel] = useState(true)
-
-  // Check if running on HQ
-  useEffect(() => {
-    fetch('/api/env').then(r => r.json()).then(d => setIsHQ(d.hq)).catch(() => {})
-  }, [])
-
-  // Check if any channel is linked
-  useEffect(() => {
-    fetch('/api/channels').then(r => r.json()).then(d => {
-      setHasLinkedChannel(d.channels?.some(c => c.linked) ?? false)
-    }).catch(() => {})
-  }, [])
-
-  const navItems = [
-    { id: 'chat', label: 'Chat', icon: MessageCircle },
-    { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
-    { id: 'calendar', label: 'Activity', icon: Calendar },
-    { id: 'files', label: 'Files', icon: FolderOpen },
-    { id: 'skills', label: 'Skills', icon: Puzzle },
-    { id: 'soul', label: 'Soul', icon: Heart },
-    { id: 'credentials', label: 'Credentials', icon: KeyRound },
-    { id: 'ai-provider', label: 'AI Provider', icon: Cpu },
-    { id: 'link-channel', label: 'Link Channel', icon: Link2 },
-    ...(isHQ ? [{ id: 'fleet', label: 'Fleet', icon: Server }] : []),
-    { id: 'enterprise', label: 'Enterprise', icon: Building2 },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ]
 
   // Check for updates on mount
   useEffect(() => {
@@ -95,21 +78,12 @@ export default function Layout({ page, setPage, children }) {
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => {
-                if (item.id === 'link-channel') {
-                  window.location.href = '/link';
-                } else if (item.id === 'enterprise') {
-                  window.location.href = '/enterprise/';
-                } else {
-                  setPage(item.id);
-                }
-              }}
+              onClick={() => item.id === 'link-channel' ? (window.location.href = '/link') : setPage(item.id)}
               className={cn(
                 'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                 page === item.id
                   ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                item.id === 'link-channel' && !hasLinkedChannel && 'animate-pulse bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               )}
             >
               <item.icon size={16} />
