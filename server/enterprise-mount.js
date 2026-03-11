@@ -156,7 +156,7 @@ export function mountEnterprise(app) {
               stdio: 'pipe',
             });
             // Restart gateway to pick up new agent
-            execSync('kill $(pgrep -f "openclaw gateway") 2>/dev/null; sleep 1; nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &', {
+            execSync('fuser -k 18789/tcp 2>/dev/null; sleep 1; nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &', {
               timeout: 10000,
               stdio: 'pipe',
               shell: '/bin/bash',

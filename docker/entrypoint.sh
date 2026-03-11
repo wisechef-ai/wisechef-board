@@ -305,7 +305,7 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
 
         # Restart gateway to pick up new agents
         echo "🔄 Restarting OpenClaw gateway with updated agents..."
-        kill $(pgrep -f "openclaw gateway") 2>/dev/null || true
+        fuser -k 18789/tcp 2>/dev/null || true
         sleep 2
         nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
         echo "Gateway restarted (PID: $!)"
