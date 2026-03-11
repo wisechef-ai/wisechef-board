@@ -38,7 +38,12 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       "token": "$GATEWAY_TOKEN"
     },
     "port": 18789,
-    "mode": "local"
+    "mode": "local",
+    "http": {
+      "endpoints": {
+        "chatCompletions": { "enabled": true }
+      }
+    }
   },
   "agents": {
     "defaults": {
@@ -134,6 +139,9 @@ EOF
 
 # Start OpenClaw gateway in background
 echo "🌐 Starting OpenClaw gateway..."
+# Kill any stale gateway on the port first (prevents "port already in use" on container restart)
+fuser -k 18789/tcp 2>/dev/null || true
+sleep 1
 nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
 GATEWAY_PID=$!
 echo "Gateway PID: $GATEWAY_PID"

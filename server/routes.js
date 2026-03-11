@@ -18,6 +18,7 @@ import { getSoul, putSoul, getSoulHistory, revertSoul, getSoulTemplates } from '
 import { getSettings, postSettings } from './controllers/settings.js';
 import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
+import { createChatSession, sendChatMessage } from './controllers/chat.js';
 import { listAgents, agentsStatus, updateAgent } from './controllers/agents.js';
 import {
   isOnboarded, hasLinkedChannel,
@@ -136,6 +137,10 @@ router.put('/api/agents/:id', updateAgent);
 // WiseChef Board
 router.get('/api/wisechef-board/version', getBoardVersion);
 router.post('/api/wisechef-board/update', updateBoard);
+
+// ──── Chat (proxied to OpenClaw gateway) ────
+router.post('/api/chat/session', createChatSession);
+router.post('/api/chat/send', sendChatMessage);
 
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {

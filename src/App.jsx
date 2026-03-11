@@ -9,6 +9,7 @@ import CredentialsManager from './components/Credentials/CredentialsManager'
 import SettingsPage from './components/Settings/SettingsPage'
 import MemoryManager from './components/Memory/MemoryManager'
 import AgentsPage from './components/Agents/AgentsPage'
+import ChatPage from './components/Chat/ChatPage'
 import { TimezoneProvider } from './components/TimezoneContext'
 import { ThemeProvider } from './components/ThemeContext'
 import { SocketProvider } from './hooks/useSocket.jsx'
@@ -42,6 +43,7 @@ export default function App() {
           <NavProvider setPage={setPage}>
             <Layout page={page} setPage={setPage}>
               {page === 'kanban' && <Board />}
+              {page === 'chat' && <ChatPage />}
               {page === 'calendar' && <CalendarView />}
               {page === 'files' && <FileBrowser />}
               {page === 'skills' && <SkillsManager />}

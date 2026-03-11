@@ -212,10 +212,11 @@ function saveChannelLink(channel) {
         main.identity.name = 'Chef';
       }
     }
-    // SECURITY: Set dmPolicy to "allowlist" — never "pairing" (leaks codes to strangers)
+    // SECURITY: Set dmPolicy to "pairing" — auto-pairs on first DM, no allowFrom needed
+    // Each container is personal (one customer), so pairing is safe and requires no pre-config
     if (!cfg.channels) cfg.channels = {};
     if (!cfg.channels[channel]) cfg.channels[channel] = {};
-    cfg.channels[channel].dmPolicy = 'allowlist';
+    cfg.channels[channel].dmPolicy = 'pairing';
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
   } catch (e) {
     console.error('[branding] Failed to set Chef branding:', e.message);

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Bot, Building2 } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Bot, Building2, MessageSquare } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
 const navItems = [
+  { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
   { id: 'agents', label: 'Agents', icon: Bot },
   { id: 'calendar', label: 'Activity', icon: Calendar },

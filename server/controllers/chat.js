@@ -1,90 +1,107 @@
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 
-let chatHistory = [];
-let byokNudgeSent = false;
+// Chat controller — proxies to OpenClaw gateway's OpenAI-compatible endpoint
+// POST /v1/chat/completions (must be enabled in openclaw.json)
 
-export function createChatSession(_req, res) {
-  chatHistory = [];
-  byokNudgeSent = false;
-  res.json({ ok: true, sessionKey: 'board-chat', history: [] });
-}
+const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || '18789', 10);
+const GATEWAY_HOST = '127.0.0.1';
 
-function checkBYOKNudge() {
-  if (byokNudgeSent) return null;
+function getGatewayToken() {
   try {
-    // Check if BYOK
-    const homeDir = process.env.HOME || '/root';
-    // Check provider keys from separate file + env vars
-    let provKeys = {};
-    try { provKeys = JSON.parse(fs.readFileSync(path.join(homeDir, '.openclaw', 'provider-keys.json'), 'utf8')); } catch {}
-    const hasBYOK = Object.values(provKeys).some(p => p.apiKey)
-      || !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY || !!process.env.OPENROUTER_API_KEY;
-    if (hasBYOK) return null;
-
-    // Check usage
-    const res = execSync('curl -s http://localhost:3333/api/usage-limits', { timeout: 5000, encoding: 'utf8' });
-    const limits = JSON.parse(res);
-    if (limits.percent >= 50) {
-      byokNudgeSent = true;
-      return `\n\n---\n💡 **Tip:** Your battery is at ${100 - (limits.battery?.percent || limits.percent)}% — it recharges when you're idle. Connect your own AI key for **unlimited usage** — go to **AI Provider** in the sidebar.`;
-    }
-  } catch {}
-  return null;
+    const cfg = JSON.parse(fs.readFileSync(
+      path.join(process.env.HOME || '/root', '.openclaw/openclaw.json'), 'utf8'
+    ));
+    return cfg.gateway?.auth?.token || process.env.GATEWAY_TOKEN || '';
+  } catch { return process.env.GATEWAY_TOKEN || ''; }
 }
 
-function runChatAgentCommand(escaped) {
-  return execSync(
-    `openclaw agent -m '${escaped}' --session-id board-chat`,
-    { timeout: 120000, encoding: 'utf8', maxBuffer: 1024 * 1024 }
-  ).trim();
-}
-
-function logChatError(prefix, error) {
-  console.error(prefix, {
-    message: error.message,
-    status: error.status ?? null,
-    signal: error.signal ?? null,
-    stdout: error.stdout?.toString?.().trim() || '',
-    stderr: error.stderr?.toString?.().trim() || '',
+function gatewayCall(method, apiPath, body, timeout = 120000) {
+  const token = getGatewayToken();
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const opts = {
+      hostname: GATEWAY_HOST,
+      port: GATEWAY_PORT,
+      path: apiPath,
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+      },
+      timeout,
+    };
+    const req = http.request(opts, (res) => {
+      let data = '';
+      res.on('data', d => data += d);
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, data: JSON.parse(data) }); }
+        catch { resolve({ status: res.statusCode, data }); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Gateway timeout')); });
+    if (payload) req.write(payload);
+    req.end();
   });
 }
 
-export function sendChatMessage(req, res) {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: 'No message' });
+// In-memory session store (per-container, resets on restart)
+const sessions = new Map();
 
-  chatHistory.push({ role: 'user', content: message, timestamp: Date.now() });
+// POST /api/chat/session — create or resume a chat session
+export async function createChatSession(req, res) {
+  const sessionId = 'dashboard-' + Date.now().toString(36);
+  sessions.set(sessionId, {
+    messages: [],
+    createdAt: Date.now(),
+  });
+  return res.json({ ok: true, sessionKey: sessionId, history: [] });
+}
+
+// POST /api/chat/send — send a message and get a reply
+export async function sendChatMessage(req, res) {
+  const { message, sessionKey } = req.body;
+  if (!message) return res.status(400).json({ ok: false, error: 'Message required' });
+
+  // Get or create session
+  let session = sessions.get(sessionKey);
+  if (!session) {
+    session = { messages: [], createdAt: Date.now() };
+    sessions.set(sessionKey || 'default', session);
+  }
+
+  // Add user message to history
+  session.messages.push({ role: 'user', content: message });
 
   try {
-    const escaped = message.replace(/'/g, "'\\''").replace(/\\/g, '\\\\');
-    let result;
+    // Call OpenClaw gateway's OpenAI-compatible endpoint
+    const result = await gatewayCall('POST', '/v1/chat/completions', {
+      model: 'openclaw:main',
+      messages: session.messages.slice(-20), // Keep last 20 messages for context
+      stream: false,
+    }, 120000);
 
-    try {
-      result = runChatAgentCommand(escaped);
-    } catch (firstError) {
-      logChatError('Chat send failed on first attempt:', firstError);
-      execSync('sleep 3', { timeout: 4000 });
-      result = runChatAgentCommand(escaped);
+    if (result.status === 200 && result.data?.choices?.[0]?.message?.content) {
+      const reply = result.data.choices[0].message.content;
+      session.messages.push({ role: 'assistant', content: reply });
+      return res.json({ ok: true, reply });
     }
 
-    chatHistory.push({ role: 'assistant', content: result, timestamp: Date.now() });
-    
-    let reply = result;
-    if (req._usageNote) reply += req._usageNote;
-    
-    // BYOK nudge (Option C) — one-time at 50% usage
-    const nudge = checkBYOKNudge();
-    if (nudge) reply += nudge;
-    
-    res.json({ ok: true, reply, usageInfo: req._usageInfo || null });
+    // If the completions endpoint isn't enabled, return helpful error
+    if (result.status === 404) {
+      return res.json({
+        ok: false,
+        error: 'Chat endpoint not enabled. The gateway needs gateway.http.endpoints.chatCompletions.enabled=true in openclaw.json',
+      });
+    }
+
+    console.error('[chat] Gateway response:', result.status, JSON.stringify(result.data).slice(0, 200));
+    return res.json({ ok: false, error: 'Agent did not respond (status: ' + result.status + ')' });
   } catch (e) {
-    logChatError('Chat send failed after retry:', e);
-    res.json({
-      ok: false,
-      reply: '⚠️ Agent is warming up after model switch — this takes about 30 seconds. Please try again shortly.',
-      error: e.message
-    });
+    console.error('[chat] Send failed:', e.message);
+    return res.json({ ok: false, error: e.message });
   }
 }
