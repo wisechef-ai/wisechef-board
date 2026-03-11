@@ -3,21 +3,21 @@ set -e
 
 echo "🚀 Starting WiseChef container for ${CLIENT_NAME:-Unknown Client}"
 
-# Ensure enough heap for embedded agent fallback
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
-
 # Initialize OpenClaw config if not exists
 if [ ! -f /root/.openclaw/openclaw.json ]; then
     echo "📝 Initializing OpenClaw configuration..."
     mkdir -p /root/.openclaw
-    
+
+    # All plans use the same model
+    WISECHEF_MODEL="${WISECHEF_MODEL:-openrouter/anthropic/claude-sonnet-4.6}"
+    echo "🤖 Model for ${WISECHEF_PLAN:-starter} plan: $WISECHEF_MODEL"
+
     # Generate gateway token if not provided
     if [ -z "$GATEWAY_TOKEN" ]; then
         GATEWAY_TOKEN=$(openssl rand -hex 32)
         echo "🔑 Generated gateway token: $GATEWAY_TOKEN"
     fi
-    
-    # Create openclaw.json — use provider-prefixed model name
+
     cat > /root/.openclaw/openclaw.json <<EOF
 {
   "gateway": {
@@ -29,19 +29,10 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
   },
   "agents": {
     "defaults": {
-      "model": "anthropic/claude-sonnet-4-6"
-    },
-    "list": [
-      {
-        "id": "main",
-        "identity": {
-          "name": "Chef"
-        }
+      "model": {
+        "primary": "$WISECHEF_MODEL"
       }
-    ]
-  },
-  "messages": {
-    "responsePrefix": "[Chef]"
+    }
   }
 }
 EOF
@@ -49,33 +40,32 @@ EOF
     chmod 700 /root/.openclaw
 fi
 
-# Add primary channel if provided
-if [ -n "$PRIMARY_CHANNEL" ] && [ -n "$CLIENT_PHONE" ]; then
-    echo "📱 Configuring $PRIMARY_CHANNEL channel..."
-    case "$PRIMARY_CHANNEL" in
-        whatsapp)
-            echo "   WhatsApp requires QR code pairing (manual step)"
-            ;;
-        telegram)
-            if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-                openclaw channels add --channel telegram --token "$TELEGRAM_BOT_TOKEN"
-            fi
-            ;;
-        *)
-            echo "   Channel $PRIMARY_CHANNEL not auto-configured"
-            ;;
-    esac
+# Write OpenRouter API key to provider-keys.json if provided
+if [ -n "$OPENROUTER_API_KEY" ] && [ ! -f /root/.openclaw/provider-keys.json ]; then
+    echo "🔑 Writing OpenRouter API key to provider-keys.json..."
+    cat > /root/.openclaw/provider-keys.json <<PKEOF
+{
+  "openrouter": {
+    "apiKey": "$OPENROUTER_API_KEY"
+  }
+}
+PKEOF
+    chmod 600 /root/.openclaw/provider-keys.json
 fi
 
 # Create workspace files if they don't exist
 if [ ! -f "$WORKSPACE_DIR/SOUL.md" ]; then
     echo "📄 Creating default workspace files..."
     mkdir -p "$WORKSPACE_DIR"
-    
-    cat > "$WORKSPACE_DIR/SOUL.md" <<'SOULEOF'
-# SOUL.md — WiseChef Assistant
+
+    cat > "$WORKSPACE_DIR/SOUL.md" <<EOF
+# SOUL.md — ${CLIENT_NAME:-WiseChef Assistant}
 
 You are a personal AI assistant powered by WiseChef.
+
+## Identity
+- Client: ${CLIENT_NAME:-Not configured}
+- Primary channel: ${PRIMARY_CHANNEL:-Not configured}
 
 ## Communication Style
 - Be helpful and proactive
@@ -92,12 +82,7 @@ You are a personal AI assistant powered by WiseChef.
 7. Be honest
 
 This file will be customized during onboarding.
-SOULEOF
-
-    # Patch in client name if available
-    if [ -n "$CLIENT_NAME" ]; then
-        sed -i "s/WiseChef Assistant/${CLIENT_NAME}/" "$WORKSPACE_DIR/SOUL.md"
-    fi
+EOF
 
     cat > "$WORKSPACE_DIR/MEMORY.md" <<EOF
 # MEMORY.md — ${CLIENT_NAME:-WiseChef Client}
@@ -111,6 +96,9 @@ SOULEOF
 EOF
 fi
 
+# Create project workspace directory (Issue 6)
+mkdir -p /opt/wisechef/workspace/projects
+
 # Create board .env file
 echo "⚙️ Configuring WiseChef Board..."
 cd /opt/wisechef/board
@@ -120,26 +108,143 @@ GATEWAY_TOKEN=${GATEWAY_TOKEN}
 WORKSPACE_DIR=${WORKSPACE_DIR}
 HOST=${HOST}
 NODE_ENV=production
+AGENT_TYPES_ENABLED=false
 EOF
 
-# Start signal-cli daemon if Signal is configured (before gateway to avoid race)
-SIGNAL_ACCOUNT=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('/root/.openclaw/openclaw.json'));console.log(c.channels?.signal?.account||'')}catch{}" 2>/dev/null)
-if [ -n "$SIGNAL_ACCOUNT" ] && command -v signal-cli &>/dev/null; then
-    echo "📡 Starting signal-cli daemon for $SIGNAL_ACCOUNT..."
-    nohup signal-cli -a "$SIGNAL_ACCOUNT" daemon --http 127.0.0.1:8080 > /var/log/signal-cli.log 2>&1 &
-    SIGNAL_PID=$!
-    echo "Signal daemon PID: $SIGNAL_PID"
-    sleep 3
-fi
-
-# Start OpenClaw gateway in background (use nohup in container — no systemd)
+# Start OpenClaw gateway in background
 echo "🌐 Starting OpenClaw gateway..."
-nohup openclaw gateway start > /var/log/openclaw-gateway.log 2>&1 &
+nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
 GATEWAY_PID=$!
 echo "Gateway PID: $GATEWAY_PID"
 
 # Wait for gateway to be ready
 sleep 4
+
+# Sync provider API keys from provider-keys.json → env vars
+if [ -f /root/.openclaw/provider-keys.json ]; then
+    echo "🔑 Loading provider API keys..."
+    eval $(node -e "
+    try {
+      const k = JSON.parse(require('fs').readFileSync('/root/.openclaw/provider-keys.json','utf8'));
+      const m = {anthropic:'ANTHROPIC_API_KEY',google:'GEMINI_API_KEY',openai:'OPENAI_API_KEY',openrouter:'OPENROUTER_API_KEY'};
+      for (const [p,d] of Object.entries(k)) { if (m[p] && d.apiKey) console.log('export '+m[p]+'='+JSON.stringify(d.apiKey)); }
+    } catch {}
+  ")
+fi
+
+# Migrate legacy config.providers on startup (if present)
+node -e "
+  const fs = require('fs');
+  const cfgPath = '/root/.openclaw/openclaw.json';
+  const keysPath = '/root/.openclaw/provider-keys.json';
+  try {
+    const cfg = JSON.parse(fs.readFileSync(cfgPath,'utf8'));
+    if (cfg.providers && Object.keys(cfg.providers).length) {
+      let keys = {};
+      try { keys = JSON.parse(fs.readFileSync(keysPath,'utf8')); } catch {}
+      for (const [p,d] of Object.entries(cfg.providers)) {
+        if (d.apiKey && !keys[p]?.apiKey) keys[p] = {apiKey:d.apiKey};
+      }
+      fs.writeFileSync(keysPath, JSON.stringify(keys,null,2), {mode:0o600});
+      delete cfg.providers;
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg,null,2));
+      console.log('[entrypoint] Migrated legacy config.providers');
+    }
+  } catch {}
+" 2>/dev/null || true
+
+# === Start Enterprise Panel (Paperclip native) ===
+if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
+    echo "📊 Starting Enterprise Panel (Paperclip on port ${PAPERCLIP_PORT:-3100})..."
+    mkdir -p /opt/wisechef/data
+
+    cd /opt/wisechef/enterprise-panel
+    DATABASE_PATH="${DATABASE_PATH:-/opt/wisechef/data/enterprise.sqlite}" \
+    PAPERCLIP_AUTH_MODE="${PAPERCLIP_AUTH_MODE:-local_trusted}" \
+    PORT="${PAPERCLIP_PORT:-3100}" \
+    HOST=127.0.0.1 \
+    NODE_ENV=production \
+    nohup node server/dist/index.js > /var/log/enterprise-panel.log 2>&1 &
+    ENTERPRISE_PID=$!
+    echo "Enterprise Panel PID: $ENTERPRISE_PID"
+
+    # Wait for Paperclip to be ready
+    echo "⏳ Waiting for Paperclip..."
+    for i in $(seq 1 15); do
+        if curl -sf http://127.0.0.1:${PAPERCLIP_PORT:-3100}/api/health > /dev/null 2>&1; then
+            echo "✅ Paperclip ready"
+            break
+        fi
+        sleep 1
+    done
+
+    # === Fix Issue 7: Patch agent gateway URLs after Paperclip is ready ===
+    if [ -f /opt/wisechef/manifest.json ]; then
+        echo "🔧 Fixing agent gateway URLs..."
+        node -e "
+        const http = require('http');
+        const fs = require('fs');
+
+        const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
+        const hostname = manifest.hostname;
+        const gatewayToken = manifest.gatewayToken || '';
+        const slug = manifest.slug;
+        const correctUrl = 'wss://' + hostname + '/gateway';
+        const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
+
+        function apiCall(method, apiPath, body) {
+            return new Promise((resolve, reject) => {
+                const opts = {
+                    hostname: '127.0.0.1', port: paperclipPort,
+                    path: apiPath, method: method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                const req = http.request(opts, (res) => {
+                    let data = '';
+                    res.on('data', d => data += d);
+                    res.on('end', () => {
+                        try { resolve(JSON.parse(data)); } catch { resolve(data); }
+                    });
+                });
+                req.on('error', reject);
+                if (body) req.write(JSON.stringify(body));
+                req.end();
+            });
+        }
+
+        async function fixUrls() {
+            const companies = await apiCall('GET', '/api/companies');
+            if (!Array.isArray(companies)) { console.log('[fix-urls] No companies yet'); return; }
+
+            let patched = 0;
+            for (const company of companies) {
+                const agents = await apiCall('GET', '/api/companies/' + company.id + '/agents');
+                if (!Array.isArray(agents)) continue;
+
+                for (const agent of agents) {
+                    const cfg = agent.adapterConfig || {};
+                    if (cfg.url !== correctUrl || cfg.authToken !== gatewayToken) {
+                        await apiCall('PATCH', '/api/agents/' + agent.id, {
+                            adapterConfig: {
+                                ...cfg,
+                                url: correctUrl,
+                                authToken: gatewayToken,
+                                agentId: slug + '-' + (agent.role || 'agent'),
+                            }
+                        });
+                        patched++;
+                    }
+                }
+            }
+            console.log('[fix-urls] Patched ' + patched + ' agents → ' + correctUrl);
+        }
+
+        fixUrls().catch(e => console.error('[fix-urls] Error:', e.message));
+        " 2>&1 || echo "[fix-urls] Script failed (non-fatal)"
+    fi
+
+    cd /opt/wisechef/board
+fi
 
 # Start WiseChef Board (foreground)
 echo "📊 Starting WiseChef Board on port ${PORT}..."

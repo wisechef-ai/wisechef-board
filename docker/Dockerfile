@@ -1,52 +1,68 @@
 # syntax=docker/dockerfile:1
+# WiseChef Agent Container — v2026.3.10
+# Full stack: OpenClaw + WiseChef Board + Enterprise Panel (SQLite) + Enterprise CLI
 FROM node:22-slim
 
-# Install system dependencies
+# System deps
 RUN apt-get update && apt-get install -y \
-    git \
-    python3 \
-    curl \
-    ca-certificates \
+    git python3 curl ca-certificates build-essential openssl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install OpenClaw globally
 RUN npm install -g openclaw@latest
 
-# Brand WhatsApp device name as "Chef" instead of "openclaw"
+# Brand WhatsApp device name
 RUN find /usr/local/lib/node_modules/openclaw/dist/ -name "session-*.js" \
-    -exec sed -i 's/"openclaw","cli"/"Chef","web"/g' {} \;
+    -exec sed -i 's/"openclaw","cli"/"Chef","web"/g' {} \; 2>/dev/null || true
 
-# Create workspace
 WORKDIR /opt/wisechef
 
-# Clone wisechef-board
-RUN git clone https://github.com/wisechef-ai/wisechef-board.git board
+# ── 1. WiseChef Board ──
+RUN git clone --depth 1 https://github.com/wisechef-ai/wisechef-board.git board
 
-# Install board dependencies and build
 WORKDIR /opt/wisechef/board
 RUN npm install --production=false && \
     npm run build && \
     npm prune --production
 
-# Create workspace directory for agent
-RUN mkdir -p /opt/wisechef/workspace
+# ── 2. WiseChef Enterprise CLI (private repo) ──
+ARG GH_TOKEN
+WORKDIR /opt/wisechef
+RUN git clone --depth 1 -b feature/enterprise-onboarding-wizard \
+    https://x-access-token:${GH_TOKEN}@github.com/wisechef-ai/wisechef-enterprise.git enterprise && \
+    cd enterprise && npm install --production && \
+    chmod +x cli.js && \
+    ln -sf /opt/wisechef/enterprise/cli.js /usr/local/bin/wisechef-enterprise && \
+    # Scrub token from git remote
+    cd /opt/wisechef/enterprise && git remote set-url origin https://github.com/wisechef-ai/wisechef-enterprise.git
 
-# Environment variables (overrideable at runtime)
+# ── 3. Enterprise Panel (pre-built SQLite bundle) ──
+COPY enterprise-panel-bundle /opt/wisechef/enterprise-panel
+
+# ── 4. Enterprise mount override for local SQLite mode ──
+COPY enterprise-mount-local.js /opt/wisechef/board/server/enterprise-mount.js
+
+# ── 5. Final setup ──
+WORKDIR /opt/wisechef
+RUN mkdir -p /opt/wisechef/workspace /opt/wisechef/data
+
+# Environment variables
 ENV PORT=3333 \
     GATEWAY_TOKEN="" \
     WORKSPACE_DIR=/opt/wisechef/workspace \
     HOST=0.0.0.0 \
-    ANTHROPIC_API_KEY="" \
+    OPENROUTER_API_KEY="" \
     CLIENT_NAME="" \
     CLIENT_PHONE="" \
-    PRIMARY_CHANNEL=""
+    CLIENT_CHANNEL="" \
+    WISECHEF_PLAN="starter" \
+    WISECHEF_MODEL="" \
+    DATABASE_PATH=/opt/wisechef/data/enterprise.sqlite \
+    PAPERCLIP_PORT=3100 \
+    PAPERCLIP_AUTH_MODE=local_trusted
 
-# Expose ports
-# 18789: OpenClaw gateway (internal only, not published)
-# 3333: WiseChef Board (HTTP, exposed to cloudflared)
-EXPOSE 18789 3333
+EXPOSE 18789 3100 3333
 
-# Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
