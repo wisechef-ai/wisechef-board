@@ -39,6 +39,16 @@
     <link rel="stylesheet" crossorigin href="/enterprise/assets/index-C7nhkvUI.css">
   </head>
   <body>
+    <!-- WiseChef nav bar — links back to personal dashboard -->
+    <div id="wisechef-topbar" style="position:fixed;top:0;left:0;right:0;z-index:9999;height:40px;background:#18181b;border-bottom:1px solid #27272a;display:flex;align-items:center;padding:0 16px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;">
+      <a href="/" style="color:#a1a1aa;text-decoration:none;display:flex;align-items:center;gap:6px;" onmouseover="this.style.color='#e4e4e7'" onmouseout="this.style.color='#a1a1aa'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Dashboard
+      </a>
+      <span style="color:#3f3f46;margin:0 10px;">|</span>
+      <span style="color:#e4e4e7;font-weight:600;">🏢 Enterprise Panel</span>
+    </div>
+    <div style="height:40px;"></div><!-- spacer for fixed topbar -->
     <div id="root"></div>
   </body>
 </html>
