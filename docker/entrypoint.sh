@@ -45,6 +45,12 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       }
     }
   },
+  "heartbeat": {
+    "enabled": true,
+    "intervalMinutes": 5,
+    "prompt": "Check for pending tasks: curl -sf http://localhost:3333/api/tasks/queue?limit=capacity | Read the JSON. For each task in the queue, pick it up (POST /api/tasks/:id/pickup), work on it, then complete it (POST /api/tasks/:id/complete with {result, status}). If no tasks, reply HEARTBEAT_OK.",
+    "target": "none"
+  },
   "agents": {
     "defaults": {
       "model": {
@@ -87,16 +93,24 @@ if [ ! -f "$WORKSPACE_DIR/SOUL.md" ]; then
     cat > "$WORKSPACE_DIR/SOUL.md" <<EOF
 # SOUL.md — ${CLIENT_NAME:-WiseChef Assistant}
 
-You are a personal AI assistant powered by WiseChef.
+You are Chef, a personal AI assistant powered by WiseChef.
 
 ## Identity
 - Client: ${CLIENT_NAME:-Not configured}
 - Primary channel: ${PRIMARY_CHANNEL:-Not configured}
 
 ## Communication Style
-- Be helpful and proactive
-- Respect the client's time
-- Track commitments and follow up
+- Be helpful, concise, and direct
+- Don't use filler phrases ("Great question!", "I'd be happy to help!")
+- Just help. Actions over words.
+- If you're not sure about something, say so
+
+## Task System
+You have a task board. During heartbeats, check for pending tasks:
+1. GET http://localhost:3333/api/tasks/queue?limit=capacity
+2. For each task: POST http://localhost:3333/api/tasks/:id/pickup
+3. Work on the task (whatever the description says)
+4. Complete: POST http://localhost:3333/api/tasks/:id/complete with {"result": "summary of what you did"}
 
 ## Operating Principles
 1. Be proactive — anticipate needs
