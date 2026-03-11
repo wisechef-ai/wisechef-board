@@ -18,6 +18,9 @@ if [ ! -f "$FIRST_BOOT_SENTINEL" ]; then
     rm -f /root/.openclaw/devices/pending.json 2>/dev/null || true
     rm -f /root/.openclaw/credentials/signal-pairing.json 2>/dev/null || true
     rm -f /root/.openclaw/cron/jobs.json 2>/dev/null || true
+    # Remove stale Paperclip API key (will be re-claimed after Paperclip starts)
+    rm -f /opt/wisechef/workspace/paperclip-claimed-api-key.json 2>/dev/null || true
+    rm -f /root/.openclaw/workspace/paperclip-claimed-api-key.json 2>/dev/null || true
     touch "$FIRST_BOOT_SENTINEL"
     echo "✅ Clean state ready"
 fi
@@ -381,6 +384,70 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         else console.log('[heartbeat] All agents already have heartbeat');
         db.close();
         " 2>&1 || echo "[heartbeat] Script failed (non-fatal)"
+
+        # Set agent timeout to 240s (cold runs need more time than the default 120s)
+        echo "⏱️ Setting agent timeout to 240s..."
+        node -e "
+        const http = require('http');
+        const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
+        function apiCall(method, apiPath, body) {
+            return new Promise((resolve, reject) => {
+                const opts = { hostname: '127.0.0.1', port: paperclipPort, path: apiPath, method, headers: { 'Content-Type': 'application/json' } };
+                const req = http.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch{resolve(d)} }); });
+                req.on('error', reject); if(body) req.write(JSON.stringify(body)); req.end();
+            });
+        }
+        async function setTimeouts() {
+            const companies = await apiCall('GET', '/api/companies');
+            if (!Array.isArray(companies)) return;
+            for (const co of companies) {
+                const agents = await apiCall('GET', '/api/companies/' + co.id + '/agents');
+                if (!Array.isArray(agents)) continue;
+                for (const agent of agents) {
+                    const cfg = agent.adapterConfig || {};
+                    if (cfg.timeoutSec !== 240) {
+                        await apiCall('PATCH', '/api/agents/' + agent.id, { adapterConfig: { ...cfg, timeoutSec: 240 } });
+                        console.log('[timeout] Set ' + agent.name + ' → 240s');
+                    }
+                }
+            }
+        }
+        setTimeouts().then(()=>process.exit(0)).catch(e=>{console.error('[timeout]',e.message);process.exit(1)});
+        " 2>&1 || echo "[timeout] Script failed (non-fatal)"
+
+        # Claim Paperclip API key for the agent and save to workspace
+        echo "🔑 Claiming Paperclip API key for agent..."
+        node -e "
+        const http = require('http');
+        const fs = require('fs');
+        const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
+        const keyPath = (process.env.WORKSPACE_DIR || '/opt/wisechef/workspace') + '/paperclip-claimed-api-key.json';
+        // Skip if key already exists
+        if (fs.existsSync(keyPath)) { console.log('[api-key] Key already exists'); process.exit(0); }
+        function apiCall(method, apiPath, body) {
+            return new Promise((resolve, reject) => {
+                const opts = { hostname: '127.0.0.1', port: paperclipPort, path: apiPath, method, headers: { 'Content-Type': 'application/json' } };
+                const req = http.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch{resolve(d)} }); });
+                req.on('error', reject); if(body) req.write(JSON.stringify(body)); req.end();
+            });
+        }
+        async function claimKey() {
+            const companies = await apiCall('GET', '/api/companies');
+            if (!Array.isArray(companies) || !companies[0]) { console.log('[api-key] No companies'); return; }
+            const agents = await apiCall('GET', '/api/companies/' + companies[0].id + '/agents');
+            if (!Array.isArray(agents) || !agents[0]) { console.log('[api-key] No agents'); return; }
+            const agent = agents[0];
+            const keyData = await apiCall('POST', '/api/agents/' + agent.id + '/keys', { name: 'openclaw-agent-key' });
+            if (keyData && keyData.token) {
+                fs.mkdirSync(require('path').dirname(keyPath), { recursive: true });
+                fs.writeFileSync(keyPath, JSON.stringify(keyData, null, 2), { mode: 0o600 });
+                console.log('[api-key] Saved agent API key → ' + keyPath);
+            } else {
+                console.log('[api-key] Key creation response:', JSON.stringify(keyData));
+            }
+        }
+        claimKey().then(()=>process.exit(0)).catch(e=>{console.error('[api-key]',e.message);process.exit(1)});
+        " 2>&1 || echo "[api-key] Script failed (non-fatal)"
     fi
 
     cd /opt/wisechef/board
