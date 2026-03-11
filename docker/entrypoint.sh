@@ -9,6 +9,7 @@ echo "🚀 Starting WiseChef container for ${CLIENT_NAME:-Unknown Client}"
 FIRST_BOOT_SENTINEL="/opt/wisechef/.first-boot-done"
 if [ ! -f "$FIRST_BOOT_SENTINEL" ]; then
     echo "🧹 First boot — wiping stale Paperclip data for clean start..."
+    rm -f /opt/wisechef/data/enterprise.sqlite /opt/wisechef/data/enterprise.sqlite-shm /opt/wisechef/data/enterprise.sqlite-wal 2>/dev/null || true
     rm -rf /root/.paperclip/instances/default/data 2>/dev/null || true
     rm -rf /root/.paperclip/instances/default/workspaces 2>/dev/null || true
     touch "$FIRST_BOOT_SENTINEL"
