@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Paperclip",
-  "short_name": "Paperclip",
-  "description": "AI-powered project management and agent coordination platform",
+  "name": "WiseChef Enterprise",
+  "short_name": "WiseChef",
+  "description": "AI-powered company management — powered by WiseChef",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,9 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
   <style>
-    path { stroke: #18181b; }
+    * { stroke: #18181b; fill: none; }
     @media (prefers-color-scheme: dark) {
-      path { stroke: #e4e4e7; }
+      * { stroke: #e4e4e7; }
     }
   </style>
-  <path stroke-width="2" d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/>
+  <!-- Chef hat -->
+  <ellipse cx="12" cy="8" rx="7" ry="5" stroke-width="1.5"/>
+  <ellipse cx="5.5" cy="10" rx="2.5" ry="2.5" stroke-width="1.5"/>
+  <ellipse cx="18.5" cy="10" rx="2.5" ry="2.5" stroke-width="1.5"/>
+  <rect x="5" y="13" width="14" height="5" rx="1" stroke-width="1.5"/>
+  <line x1="9" y1="13" x2="9" y2="18" stroke-width="1.5"/>
+  <line x1="12" y1="13" x2="12" y2="18" stroke-width="1.5"/>
+  <line x1="15" y1="13" x2="15" y2="18" stroke-width="1.5"/>
+  <rect x="4" y="18" width="16" height="2.5" rx="1" stroke-width="1.5"/>
 </svg>
