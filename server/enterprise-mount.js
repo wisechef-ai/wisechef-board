@@ -12,6 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import http from 'http';
+import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENTERPRISE_DIST = path.join(__dirname, '..', 'enterprise-dist');
@@ -119,22 +120,52 @@ export function mountEnterprise(app) {
 
   // Intercept agent create/update to fix gateway URLs
   // All agents in this container connect locally to the OpenClaw gateway.
+  // Each company gets its own OpenClaw agent (company-<companyId>) for workspace isolation.
   app.use('/enterprise/api', (req, res, next) => {
     if ((req.method === 'POST' || req.method === 'PATCH') && req.body) {
       const manifest = readManifest();
       const gatewayToken = manifest.gatewayToken || '';
+
+      // Extract companyId from URL patterns like /api/companies/:id/agents
+      const companyMatch = req.originalUrl.match(/\/companies\/([a-f0-9-]+)\//);
+      const companyId = companyMatch ? companyMatch[1] : null;
+      const agentId = companyId ? `company-${companyId}` : 'main';
+
       if (req.body.adapterConfig) {
         req.body.adapterConfig.url = 'ws://localhost:18789/gateway';
         req.body.adapterConfig.authToken = gatewayToken;
-        req.body.adapterConfig.agentId = 'main';
+        req.body.adapterConfig.agentId = agentId;
       }
       // Also fix if adapterType is openclaw_gateway but no config yet
       if (req.body.adapterType === 'openclaw_gateway' && !req.body.adapterConfig) {
         req.body.adapterConfig = {
           url: 'ws://localhost:18789/gateway',
           authToken: gatewayToken,
-          agentId: 'main',
+          agentId: agentId,
         };
+      }
+
+      // If a new company agent is created at runtime, schedule sync-agents
+      // to register it with OpenClaw (non-blocking)
+      if (req.method === 'POST' && companyId && req.originalUrl.includes('/agents')) {
+        setTimeout(() => {
+          try {
+            execSync('node /opt/wisechef/board/docker/sync-agents.js', {
+              timeout: 15000,
+              env: { ...process.env, GATEWAY_TOKEN: gatewayToken },
+              stdio: 'pipe',
+            });
+            // Restart gateway to pick up new agent
+            execSync('kill $(pgrep -f "openclaw gateway") 2>/dev/null; sleep 1; nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &', {
+              timeout: 10000,
+              stdio: 'pipe',
+              shell: '/bin/bash',
+            });
+            console.log('[enterprise-proxy] Synced new agent for company ' + companyId);
+          } catch (e) {
+            console.error('[enterprise-proxy] sync-agents failed:', e.message);
+          }
+        }, 2000); // Small delay to let the POST complete first
       }
     }
     next();

@@ -233,69 +233,8 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         sleep 1
     done
 
-    # === Fix agent gateway URLs after Paperclip is ready ===
+    # === Bootstrap + per-company agent isolation ===
     if [ -f /opt/wisechef/manifest.json ]; then
-        echo "🔧 Fixing agent gateway URLs..."
-        node -e "
-        const http = require('http');
-        const fs = require('fs');
-
-        const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
-        const gatewayToken = manifest.gatewayToken || '';
-        // All agents connect locally within the container
-        const correctUrl = 'ws://localhost:18789/gateway';
-        const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
-
-        function apiCall(method, apiPath, body) {
-            return new Promise((resolve, reject) => {
-                const opts = {
-                    hostname: '127.0.0.1', port: paperclipPort,
-                    path: apiPath, method: method,
-                    headers: { 'Content-Type': 'application/json' }
-                };
-                const req = http.request(opts, (res) => {
-                    let data = '';
-                    res.on('data', d => data += d);
-                    res.on('end', () => {
-                        try { resolve(JSON.parse(data)); } catch { resolve(data); }
-                    });
-                });
-                req.on('error', reject);
-                if (body) req.write(JSON.stringify(body));
-                req.end();
-            });
-        }
-
-        async function fixUrls() {
-            const companies = await apiCall('GET', '/api/companies');
-            if (!Array.isArray(companies)) { console.log('[fix-urls] No companies yet'); return; }
-
-            let patched = 0;
-            for (const company of companies) {
-                const agents = await apiCall('GET', '/api/companies/' + company.id + '/agents');
-                if (!Array.isArray(agents)) continue;
-
-                for (const agent of agents) {
-                    const cfg = agent.adapterConfig || {};
-                    if (cfg.url !== correctUrl || cfg.authToken !== gatewayToken || cfg.agentId !== 'main') {
-                        await apiCall('PATCH', '/api/agents/' + agent.id, {
-                            adapterConfig: {
-                                ...cfg,
-                                url: correctUrl,
-                                authToken: gatewayToken,
-                                agentId: 'main',
-                            }
-                        });
-                        patched++;
-                    }
-                }
-            }
-            console.log('[fix-urls] Patched ' + patched + ' agents → ' + correctUrl + ' (agentId=main)');
-        }
-
-        fixUrls().then(() => process.exit(0)).catch(e => { console.error('[fix-urls] Error:', e.message); process.exit(1); });
-        " 2>&1 || echo "[fix-urls] Script failed (non-fatal)"
-
         # Bootstrap Paperclip company + Chef agent from manifest
         echo "🏢 Bootstrapping company from manifest..."
         node -e "
@@ -304,75 +243,46 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
         const companyName = manifest.name || manifest.slug || 'My Company';
         const gatewayToken = manifest.gatewayToken || '';
-        // All agents connect locally — no public URL needed
         const correctUrl = 'ws://localhost:18789/gateway';
         const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
 
         function apiCall(method, apiPath, body) {
             return new Promise((resolve, reject) => {
-                const opts = {
-                    hostname: '127.0.0.1', port: paperclipPort,
-                    path: apiPath, method,
-                    headers: { 'Content-Type': 'application/json' }
-                };
-                const req = http.request(opts, (res) => {
-                    let data = '';
-                    res.on('data', d => data += d);
-                    res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
-                });
-                req.on('error', reject);
-                if (body) req.write(JSON.stringify(body));
-                req.end();
+                const opts = { hostname: '127.0.0.1', port: paperclipPort, path: apiPath, method, headers: { 'Content-Type': 'application/json' } };
+                const req = http.request(opts, (res) => { let data = ''; res.on('data', d => data += d); res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } }); });
+                req.on('error', reject); if (body) req.write(JSON.stringify(body)); req.end();
             });
         }
 
         async function bootstrap() {
             let companies = await apiCall('GET', '/api/companies');
             if (!Array.isArray(companies)) companies = [];
-
             let company;
             if (companies.length === 0) {
-                // Fresh DB — create company
-                company = await apiCall('POST', '/api/companies', {
-                    name: companyName,
-                    description: companyName + ' — powered by WiseChef'
-                });
+                company = await apiCall('POST', '/api/companies', { name: companyName, description: companyName + ' — powered by WiseChef' });
                 console.log('[bootstrap] Created company: ' + companyName);
             } else {
                 company = companies[0];
-                // Rename if still default
                 if (company.name === 'Random-cmp') {
-                    await apiCall('PATCH', '/api/companies/' + company.id, {
-                        name: companyName,
-                        description: companyName + ' — powered by WiseChef'
-                    });
+                    await apiCall('PATCH', '/api/companies/' + company.id, { name: companyName, description: companyName + ' — powered by WiseChef' });
                     console.log('[bootstrap] Renamed company → ' + companyName);
                 } else {
                     console.log('[bootstrap] Company already set: ' + company.name);
                 }
             }
-
-            // Check if Chef agent exists
             const agents = await apiCall('GET', '/api/companies/' + company.id + '/agents');
             const hasChef = Array.isArray(agents) && agents.some(a => a.role === 'general' || a.name === 'Chef');
             if (!hasChef) {
+                // Initial agent gets company-specific agentId (sync-agents will confirm)
                 await apiCall('POST', '/api/companies/' + company.id + '/agents', {
-                    name: 'Chef',
-                    role: 'general',
-                    title: 'Personal Assistant',
+                    name: 'Chef', role: 'general', title: 'Personal Assistant',
                     adapterType: 'openclaw_gateway',
-                    adapterConfig: {
-                        url: correctUrl,
-                        authToken: gatewayToken,
-                        agentId: 'main'
-                    }
+                    adapterConfig: { url: correctUrl, authToken: gatewayToken, agentId: 'company-' + company.id }
                 });
-                console.log('[bootstrap] Created Chef agent → ' + correctUrl + ' (agentId=main)');
-            } else {
-                console.log('[bootstrap] Chef agent already exists');
-            }
+                console.log('[bootstrap] Created Chef agent → company-' + company.id);
+            } else { console.log('[bootstrap] Chef agent already exists'); }
         }
-        bootstrap().then(() => process.exit(0)).catch(e => { console.error('[bootstrap] Error:', e.message); process.exit(1); });
+        bootstrap().then(() => process.exit(0)).catch(e => { console.error('[bootstrap]', e.message); process.exit(1); });
         " 2>&1 || echo "[bootstrap] Script failed (non-fatal)"
 
         # Set initial heartbeat so agents show as "idle" (not "not deployed")
@@ -388,69 +298,18 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         db.close();
         " 2>&1 || echo "[heartbeat] Script failed (non-fatal)"
 
-        # Set agent timeout to 240s (cold runs need more time than the default 120s)
-        echo "⏱️ Setting agent timeout to 240s..."
-        node -e "
-        const http = require('http');
-        const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
-        function apiCall(method, apiPath, body) {
-            return new Promise((resolve, reject) => {
-                const opts = { hostname: '127.0.0.1', port: paperclipPort, path: apiPath, method, headers: { 'Content-Type': 'application/json' } };
-                const req = http.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch{resolve(d)} }); });
-                req.on('error', reject); if(body) req.write(JSON.stringify(body)); req.end();
-            });
-        }
-        async function setTimeouts() {
-            const companies = await apiCall('GET', '/api/companies');
-            if (!Array.isArray(companies)) return;
-            for (const co of companies) {
-                const agents = await apiCall('GET', '/api/companies/' + co.id + '/agents');
-                if (!Array.isArray(agents)) continue;
-                for (const agent of agents) {
-                    const cfg = agent.adapterConfig || {};
-                    if (cfg.timeoutSec !== 240) {
-                        await apiCall('PATCH', '/api/agents/' + agent.id, { adapterConfig: { ...cfg, timeoutSec: 240 } });
-                        console.log('[timeout] Set ' + agent.name + ' → 240s');
-                    }
-                }
-            }
-        }
-        setTimeouts().then(()=>process.exit(0)).catch(e=>{console.error('[timeout]',e.message);process.exit(1)});
-        " 2>&1 || echo "[timeout] Script failed (non-fatal)"
+        # Sync Paperclip companies → OpenClaw agents (per-company isolation)
+        # Creates per-company OpenClaw agents, workspaces, fixes agentIds, claims API keys
+        echo "🔄 Syncing per-company OpenClaw agents..."
+        node /opt/wisechef/board/docker/sync-agents.js 2>&1 || echo "[sync-agents] Script failed (non-fatal)"
 
-        # Claim Paperclip API key for the agent and save to workspace
-        echo "🔑 Claiming Paperclip API key for agent..."
-        node -e "
-        const http = require('http');
-        const fs = require('fs');
-        const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
-        const keyPath = (process.env.WORKSPACE_DIR || '/opt/wisechef/workspace') + '/paperclip-claimed-api-key.json';
-        // Skip if key already exists
-        if (fs.existsSync(keyPath)) { console.log('[api-key] Key already exists'); process.exit(0); }
-        function apiCall(method, apiPath, body) {
-            return new Promise((resolve, reject) => {
-                const opts = { hostname: '127.0.0.1', port: paperclipPort, path: apiPath, method, headers: { 'Content-Type': 'application/json' } };
-                const req = http.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch{resolve(d)} }); });
-                req.on('error', reject); if(body) req.write(JSON.stringify(body)); req.end();
-            });
-        }
-        async function claimKey() {
-            const companies = await apiCall('GET', '/api/companies');
-            if (!Array.isArray(companies) || !companies[0]) { console.log('[api-key] No companies'); return; }
-            const agents = await apiCall('GET', '/api/companies/' + companies[0].id + '/agents');
-            if (!Array.isArray(agents) || !agents[0]) { console.log('[api-key] No agents'); return; }
-            const agent = agents[0];
-            const keyData = await apiCall('POST', '/api/agents/' + agent.id + '/keys', { name: 'openclaw-agent-key' });
-            if (keyData && keyData.token) {
-                fs.mkdirSync(require('path').dirname(keyPath), { recursive: true });
-                fs.writeFileSync(keyPath, JSON.stringify(keyData, null, 2), { mode: 0o600 });
-                console.log('[api-key] Saved agent API key → ' + keyPath);
-            } else {
-                console.log('[api-key] Key creation response:', JSON.stringify(keyData));
-            }
-        }
-        claimKey().then(()=>process.exit(0)).catch(e=>{console.error('[api-key]',e.message);process.exit(1)});
-        " 2>&1 || echo "[api-key] Script failed (non-fatal)"
+        # Restart gateway to pick up new agents
+        echo "🔄 Restarting OpenClaw gateway with updated agents..."
+        kill $(pgrep -f "openclaw gateway") 2>/dev/null || true
+        sleep 2
+        nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
+        echo "Gateway restarted (PID: $!)"
+        sleep 3
     fi
 
     cd /opt/wisechef/board
