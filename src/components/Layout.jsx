@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import UsageWidget from './Usage/UsageWidget'
-import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Bot } from 'lucide-react'
+import { LayoutDashboard, Calendar, FolderOpen, Puzzle, Heart, Settings, Menu, X, Sun, Moon, KeyRound, Link2, Bot, Building2 } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { id: 'soul', label: 'Soul', icon: Heart },
   { id: 'credentials', label: 'Credentials', icon: KeyRound },
   { id: 'link-channel', label: 'Link Channel', icon: Link2 },
+  { id: 'enterprise', label: 'Enterprise', icon: Building2 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -78,7 +79,7 @@ export default function Layout({ page, setPage, children }) {
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => item.id === 'link-channel' ? (window.location.href = '/link') : setPage(item.id)}
+              onClick={() => item.id === 'link-channel' ? (window.location.href = '/link') : item.id === 'enterprise' ? (window.location.href = '/enterprise/') : setPage(item.id)}
               className={cn(
                 'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                 page === item.id
