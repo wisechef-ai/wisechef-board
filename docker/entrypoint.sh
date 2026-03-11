@@ -262,6 +262,44 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
 
         fixUrls().catch(e => console.error('[fix-urls] Error:', e.message));
         " 2>&1 || echo "[fix-urls] Script failed (non-fatal)"
+
+        # Rename company to customer's name from manifest
+        echo "🏢 Setting company name from manifest..."
+        node -e "
+        const http = require('http');
+        const fs = require('fs');
+        const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
+        const companyName = manifest.name || manifest.slug || 'My Company';
+        const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
+
+        function apiCall(method, apiPath, body) {
+            return new Promise((resolve, reject) => {
+                const opts = {
+                    hostname: '127.0.0.1', port: paperclipPort,
+                    path: apiPath, method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                const req = http.request(opts, (res) => {
+                    let data = '';
+                    res.on('data', d => data += d);
+                    res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
+                });
+                req.on('error', reject);
+                if (body) req.write(JSON.stringify(body));
+                req.end();
+            });
+        }
+
+        async function renameCompany() {
+            const companies = await apiCall('GET', '/api/companies');
+            if (!Array.isArray(companies) || companies.length === 0) return;
+            const company = companies[0];
+            if (company.name !== 'Random-cmp' && company.name !== companyName) return; // already customized
+            await apiCall('PATCH', '/api/companies/' + company.id, { name: companyName, description: companyName + ' — powered by WiseChef' });
+            console.log('[rename] Company → ' + companyName);
+        }
+        renameCompany().catch(e => console.error('[rename] Error:', e.message));
+        " 2>&1 || echo "[rename] Script failed (non-fatal)"
     fi
 
     cd /opt/wisechef/board
