@@ -117,6 +117,29 @@ export function mountEnterprise(app) {
     });
   });
 
+  // Intercept agent create/update to fix gateway URLs
+  // All agents in this container connect locally to the OpenClaw gateway.
+  app.use('/enterprise/api', (req, res, next) => {
+    if ((req.method === 'POST' || req.method === 'PATCH') && req.body) {
+      const manifest = readManifest();
+      const gatewayToken = manifest.gatewayToken || '';
+      if (req.body.adapterConfig) {
+        req.body.adapterConfig.url = 'ws://localhost:18789/gateway';
+        req.body.adapterConfig.authToken = gatewayToken;
+        req.body.adapterConfig.agentId = 'main';
+      }
+      // Also fix if adapterType is openclaw_gateway but no config yet
+      if (req.body.adapterType === 'openclaw_gateway' && !req.body.adapterConfig) {
+        req.body.adapterConfig = {
+          url: 'ws://localhost:18789/gateway',
+          authToken: gatewayToken,
+          agentId: 'main',
+        };
+      }
+    }
+    next();
+  });
+
   // API proxy — all /enterprise/api/* → Paperclip
   app.all('/enterprise/api/*', proxyRequest);
 

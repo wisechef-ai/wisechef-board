@@ -8,12 +8,18 @@ echo "🚀 Starting WiseChef container for ${CLIENT_NAME:-Unknown Client}"
 # We detect first boot by checking for a sentinel file.
 FIRST_BOOT_SENTINEL="/opt/wisechef/.first-boot-done"
 if [ ! -f "$FIRST_BOOT_SENTINEL" ]; then
-    echo "🧹 First boot — wiping stale Paperclip data for clean start..."
+    echo "🧹 First boot — wiping stale data for clean start..."
     rm -f /opt/wisechef/data/enterprise.sqlite /opt/wisechef/data/enterprise.sqlite-shm /opt/wisechef/data/enterprise.sqlite-wal 2>/dev/null || true
     rm -rf /root/.paperclip/instances/default/data 2>/dev/null || true
     rm -rf /root/.paperclip/instances/default/workspaces 2>/dev/null || true
+    # Clean OpenClaw session history (baked from source container)
+    rm -rf /root/.openclaw/agents/*/sessions 2>/dev/null || true
+    rm -f /root/.openclaw/devices/paired.json 2>/dev/null || true
+    rm -f /root/.openclaw/devices/pending.json 2>/dev/null || true
+    rm -f /root/.openclaw/credentials/signal-pairing.json 2>/dev/null || true
+    rm -f /root/.openclaw/cron/jobs.json 2>/dev/null || true
     touch "$FIRST_BOOT_SENTINEL"
-    echo "✅ Clean Paperclip state ready"
+    echo "✅ Clean state ready"
 fi
 
 # Initialize OpenClaw config if not exists
@@ -221,7 +227,7 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         sleep 1
     done
 
-    # === Fix Issue 7: Patch agent gateway URLs after Paperclip is ready ===
+    # === Fix agent gateway URLs after Paperclip is ready ===
     if [ -f /opt/wisechef/manifest.json ]; then
         echo "🔧 Fixing agent gateway URLs..."
         node -e "
@@ -229,11 +235,9 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         const fs = require('fs');
 
         const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
-        const slug = manifest.slug;
-        const hostname = manifest.hostname || (slug ? slug + '.wisechef.ai' : null);
-        if (!hostname) { console.log('[fix-urls] No hostname or slug in manifest — skipping'); process.exit(0); }
         const gatewayToken = manifest.gatewayToken || '';
-        const correctUrl = 'wss://' + hostname + '/gateway';
+        // All agents connect locally within the container
+        const correctUrl = 'ws://localhost:18789/gateway';
         const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
 
         function apiCall(method, apiPath, body) {
@@ -267,20 +271,20 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
 
                 for (const agent of agents) {
                     const cfg = agent.adapterConfig || {};
-                    if (cfg.url !== correctUrl || cfg.authToken !== gatewayToken) {
+                    if (cfg.url !== correctUrl || cfg.authToken !== gatewayToken || cfg.agentId !== 'main') {
                         await apiCall('PATCH', '/api/agents/' + agent.id, {
                             adapterConfig: {
                                 ...cfg,
                                 url: correctUrl,
                                 authToken: gatewayToken,
-                                agentId: slug + '-' + (agent.role || 'agent'),
+                                agentId: 'main',
                             }
                         });
                         patched++;
                     }
                 }
             }
-            console.log('[fix-urls] Patched ' + patched + ' agents → ' + correctUrl);
+            console.log('[fix-urls] Patched ' + patched + ' agents → ' + correctUrl + ' (agentId=main)');
         }
 
         fixUrls().then(() => process.exit(0)).catch(e => { console.error('[fix-urls] Error:', e.message); process.exit(1); });
@@ -293,10 +297,9 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         const fs = require('fs');
         const manifest = JSON.parse(fs.readFileSync('/opt/wisechef/manifest.json', 'utf8'));
         const companyName = manifest.name || manifest.slug || 'My Company';
-        const slug = manifest.slug || 'default';
-        const hostname = manifest.hostname || (slug + '.wisechef.ai');
         const gatewayToken = manifest.gatewayToken || '';
-        const correctUrl = 'wss://' + hostname + '/gateway';
+        // All agents connect locally — no public URL needed
+        const correctUrl = 'ws://localhost:18789/gateway';
         const paperclipPort = process.env.PAPERCLIP_PORT || 3100;
 
         function apiCall(method, apiPath, body) {
@@ -355,16 +358,29 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
                     adapterConfig: {
                         url: correctUrl,
                         authToken: gatewayToken,
-                        agentId: slug + '-general'
+                        agentId: 'main'
                     }
                 });
-                console.log('[bootstrap] Created Chef agent → ' + correctUrl);
+                console.log('[bootstrap] Created Chef agent → ' + correctUrl + ' (agentId=main)');
             } else {
                 console.log('[bootstrap] Chef agent already exists');
             }
         }
         bootstrap().then(() => process.exit(0)).catch(e => { console.error('[bootstrap] Error:', e.message); process.exit(1); });
         " 2>&1 || echo "[bootstrap] Script failed (non-fatal)"
+
+        # Set initial heartbeat so agents show as "idle" (not "not deployed")
+        echo "💓 Setting initial agent heartbeat..."
+        node -e "
+        const path = require('path');
+        const Database = require(path.join('/opt/wisechef/enterprise-panel/node_modules/better-sqlite3'));
+        const db = new Database('/opt/wisechef/data/enterprise.sqlite');
+        const now = new Date().toISOString();
+        const result = db.prepare('UPDATE agents SET last_heartbeat_at = ?, status = ? WHERE last_heartbeat_at IS NULL').run(now, 'idle');
+        if (result.changes > 0) console.log('[heartbeat] Initialized ' + result.changes + ' agents');
+        else console.log('[heartbeat] All agents already have heartbeat');
+        db.close();
+        " 2>&1 || echo "[heartbeat] Script failed (non-fatal)"
     fi
 
     cd /opt/wisechef/board
