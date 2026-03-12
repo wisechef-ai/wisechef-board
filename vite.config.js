@@ -44,6 +44,13 @@ export default defineConfig(({ mode }) => {
           entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
           chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
           assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`,
+          manualChunks(id) {
+            // Split large vendor libs into separate cacheable chunks
+            if (id.includes('react-syntax-highlighter')) return 'chunk-syntax';
+            if (id.includes('react-dom') || id.includes('react/')) return 'chunk-react';
+            if (id.includes('@radix-ui') || id.includes('@dnd-kit')) return 'chunk-ui';
+            if (id.includes('lucide-react')) return 'chunk-icons';
+          },
         },
       },
     }

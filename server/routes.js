@@ -9,7 +9,7 @@ import {
   runTask, getTaskQueue, pickupTask, completeTask, deleteTask, bulkDeleteTasks,
   getCalendar, getRunHistory, toggleSchedule, getCapacity, reportStatusCheck,
 } from './controllers/tasks.js';
-import { getUsage } from './controllers/usage.js';
+import { getUsage, getCurrentMonthUsage } from './controllers/usage.js';
 import { getOpenclawVersion, updateOpenclaw } from './controllers/openclaw.js';
 import { listModels, setModel, getHeartbeat, postHeartbeat } from './controllers/models.js';
 import { listSkills, toggleSkill, createSkill, getSkillContent, deleteSkill } from './controllers/skills.js';
@@ -30,6 +30,8 @@ import {
 import { oneShotOnboarding, generateOnboarding } from './controllers/onboardingOneShot.js';
 import { unifiedOnboarding, getOnboardingRoles, getOnboardingTier } from './controllers/onboardingUnified.js';
 import { scrapeUrlHandler } from './controllers/onboardingUrl.js';
+import { getPlanoStatus, startPlano, stopPlano, getPlanoConfig, putPlanoConfig } from './controllers/plano.js';
+import { startHealthChecks, getFleet, getClientStatus, deployClient } from './controllers/fleet.js';
 
 const router = Router();
 
@@ -88,6 +90,7 @@ router.get('/api/calendar', getCalendar);
 
 // Usage
 router.get('/api/usage', getUsage);
+router.get('/api/usage/current-month', getCurrentMonthUsage);
 
 // OpenClaw
 router.get('/api/openclaw/version', getOpenclawVersion);
@@ -145,6 +148,37 @@ router.post('/api/chat/send', sendChatMessage);
 
 // ──── Usage limits (battery widget) ────
 router.get('/api/usage-limits', getUsageLimits);
+
+router.get('/api/plano/status', getPlanoStatus);
+router.post('/api/plano/start', startPlano);
+router.post('/api/plano/stop', stopPlano);
+router.get('/api/plano/config', getPlanoConfig);
+router.put('/api/plano/config', putPlanoConfig);
+
+// Fleet Management (only active on HQ)
+if (process.env.WISECHEF_HQ === 'true') {
+  router.get('/api/fleet', getFleet);
+  router.get('/api/fleet/:clientId/status', getClientStatus);
+  router.post('/api/fleet/:clientId/deploy', deployClient);
+  startHealthChecks();
+}
+
+// HQ flag for client-side
+router.get('/api/env', (_req, res) => {
+  res.json({ hq: process.env.WISECHEF_HQ === 'true' });
+});
+
+// ──── Health check (unauthenticated, for monitoring / fleet probes) ────
+router.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'wisechef-board',
+    version: process.env.npm_package_version || '26.03.2',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 
 // ──── Root route: onboarding flow → SPA ────
 router.get('/', (req, res) => {
