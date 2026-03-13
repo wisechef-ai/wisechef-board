@@ -140,5 +140,6 @@ export async function scrapeUrlHandler(req, res) {
     sourceType: scraped.sourceType,
     url: scraped.url,
     extracted,
+    linkedInWall: scraped.linkedInWall || false,  // signal: scrape was partial — show manual bio prompt
   });
 }

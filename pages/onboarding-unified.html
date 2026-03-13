@@ -201,6 +201,12 @@
       background: rgba(20, 83, 45, 0.2);
     }
 
+    .message.warn {
+      border-color: rgba(245, 158, 11, 0.75);
+      color: #fde68a;
+      background: rgba(120, 80, 0, 0.2);
+    }
+
     .counter {
       margin-top: 12px;
       color: #d2d2ff;
@@ -360,6 +366,8 @@
         size: '',
         language: 'English'
       },
+      linkedInWall: false,
+      linkedInBio: '',
       custom: {},
       launchStarted: false,
       loadingTier: true,
@@ -526,7 +534,14 @@
         if (ext.name && !state.business.name) state.business.name = ext.name;
         if (ext.description && !state.business.description) state.business.description = ext.description;
         if (ext.industry && !state.business.industry) state.business.industry = ext.industry;
-        setMessage('Context added from your URL. You can edit any field before continuing.', 'ok');
+        // LinkedIn login wall — can't scrape full profile
+        if (data.linkedInWall) {
+          state.linkedInWall = true;
+          setMessage('LinkedIn requires login to view profiles. Paste your LinkedIn About section below so we can set up your assistant.', 'warn');
+        } else {
+          state.linkedInWall = false;
+          setMessage('Context added from your URL. You can edit any field before continuing.', 'ok');
+        }
       } catch (err) {
         setMessage(err.message || 'Could not scrape this URL. Fill fields manually.', 'error');
       }
@@ -656,6 +671,14 @@
           <label for="descInput">What do you do?</label>
           <textarea id="descInput" placeholder="Describe your business, audience, and priorities">${escapeHtml(state.business.description)}</textarea>
         </div>
+
+        ${state.linkedInWall ? `
+        <div class="field" style="border:1px solid var(--amber);border-radius:8px;padding:12px;background:rgba(245,158,11,0.08);">
+          <label for="linkedInBioInput" style="color:var(--amber);">⚠️ LinkedIn login wall — paste your About section</label>
+          <textarea id="linkedInBioInput" placeholder="Paste your LinkedIn About section here..." rows="5">${escapeHtml(state.linkedInBio || '')}</textarea>
+          <p style="font-size:12px;color:var(--muted);margin-top:4px;">Copy from linkedin.com → your profile → About section. We'll use it to personalise your assistant.</p>
+        </div>
+        ` : ''}
 
         ${navButtons({ back: state.stepIndex > 0, next: true, nextLabel: 'Continue' })}
       `;
@@ -859,7 +882,7 @@
       progress.innerHTML = progressHtml();
 
       const message = state.message
-        ? `<div class="message ${state.messageType === 'error' ? 'error' : (state.messageType === 'ok' ? 'ok' : '')}">${escapeHtml(state.message)}</div>`
+        ? `<div class="message ${state.messageType === 'error' ? 'error' : (state.messageType === 'ok' ? 'ok' : (state.messageType === 'warn' ? 'warn' : ''))}">${escapeHtml(state.message)}</div>`
         : '';
       screen.innerHTML = currentScreenHtml() + message;
       bindInputs();
@@ -876,6 +899,15 @@
 
       const desc = byId('descInput');
       if (desc) desc.oninput = (e) => { state.business.description = e.target.value; };
+
+      const linkedInBio = byId('linkedInBioInput');
+      if (linkedInBio) linkedInBio.oninput = (e) => {
+        state.linkedInBio = e.target.value;
+        // Append pasted bio to description for AI context
+        if (e.target.value && !state.business.description.includes(e.target.value.slice(0, 20))) {
+          state.business.description = e.target.value;
+        }
+      };
 
       const lang = byId('langInput');
       if (lang) lang.oninput = (e) => { state.business.language = e.target.value; };
