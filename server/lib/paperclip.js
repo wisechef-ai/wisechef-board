@@ -4,7 +4,7 @@
  * @version 26.04.0
  */
 
-import { createServer } from '@paperclipai/server';
+import { startServer as createServer } from '@paperclipai/server';
 import http from 'http';
 
 let paperclipServer = null;
