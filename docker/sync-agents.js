@@ -156,6 +156,48 @@ async function main() {
     process.exit(1);
   }
 
+  const plan = (process.env.WISECHEF_PLAN || 'pro').toLowerCase();
+  const manifest = readManifest();
+
+  // Pro tier: single "main" agent only — personal assistant, no company-specific agents.
+  // Enterprise tier: main + up to 4 dedicated company agents from Paperclip.
+  if (plan !== 'enterprise') {
+    console.log(`[sync-agents] Plan=${plan} — keeping single main agent, skipping company sync`);
+
+    // Ensure Paperclip agents point to "main" (not company-UUID)
+    const companies = await apiCall('GET', '/api/companies');
+    if (Array.isArray(companies)) {
+      for (const company of companies) {
+        const agents = await apiCall('GET', `/api/companies/${company.id}/agents`);
+        if (Array.isArray(agents)) {
+          for (const agent of agents) {
+            const cfg = agent.adapterConfig || {};
+            if (cfg.agentId !== 'main') {
+              await apiCall('PATCH', `/api/agents/${agent.id}`, {
+                adapterConfig: { ...cfg, url: 'ws://localhost:18789/gateway', authToken: GATEWAY_TOKEN, agentId: 'main', timeoutSec: 240 },
+              });
+              console.log(`[sync-agents] Fixed ${agent.name} → agentId=main`);
+            }
+          }
+        }
+      }
+    }
+
+    // Preserve existing main-only config, don't overwrite
+    const existingList = config.agents?.list || [];
+    if (existingList.length <= 1) {
+      console.log('[sync-agents] Config already has single agent — no changes');
+    } else {
+      config.agents.list = existingList.filter(a => a.id === 'main');
+      fs.writeFileSync(OPENCLAW_CONFIG, JSON.stringify(config, null, 2));
+      console.log('[sync-agents] Trimmed to main agent only');
+    }
+
+    process.exit(0);
+  }
+
+  // ── Enterprise tier: main + per-company agents (up to 4) ──
+
   // Get all companies from Paperclip
   const companies = await apiCall('GET', '/api/companies');
   if (!Array.isArray(companies) || companies.length === 0) {
@@ -163,7 +205,12 @@ async function main() {
     process.exit(0);
   }
 
-  const manifest = readManifest();
+  // Limit to 4 company agents (enterprise max = 5 total including main)
+  const maxCompanyAgents = 4;
+  const companiesToSync = companies.slice(0, maxCompanyAgents);
+  if (companies.length > maxCompanyAgents) {
+    console.log(`[sync-agents] Warning: ${companies.length} companies found, only syncing first ${maxCompanyAgents}`);
+  }
 
   // Build agent list: main (personal) + one per company
   const agentList = [
@@ -180,7 +227,7 @@ async function main() {
     },
   ];
 
-  for (const company of companies) {
+  for (const company of companiesToSync) {
     const companyAgentId = `company-${company.id}`;
     const wsDir = createCompanyWorkspace(company.id, company.name);
 
