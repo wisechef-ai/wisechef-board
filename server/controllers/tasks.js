@@ -5,6 +5,7 @@ import { broadcast } from '../broadcast.js';
 import { isoToDateInTz } from '../lib/timezone.js';
 import { WORKSPACE } from '../config.js';
 import { computeNextRun, computeFutureRuns } from '../lib/schedule.js';
+import { syncTaskToPaperclip, computeCompletionRate, isPaperclipReady } from '../lib/paperclip.js';
 
 export function listTasks(req, res) {
   const tasks = readTasks();
@@ -36,6 +37,7 @@ export function createTask(req, res) {
   };
   tasks.push(task);
   writeTasks(tasks);
+  syncTaskToPaperclip(task).catch(() => {});
   logActivity('user', 'task_created', { taskId: task.id, title: task.title });
   broadcast('tasks', tasks);
   res.json(task);
@@ -63,6 +65,7 @@ export function updateTask(req, res) {
   if (wasNotDone && tasks[idx].status === 'done') tasks[idx].completedAt = new Date().toISOString();
   if (tasks[idx].status !== 'done') tasks[idx].completedAt = null;
   writeTasks(tasks);
+  syncTaskToPaperclip(tasks[idx]).catch(() => {});
   const actor = req.body._actor || 'user';
   logActivity(actor, 'task_updated', { taskId: req.params.id, title: tasks[idx].title, changes: Object.keys(updates) });
   broadcast('tasks', tasks);
@@ -367,4 +370,13 @@ export function toggleSchedule(req, res) {
   logActivity({ type: tasks[idx].scheduleEnabled ? 'schedule-resumed' : 'schedule-paused', taskId: tasks[idx].id, title: tasks[idx].title, actor: 'user' });
   broadcast({ type: 'task-updated', task: tasks[idx] });
   res.json(tasks[idx]);
+}
+
+export function getCompletionRate(req, res) {
+  const tasks = readTasks();
+  const stats = computeCompletionRate(tasks);
+  res.json({
+    paperclipConnected: isPaperclipReady(),
+    ...stats,
+  });
 }

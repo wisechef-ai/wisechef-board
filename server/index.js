@@ -5,6 +5,7 @@ import { setupWebSocket } from './broadcast.js';
 import { setupMiddleware } from './middleware.js';
 import router from './routes.js';
 import { mountEnterprise } from './enterprise-mount.js';
+import { startPaperclip, stopPaperclip } from './lib/paperclip.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,26 @@ if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
   );
 }
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   console.log(`Dashboard running at http://${HOST}:${PORT}`);
+  
+  // Start Paperclip sidecar (non-blocking, falls back to file storage if unavailable)
+  try {
+    await startPaperclip({
+      port: parseInt(process.env.PAPERCLIP_PORT || '3338'),
+      companyName: process.env.COMPANY_NAME || 'WiseChef',
+      companySlug: process.env.COMPANY_SLUG || 'wisechef',
+    });
+  } catch (err) {
+    console.warn('📎 Paperclip init skipped:', err.message);
+  }
 });
+
+// Graceful shutdown
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, async () => {
+    console.log(`\n${sig} received, shutting down...`);
+    await stopPaperclip();
+    server.close(() => process.exit(0));
+  });
+}

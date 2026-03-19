@@ -7,7 +7,7 @@ import { getActivity, getTime } from './controllers/activity.js';
 import {
   listTasks, createTask, updateTask, reorderTasks,
   runTask, getTaskQueue, pickupTask, completeTask, deleteTask, bulkDeleteTasks,
-  getCalendar, getRunHistory, toggleSchedule, getCapacity, reportStatusCheck,
+  getCalendar, getRunHistory, toggleSchedule, getCapacity, reportStatusCheck, getCompletionRate,
 } from './controllers/tasks.js';
 import { getUsage, getCurrentMonthUsage } from './controllers/usage.js';
 import { getOpenclawVersion, updateOpenclaw } from './controllers/openclaw.js';
@@ -79,6 +79,7 @@ router.post('/api/tasks/reorder', reorderTasks);
 router.post('/api/tasks/:id/run', runTask);
 router.get('/api/tasks/queue', getTaskQueue);
 router.get('/api/tasks/capacity', getCapacity);
+router.get('/api/tasks/completion-rate', getCompletionRate);
 router.post('/api/tasks/:id/pickup', pickupTask);
 router.post('/api/tasks/:id/complete', completeTask);
 router.post('/api/tasks/:id/status-check', reportStatusCheck);
