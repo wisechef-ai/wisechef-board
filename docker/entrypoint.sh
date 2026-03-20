@@ -88,14 +88,32 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
     "list": [
       {
         "id": "main",
+        "workspace": "$WORKSPACE_DIR",
         "identity": {
           "name": "Chef"
         }
       }
     ]
-  }
+  },
+  "env": {}
 }
 EOF
+
+    # Inject API keys into openclaw.json env section (avoids trailing-comma JSON issues)
+    node -e "
+      const fs = require('fs');
+      const cfg = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json','utf8'));
+      cfg.env = cfg.env || {};
+      const keys = {
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+        WISECHEF_PLAN: process.env.WISECHEF_PLAN || '',
+      };
+      for (const [k,v] of Object.entries(keys)) { if (v) cfg.env[k] = v; }
+      fs.writeFileSync('/root/.openclaw/openclaw.json', JSON.stringify(cfg, null, 2));
+      console.log('[entrypoint] Injected env keys:', Object.keys(cfg.env).join(', '));
+    "
     chmod 600 /root/.openclaw/openclaw.json
     chmod 700 /root/.openclaw
 fi
