@@ -26,6 +26,11 @@ echo "📎 Installing cognee..."
 "$VENV_DIR/bin/pip" install --upgrade pip -q
 "$VENV_DIR/bin/pip" install "cognee==0.5.5" -q
 
+# Recover OPENROUTER_API_KEY from OpenClaw provider keys if missing
+if [ -z "${OPENROUTER_API_KEY:-}" ] && [ -f /root/.openclaw/provider-keys.json ]; then
+  OPENROUTER_API_KEY=$(node -e 'try{const fs=require("fs");const j=JSON.parse(fs.readFileSync("/root/.openclaw/provider-keys.json","utf8"));process.stdout.write(j.openrouter?.apiKey||"");}catch(e){}') || true
+fi
+
 # Create .env from template if not exists
 if [ ! -f "$COGNEE_HOME/.env" ]; then
   if [ -f "$CONFIG_DIR/config.env" ]; then
@@ -43,7 +48,11 @@ COGNEE_DB_PATH=/opt/wisechef/cognee/data/cognee.db
 COGNEE_VECTOR_DB_PATH=/opt/wisechef/cognee/data/lancedb
 COGNEE_GRAPH_DB_PATH=/opt/wisechef/cognee/data/kuzu
 ENV
-    echo "📝 Created default .env (edit with your OpenRouter key)"
+    if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+      echo "📝 Created .env (OpenRouter key prefilled)"
+    else
+      echo "📝 Created .env (add OpenRouter key)"
+    fi
   fi
 fi
 
@@ -68,6 +77,6 @@ echo "   Venv: $VENV_DIR"
 echo "   Data: $DATA_DIR"
 echo ""
 echo "Next steps:"
-echo "  1. Edit $COGNEE_HOME/.env with your OpenRouter API key"
+echo "  1. (Optional) Edit $COGNEE_HOME/.env to change OPENAI_API_KEY / model settings"
 echo "  2. Run: $COGNEE_HOME/venv/bin/python $COGNEE_HOME/cognee-mcp-server.py"
 echo "  3. Add MCP server to OpenClaw config (see setup-openclaw.sh)"
