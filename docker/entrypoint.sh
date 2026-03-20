@@ -64,7 +64,7 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       },
       "thinkingDefault": "low",
       "heartbeat": {
-        "every": "5m",
+        "every": "30m",
         "prompt": "Check for pending tasks: curl -sf http://localhost:3333/api/tasks/queue?limit=capacity | Read the JSON. For each task in the queue, pick it up (POST /api/tasks/:id/pickup), work on it, then complete it (POST /api/tasks/:id/complete with {result, status}). If no tasks, reply HEARTBEAT_OK.",
         "target": "none"
       }
