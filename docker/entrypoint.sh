@@ -74,7 +74,8 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
     "trustedProxies": ["127.0.0.1", "::1"],
     "controlUi": {
       "allowInsecureAuth": true,
-      "dangerouslyDisableDeviceAuth": true
+      "dangerouslyDisableDeviceAuth": true,
+      "allowedOrigins": ["http://localhost:18789", "http://127.0.0.1:18789", "http://localhost:3333", "http://127.0.0.1:3333"]
     },
     "port": 18789,
     "bind": "lan",
@@ -532,6 +533,19 @@ CRON
     cron
 fi
 
-# Start WiseChef Board (foreground)
+# Start WiseChef Board (foreground) + gateway watchdog
 echo "📊 Starting WiseChef Board on port ${PORT}..."
+
+# Gateway watchdog: restart if it dies
+(
+  while true; do
+    sleep 30
+    if ! curl -sf http://127.0.0.1:18789/health > /dev/null 2>&1; then
+      echo "[watchdog] Gateway down — restarting..." >> /var/log/openclaw-gateway.log
+      nohup openclaw gateway run >> /var/log/openclaw-gateway.log 2>&1 &
+      sleep 15
+    fi
+  done
+) &
+
 exec node --env-file=.env server.js
