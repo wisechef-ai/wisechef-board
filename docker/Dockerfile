@@ -64,6 +64,9 @@ RUN git clone --branch "$WISECHEF_ENTERPRISE_PANEL_REF" \
 WORKDIR /opt/wisechef
 RUN mkdir -p /opt/wisechef/workspace /opt/wisechef/data /opt/wisechef/logs/self-improve /opt/wisechef/cognee
 
+# ── Copy bundled skills ──
+COPY docker/skills /opt/wisechef/bundled-skills
+
 ENV PORT=3333 \
     GATEWAY_TOKEN="" \
     WORKSPACE_DIR=/opt/wisechef/workspace \

@@ -361,6 +361,13 @@ HB_EOF
 BUF_EOF
 
     echo "[entrypoint] Created proactive agent workspace files"
+
+    # ── Copy bundled skills to workspace ──
+    if [ -d "/opt/wisechef/bundled-skills" ]; then
+        mkdir -p "$WORKSPACE_DIR/skills"
+        cp -rn /opt/wisechef/bundled-skills/* "$WORKSPACE_DIR/skills/" 2>/dev/null || true
+        echo "[entrypoint] Copied bundled skills to workspace"
+    fi
 fi
 
 # Create project workspace directory (Issue 6)
