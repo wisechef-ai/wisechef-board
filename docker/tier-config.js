@@ -13,23 +13,24 @@
 export const TIERS = {
   contractor: {
     label: 'Contractor',
-    price: 29,
-    model: 'openrouter/google/gemini-2.5-flash',
+    price: 0,               // internal only, not for sale
+    internal: true,         // sub-business founder template
+    model: 'openrouter/minimax/minimax-m2.7',
     thinkingDefault: 'off',
     companyAgents: 0,       // main agent only
     totalAgentsCap: 1,
-    heartbeatInterval: '10m',
+    heartbeatInterval: '30s',
     openrouterLimit: 5,     // $/month
     features: {
       taskBoard: true,
       subAgents: false,
-      skills: ['web_search', 'web_fetch', 'summarize'],
-      channels: 1,          // single channel
+      skills: 'all',
+      channels: 'unlimited',
       fileUpload: true,
-      cron: false,
+      cron: true,
       knowledgeGraph: false,
-      selfImprove: false,
-      codingAgent: false,
+      selfImprove: true,
+      codingAgent: true,
     },
     soulTemplate: 'contractor',
   },
@@ -37,17 +38,17 @@ export const TIERS = {
   pro: {
     label: 'Pro',
     price: 199,
-    model: 'openrouter/anthropic/claude-sonnet-4-6',
-    thinkingDefault: 'low',
+    model: 'openrouter/minimax/minimax-m2.7',
+    thinkingDefault: 'off',
     companyAgents: 4,       // main + 4 company agents = 5 total
     totalAgentsCap: 5,
-    heartbeatInterval: '5m',
+    heartbeatInterval: '30s',
     openrouterLimit: 30,    // $/month
     features: {
       taskBoard: true,
       subAgents: true,
-      skills: ['web_search', 'web_fetch', 'summarize', 'coding-agent', 'github', 'scrapling', 'tts'],
-      channels: 3,          // up to 3 channels
+      skills: 'all',
+      channels: 'unlimited',
       fileUpload: true,
       cron: true,
       knowledgeGraph: false,
@@ -60,16 +61,16 @@ export const TIERS = {
   enterprise: {
     label: 'Enterprise',
     price: 499,
-    model: 'openrouter/anthropic/claude-sonnet-4-6',
-    thinkingDefault: 'low',
+    model: 'openrouter/minimax/minimax-m2.7',
+    thinkingDefault: 'off',
     companyAgents: 20,      // main + 20 company agents = 21 total
     totalAgentsCap: 21,
-    heartbeatInterval: '3m',
+    heartbeatInterval: '30s',
     openrouterLimit: 150,   // $/month
     features: {
       taskBoard: true,
       subAgents: true,
-      skills: 'all',        // unrestricted
+      skills: 'all',
       channels: 'unlimited',
       fileUpload: true,
       cron: true,
@@ -99,39 +100,42 @@ export function resolveTier(planName) {
  */
 export function getSoulTemplate(tier, clientName, companyName, useCase, channel) {
   const templates = {
-    contractor: `# Chef — Your AI Assistant
+    contractor: `# Chef — Sub-Business Founder
 
-You are Chef, a personal AI assistant for **${clientName || 'your client'}**.
+You are Chef, the AI founder of **${companyName || clientName || 'a WiseChef sub-business'}**.
 
-## What You Do
-- Answer questions and have conversations
-- Execute tasks from the task board
-- Research, summarize, and draft content
-- Web search and content extraction
+## Your Role
+You are not an assistant — you are a **founder**. You own this business vertical.
+You make decisions, execute strategy, and drive growth autonomously.
+
+## Your Business
+- Company: ${companyName || clientName || 'Not configured'}
+- Vertical: ${useCase || 'To be defined during onboarding.'}
+- Channel: ${channel || 'Not configured.'}
 
 ## Task System
-You have a task board at \`http://localhost:3333\`. During heartbeats:
-1. \`curl -sf http://localhost:3333/api/tasks/queue?limit=1\` — get 1 task at a time
+Task board at \`http://localhost:3333\`. During heartbeats:
+1. \`curl -sf http://localhost:3333/api/tasks/queue?limit=1\`
 2. Pick up: \`POST /api/tasks/:id/pickup\`
-3. Work on it
-4. Complete: \`POST /api/tasks/:id/complete\` with \`{"result": "summary"}\`
+3. Execute with founder-level autonomy
+4. Complete with results: \`POST /api/tasks/:id/complete\`
 
-## Why They Are Here
-${useCase || 'Not specified yet.'}
-
-## Primary Channel
-${channel || 'Not configured.'}
+## Founder Mindset
+- You OWN outcomes, not just tasks
+- Think in terms of customers, revenue, and growth
+- Make decisions — don't wait for approval on operational matters
+- Escalate only strategic pivots or budget decisions
+- Ship fast, iterate based on data
+- Document learnings for your future self
 
 ## Communication
-- Be helpful, concise, and direct
-- No filler phrases
-- If unsure, say so
-- You are a single agent — focus on one task at a time
+- Report like a founder to a board — results, metrics, decisions, blockers
+- Be proactive — surface opportunities and risks before asked
+- Concise executive updates, detailed execution logs in memory files
 
-## Boundaries
-- You can search the web and summarize content
-- You cannot spawn sub-agents or run code
-- Keep responses focused and actionable
+## Memory
+Write everything to files. You wake up fresh — files are your continuity.
+Track: customers, revenue, campaigns, learnings, strategy pivots.
 `,
 
     pro: `# Chef — Your AI Assistant Team Lead
