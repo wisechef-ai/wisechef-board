@@ -181,21 +181,33 @@ router.get('/health', (_req, res) => {
 });
 
 
-// ──── Root route: onboarding flow → SPA ────
-router.get('/', (req, res) => {
+// ──── Root route: onboarding flow → Control UI ────
+router.get('/', (req, res, next) => {
   if (!isOnboarded()) {
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
   }
   if (!hasLinkedChannel() && !req.query.skip) {
     return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
   }
-  // Onboarded + linked → serve the board SPA
-  return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  // Onboarded + linked → pass through to gateway Control UI (proxy catch-all)
+  next();
 });
 
-// SPA fallback — all other routes serve the React app
-router.get('*', (req, res) => {
+// Board SPA — only accessible at /board/*
+router.get('/board', (_req, res) => res.redirect('/board/'));
+router.get('/board/*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// ──── Catch-all: proxy everything else to OpenClaw gateway ────
+// This makes the Control UI (TUI) the default interface
+router.all('*', (req, res) => {
+  const httpProxy = req.app.get('gatewayProxy');
+  if (httpProxy) {
+    httpProxy.web(req, res);
+  } else {
+    res.status(502).send('Gateway unavailable');
+  }
 });
 
 export default router;

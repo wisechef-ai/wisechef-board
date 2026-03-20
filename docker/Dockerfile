@@ -91,6 +91,11 @@ COPY docker/nightly-self-improve.sh /opt/wisechef/board/docker/nightly-self-impr
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /opt/wisechef/board/docker/nightly-self-improve.sh /opt/wisechef/board/docker/cognee/install.sh /opt/wisechef/board/docker/cognee/nightly-sync.sh
 
+# ── Install Scrapling (web scraping with JS rendering) ──
+RUN python3 -m venv /opt/wisechef/scrapling-env && \
+    /opt/wisechef/scrapling-env/bin/pip install --no-cache-dir scrapling && \
+    ln -sf /opt/wisechef/scrapling-env/bin/scrapling /usr/local/bin/scrapling
+
 # Pre-create postgres user + patch embedded-postgres for root execution
 RUN groupadd -f postgres && useradd -g postgres -s /bin/false -M postgres 2>/dev/null; \
     EPANEL_INDEX="/opt/wisechef/enterprise-panel/server/dist/index.js"; \

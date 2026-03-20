@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'http';
+import httpProxy from 'http-proxy';
 import { HOST, PORT, AGENT_TYPES_ENABLED } from './config.js';
 import { setupWebSocket } from './broadcast.js';
 import { setupMiddleware } from './middleware.js';
@@ -8,7 +9,26 @@ import { mountEnterprise } from './enterprise-mount.js';
 import { startPaperclip, stopPaperclip } from './lib/paperclip.js';
 
 const app = express();
+
+// ── Gateway reverse proxy (TUI-first: OpenClaw Control UI as primary interface) ──
+const GATEWAY_PORT = process.env.GATEWAY_PORT || 18789;
+const GATEWAY_TARGET = `http://127.0.0.1:${GATEWAY_PORT}`;
+const proxy = httpProxy.createProxyServer({ target: GATEWAY_TARGET, ws: true, changeOrigin: true });
+proxy.on('error', (err, _req, res) => {
+  console.error('[proxy] Gateway proxy error:', err.message);
+  if (res.writeHead) res.writeHead(502, { 'Content-Type': 'text/plain' });
+  if (res.end) res.end('Gateway unavailable');
+});
+
 const server = http.createServer(app);
+
+// Proxy WebSocket upgrades to gateway for Control UI + chat
+server.on('upgrade', (req, socket, head) => {
+  // Board's own WS (socket.io for live updates) uses /socket.io/ path
+  if (req.url?.startsWith('/socket.io')) return;
+  // Everything else (Control UI WS) → gateway
+  proxy.ws(req, socket, head);
+});
 
 // ── Stripe webhook MUST be registered before express.json() middleware ──
 // It needs the raw request body for signature verification.
@@ -24,6 +44,7 @@ if (AGENT_TYPES_ENABLED) {
 setupWebSocket(server);
 setupMiddleware(app);
 mountEnterprise(app);
+app.set('gatewayProxy', proxy);
 app.use(router);
 
 if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
