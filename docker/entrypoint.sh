@@ -251,6 +251,13 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         sed -i 's/new EmbeddedPostgres({/new EmbeddedPostgres({ createPostgresUser: true,/' "$EPANEL_INDEX"
     fi
 
+    # Pre-create postgres user/group if running as root (avoids embedded-postgres race)
+    if [ "$(id -u)" = "0" ] && ! id postgres >/dev/null 2>&1; then
+        echo "[patch] Pre-creating postgres user for embedded-postgres..."
+        groupadd -f postgres 2>/dev/null || true
+        useradd -g postgres -s /bin/false -M postgres 2>/dev/null || true
+    fi
+
     cd /opt/wisechef/enterprise-panel
     DATABASE_PATH="${DATABASE_PATH:-/opt/wisechef/data/enterprise.sqlite}" \
     PAPERCLIP_AUTH_MODE="${PAPERCLIP_AUTH_MODE:-local_trusted}" \

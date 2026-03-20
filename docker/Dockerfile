@@ -91,5 +91,12 @@ COPY docker/nightly-self-improve.sh /opt/wisechef/board/docker/nightly-self-impr
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /opt/wisechef/board/docker/nightly-self-improve.sh /opt/wisechef/board/docker/cognee/install.sh /opt/wisechef/board/docker/cognee/nightly-sync.sh
 
+# Pre-create postgres user + patch embedded-postgres for root execution
+RUN groupadd -f postgres && useradd -g postgres -s /bin/false -M postgres 2>/dev/null; \
+    EPANEL_INDEX="/opt/wisechef/enterprise-panel/server/dist/index.js"; \
+    if [ -f "$EPANEL_INDEX" ] && grep -q 'new EmbeddedPostgres({' "$EPANEL_INDEX" && ! grep -q 'createPostgresUser' "$EPANEL_INDEX"; then \
+      sed -i 's/new EmbeddedPostgres({/new EmbeddedPostgres({ createPostgresUser: true,/' "$EPANEL_INDEX"; \
+    fi; true
+
 EXPOSE 18789 3100 3333
 ENTRYPOINT ["/entrypoint.sh"]
