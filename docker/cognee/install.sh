@@ -24,7 +24,7 @@ fi
 # Install Cognee
 echo "📎 Installing cognee..."
 "$VENV_DIR/bin/pip" install --upgrade pip -q
-"$VENV_DIR/bin/pip" install "cognee[all]==0.5.5" -q
+"$VENV_DIR/bin/pip" install "cognee==0.5.5" -q
 
 # Create .env from template if not exists
 if [ ! -f "$COGNEE_HOME/.env" ]; then
@@ -32,10 +32,10 @@ if [ ! -f "$COGNEE_HOME/.env" ]; then
     cp "$CONFIG_DIR/config.env" "$COGNEE_HOME/.env"
     echo "📝 Copied config.env to .env"
   else
-    cat > "$COGNEE_HOME/.env" << 'ENV'
+    cat > "$COGNEE_HOME/.env" <<ENV
 # Cognee-Lite Configuration
 # Uses OpenRouter for LLM and embedding calls
-OPENAI_API_KEY=${OPENROUTER_API_KEY}
+OPENAI_API_KEY=${OPENROUTER_API_KEY:-}
 OPENAI_API_BASE=https://openrouter.ai/api/v1
 LLM_MODEL=openai/gpt-4o
 EMBEDDING_MODEL=openai/text-embedding-3-small
