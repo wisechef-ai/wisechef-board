@@ -33,15 +33,31 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
     echo "📝 Initializing OpenClaw configuration..."
     mkdir -p /root/.openclaw
 
-    # All plans use the same model
-    WISECHEF_MODEL="${WISECHEF_MODEL:-openrouter/anthropic/claude-sonnet-4-6}"
-    echo "🤖 Model for ${WISECHEF_PLAN:-starter} plan: $WISECHEF_MODEL"
+    # Resolve model from tier config
+    WISECHEF_MODEL="${WISECHEF_MODEL:-$(node -e "
+      import { resolveTier } from '/opt/wisechef/board/docker/tier-config.js';
+      const t = resolveTier(process.env.WISECHEF_PLAN);
+      process.stdout.write(t.model);
+    " 2>/dev/null || echo 'openrouter/google/gemini-2.5-flash')}"
+    echo "🤖 Model for ${WISECHEF_PLAN:-contractor} plan: $WISECHEF_MODEL"
 
     # Generate gateway token if not provided
     if [ -z "$GATEWAY_TOKEN" ]; then
         GATEWAY_TOKEN=$(openssl rand -hex 32)
         echo "🔑 Generated gateway token: $GATEWAY_TOKEN"
     fi
+
+    # Resolve heartbeat interval from tier config
+    HEARTBEAT_INTERVAL="${WISECHEF_HEARTBEAT:-$(node -e "
+      import { resolveTier } from '/opt/wisechef/board/docker/tier-config.js';
+      process.stdout.write(resolveTier(process.env.WISECHEF_PLAN).heartbeatInterval);
+    " 2>/dev/null || echo '10m')}"
+
+    # Resolve thinking default from tier config
+    THINKING_DEFAULT="$(node -e "
+      import { resolveTier } from '/opt/wisechef/board/docker/tier-config.js';
+      process.stdout.write(resolveTier(process.env.WISECHEF_PLAN).thinkingDefault);
+    " 2>/dev/null || echo 'off')"
 
     cat > /root/.openclaw/openclaw.json <<EOF
 {
@@ -62,9 +78,9 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       "model": {
         "primary": "$WISECHEF_MODEL"
       },
-      "thinkingDefault": "low",
+      "thinkingDefault": "$THINKING_DEFAULT",
       "heartbeat": {
-        "every": "5m",
+        "every": "$HEARTBEAT_INTERVAL",
         "prompt": "Check for pending tasks: curl -sf http://localhost:3333/api/tasks/queue?limit=capacity | Read the JSON. For each task in the queue, pick it up (POST /api/tasks/:id/pickup), work on it, then complete it (POST /api/tasks/:id/complete with {result, status}). If no tasks, reply HEARTBEAT_OK.",
         "target": "none"
       }
@@ -97,44 +113,43 @@ PKEOF
     chmod 600 /root/.openclaw/provider-keys.json
 fi
 
-# Create workspace files if they don't exist
+# Create workspace files if they don't exist (tier-aware SOUL.md)
 if [ ! -f "$WORKSPACE_DIR/SOUL.md" ]; then
-    echo "📄 Creating default workspace files..."
+    echo "📄 Creating tier-specific workspace files..."
     mkdir -p "$WORKSPACE_DIR"
 
-    cat > "$WORKSPACE_DIR/SOUL.md" <<EOF
-# SOUL.md — ${CLIENT_NAME:-WiseChef Assistant}
+    # Generate SOUL.md from tier template
+    node -e "
+      import { resolveTier, getSoulTemplate } from '/opt/wisechef/board/docker/tier-config.js';
+      import fs from 'fs';
+      const tier = resolveTier(process.env.WISECHEF_PLAN);
+      const soul = getSoulTemplate(
+        tier.soulTemplate,
+        process.env.CLIENT_NAME || 'WiseChef Client',
+        process.env.CLIENT_ORG || process.env.CLIENT_NAME || '',
+        process.env.CLIENT_USE_CASE || '',
+        process.env.CLIENT_CHANNEL || process.env.PRIMARY_CHANNEL || ''
+      );
+      fs.writeFileSync(process.env.WORKSPACE_DIR + '/SOUL.md', soul);
+      console.log('[entrypoint] Created ' + tier.key + ' SOUL.md for ' + (process.env.CLIENT_NAME || 'client'));
+    " 2>&1 || {
+        # Fallback: write a basic SOUL.md if tier-config fails
+        cat > "$WORKSPACE_DIR/SOUL.md" <<EOF
+# Chef — Your AI Assistant
 
-You are Chef, a personal AI assistant powered by WiseChef.
-
-## Identity
-- Client: ${CLIENT_NAME:-Not configured}
-- Primary channel: ${PRIMARY_CHANNEL:-Not configured}
-
-## Communication Style
-- Be helpful, concise, and direct
-- Don't use filler phrases ("Great question!", "I'd be happy to help!")
-- Just help. Actions over words.
-- If you're not sure about something, say so
+You are Chef, a personal AI assistant for ${CLIENT_NAME:-your client}.
 
 ## Task System
-You have a task board. During heartbeats, check for pending tasks:
-1. GET http://localhost:3333/api/tasks/queue?limit=capacity
-2. For each task: POST http://localhost:3333/api/tasks/:id/pickup
-3. Work on the task (whatever the description says)
-4. Complete: POST http://localhost:3333/api/tasks/:id/complete with {"result": "summary of what you did"}
+Check for tasks: curl -sf http://localhost:3333/api/tasks/queue?limit=1
+Pick up: POST /api/tasks/:id/pickup
+Complete: POST /api/tasks/:id/complete with {"result": "summary"}
 
-## Operating Principles
-1. Be proactive — anticipate needs
-2. Track commitments — follow up automatically
-3. Respect their time — no noise
-4. Flag risks early
-5. Learn and adapt
-6. Own the context
-7. Be honest
-
-This file will be customized during onboarding.
+## Communication
+- Be helpful, concise, and direct
+- Just help. Actions over words.
 EOF
+        echo "[entrypoint] Created fallback SOUL.md"
+    }
 
     cat > "$WORKSPACE_DIR/MEMORY.md" <<EOF
 # MEMORY.md — ${CLIENT_NAME:-WiseChef Client}
@@ -142,10 +157,26 @@ EOF
 ## Profile
 - Name: ${CLIENT_NAME:-Not configured}
 - Phone: ${CLIENT_PHONE:-Not configured}
+- Plan: ${WISECHEF_PLAN:-contractor}
 
 ## Preferences
 (Will be populated during onboarding)
 EOF
+
+    # Write tier manifest to workspace for agent self-awareness
+    node -e "
+      import { resolveTier } from '/opt/wisechef/board/docker/tier-config.js';
+      import fs from 'fs';
+      const tier = resolveTier(process.env.WISECHEF_PLAN);
+      fs.writeFileSync(process.env.WORKSPACE_DIR + '/TIER.json', JSON.stringify({
+        plan: tier.key,
+        label: tier.label,
+        model: tier.model,
+        totalAgentsCap: tier.totalAgentsCap,
+        heartbeatInterval: tier.heartbeatInterval,
+        features: tier.features,
+      }, null, 2));
+    " 2>&1 || echo "[entrypoint] TIER.json write skipped"
 fi
 
 # Create project workspace directory (Issue 6)
@@ -321,8 +352,12 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
     cd /opt/wisechef/board
 fi
 
-# Install/start nightly self-improvement cron
-if [ "${WISECHEF_SELF_IMPROVE_ENABLED:-true}" = "true" ]; then
+# Install/start nightly self-improvement cron (pro/enterprise only)
+SELF_IMPROVE_ENABLED="${WISECHEF_SELF_IMPROVE_ENABLED:-$(node -e "
+  import { resolveTier } from '/opt/wisechef/board/docker/tier-config.js';
+  process.stdout.write(String(resolveTier(process.env.WISECHEF_PLAN).features.selfImprove));
+" 2>/dev/null || echo 'false')}"
+if [ "$SELF_IMPROVE_ENABLED" = "true" ]; then
     echo "🧠 Enabling nightly self-improvement cron..."
     mkdir -p /etc/cron.d /var/log /opt/wisechef/logs/self-improve
     # Write secrets to a root-only env file (avoid leaking them via /etc/cron.d)

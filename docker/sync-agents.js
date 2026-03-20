@@ -17,10 +17,10 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { resolveTier, getSoulTemplate } from './tier-config.js';
 
 const PAPERCLIP_PORT = parseInt(process.env.PAPERCLIP_PORT || '3100', 10);
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || '';
-const WISECHEF_MODEL = process.env.WISECHEF_MODEL || 'openrouter/anthropic/claude-sonnet-4-6';
 const WORKSPACE_DIR = process.env.WORKSPACE_DIR || '/opt/wisechef/workspace';
 const OPENCLAW_CONFIG = '/root/.openclaw/openclaw.json';
 const MANIFEST_PATH = '/opt/wisechef/manifest.json';
@@ -156,23 +156,20 @@ async function main() {
     process.exit(1);
   }
 
-  const plan = (process.env.WISECHEF_PLAN || 'pro').toLowerCase();
+  const tier = resolveTier(process.env.WISECHEF_PLAN);
   const manifest = readManifest();
-  const planLimits = {
-    starter: { companyAgents: 0 },
-    pro: { companyAgents: 4 },
-    enterprise: { companyAgents: 20 },
-  };
-  const selectedPlan = planLimits[plan] ? plan : 'starter';
+  const WISECHEF_MODEL = process.env.WISECHEF_MODEL || tier.model;
   const envLimit = Number(process.env.WISECHEF_COMPANY_AGENT_LIMIT || '');
   const maxCompanyAgents = Number.isFinite(envLimit) && envLimit >= 0
     ? Math.floor(envLimit)
-    : planLimits[selectedPlan].companyAgents;
+    : tier.companyAgents;
 
-  // Starter tier: single "main" agent only.
+  console.log(`[sync-agents] Plan=${tier.key} (${tier.label} $${tier.price}/mo) — model=${WISECHEF_MODEL}, agents=${maxCompanyAgents}+1, heartbeat=${tier.heartbeatInterval}`);
+
+  // Contractor tier: single "main" agent only.
   // Pro/Enterprise: main + dedicated company agents, capped by plan or override env.
   if (maxCompanyAgents <= 0) {
-    console.log(`[sync-agents] Plan=${selectedPlan} — keeping single main agent, skipping company sync`);
+    console.log(`[sync-agents] Plan=${tier.key} — keeping single main agent, skipping company sync`);
 
     // Ensure Paperclip agents point to "main" (not company-UUID)
     const companies = await apiCall('GET', '/api/companies');
@@ -229,7 +226,7 @@ async function main() {
       workspace: WORKSPACE_DIR,
       identity: { name: 'Chef' },
       heartbeat: {
-        every: '5m',
+        every: tier.heartbeatInterval,
         prompt: 'Check for pending tasks: curl -sf http://localhost:3333/api/tasks/queue?limit=capacity | Read the JSON. For each task, pick it up (POST /api/tasks/:id/pickup), work on it, then complete it (POST /api/tasks/:id/complete with {result, status}). If no tasks, reply HEARTBEAT_OK.',
         target: 'none',
       },
@@ -245,7 +242,7 @@ async function main() {
       workspace: wsDir,
       identity: { name: `${company.name} Agent` },
       heartbeat: {
-        every: '5m',
+        every: tier.heartbeatInterval,
         prompt: `You are working for ${company.name}. Check for pending tasks: curl -sf http://localhost:3333/api/tasks/queue?limit=capacity | Read the JSON. For each task, pick it up (POST /api/tasks/:id/pickup), work on it, then complete it (POST /api/tasks/:id/complete with {result, status}). If no tasks, reply HEARTBEAT_OK.`,
         target: 'none',
       },
@@ -263,10 +260,15 @@ async function main() {
   config.agents = config.agents || {};
   config.agents.list = agentList;
 
-  // Preserve defaults
+  // Set defaults from tier config
   config.agents.defaults = config.agents.defaults || {};
-  config.agents.defaults.model = config.agents.defaults.model || { primary: WISECHEF_MODEL };
-  config.agents.defaults.thinkingDefault = config.agents.defaults.thinkingDefault || 'low';
+  config.agents.defaults.model = { primary: WISECHEF_MODEL };
+  config.agents.defaults.thinkingDefault = tier.thinkingDefault;
+  config.agents.defaults.heartbeat = {
+    every: tier.heartbeatInterval,
+    prompt: 'Check for pending tasks: curl -sf http://localhost:3333/api/tasks/queue?limit=capacity | Read the JSON. For each task, pick it up (POST /api/tasks/:id/pickup), work on it, then complete it (POST /api/tasks/:id/complete with {result, status}). If no tasks, reply HEARTBEAT_OK.',
+    target: 'none',
+  };
 
   fs.writeFileSync(OPENCLAW_CONFIG, JSON.stringify(config, null, 2));
   console.log(`[sync-agents] Wrote ${agentList.length} agents to openclaw.json`);
