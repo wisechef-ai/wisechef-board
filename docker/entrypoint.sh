@@ -288,17 +288,21 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         " 2>&1 || echo "[bootstrap] Script failed (non-fatal)"
 
         # Set initial heartbeat so agents show as "idle" (not "not deployed")
-        echo "💓 Setting initial agent heartbeat..."
-        node -e "
-        const path = require('path');
-        const Database = require(path.join('/opt/wisechef/enterprise-panel/node_modules/better-sqlite3'));
-        const db = new Database('/opt/wisechef/data/enterprise.sqlite');
-        const now = new Date().toISOString();
-        const result = db.prepare('UPDATE agents SET last_heartbeat_at = ?, status = ? WHERE last_heartbeat_at IS NULL').run(now, 'idle');
-        if (result.changes > 0) console.log('[heartbeat] Initialized ' + result.changes + ' agents');
-        else console.log('[heartbeat] All agents already have heartbeat');
-        db.close();
-        " 2>&1 || echo "[heartbeat] Script failed (non-fatal)"
+        if [ -n "${DATABASE_URL:-}" ]; then
+            echo "💓 Skipping SQLite heartbeat init (external database in use)"
+        else
+            echo "💓 Setting initial agent heartbeat..."
+            node -e "
+            const path = require('path');
+            const Database = require(path.join('/opt/wisechef/enterprise-panel/node_modules/better-sqlite3'));
+            const db = new Database('/opt/wisechef/data/enterprise.sqlite');
+            const now = new Date().toISOString();
+            const result = db.prepare('UPDATE agents SET last_heartbeat_at = ?, status = ? WHERE last_heartbeat_at IS NULL').run(now, 'idle');
+            if (result.changes > 0) console.log('[heartbeat] Initialized ' + result.changes + ' agents');
+            else console.log('[heartbeat] All agents already have heartbeat');
+            db.close();
+            " 2>&1 || echo "[heartbeat] Script failed (non-fatal)"
+        fi
 
         # Sync Paperclip companies → OpenClaw agents (per-company isolation)
         # Creates per-company OpenClaw agents, workspaces, fixes agentIds, claims API keys
