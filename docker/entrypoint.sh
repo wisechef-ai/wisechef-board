@@ -219,22 +219,24 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
     PORT="${PAPERCLIP_PORT:-3100}" \
     HOST=127.0.0.1 \
     NODE_ENV=production \
-    nohup node server/dist/index.js > /var/log/enterprise-panel.log 2>&1 &
+    nohup node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js > /var/log/enterprise-panel.log 2>&1 &
     ENTERPRISE_PID=$!
     echo "Enterprise Panel PID: $ENTERPRISE_PID"
 
     # Wait for Paperclip to be ready
     echo "⏳ Waiting for Paperclip..."
-    for i in $(seq 1 15); do
+    PAPERCLIP_READY=false
+    for i in $(seq 1 20); do
         if curl -sf http://127.0.0.1:${PAPERCLIP_PORT:-3100}/api/health > /dev/null 2>&1; then
             echo "✅ Paperclip ready"
+            PAPERCLIP_READY=true
             break
         fi
         sleep 1
     done
 
     # === Bootstrap + per-company agent isolation ===
-    if [ -f /opt/wisechef/manifest.json ]; then
+    if [ "$PAPERCLIP_READY" = true ] && [ -f /opt/wisechef/manifest.json ]; then
         # Bootstrap Paperclip company + Chef agent from manifest
         echo "🏢 Bootstrapping company from manifest..."
         node -e "
