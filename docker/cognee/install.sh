@@ -56,7 +56,8 @@ chmod +x "$COGNEE_HOME/nightly-sync.sh" 2>/dev/null || true
 
 # Add cron for nightly sync
 if command -v crontab &>/dev/null; then
-  (crontab -l 2>/dev/null; echo "0 3 * * * $COGNEE_HOME/nightly-sync.sh >> $LOG_DIR/sync.log 2>&1") | sort -u | crontab -
+  # Non-fatal: cron may not be writable in some container contexts
+  (crontab -l 2>/dev/null; echo "0 3 * * * $COGNEE_HOME/nightly-sync.sh >> $LOG_DIR/sync.log 2>&1") | sort -u | crontab - || true
   echo "⏰ Nightly sync cron installed (3 AM)"
 fi
 

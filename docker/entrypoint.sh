@@ -325,14 +325,19 @@ fi
 if [ "${WISECHEF_SELF_IMPROVE_ENABLED:-true}" = "true" ]; then
     echo "🧠 Enabling nightly self-improvement cron..."
     mkdir -p /etc/cron.d /var/log /opt/wisechef/logs/self-improve
-    cat > /etc/cron.d/wisechef-nightly <<CRON
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    # Write secrets to a root-only env file (avoid leaking them via /etc/cron.d)
+    cat > /opt/wisechef/runtime.env <<ENV
 OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
 WORKSPACE_DIR=${WORKSPACE_DIR}
 BOARD_URL=http://127.0.0.1:${PORT}
 COGNEE_HOME=${COGNEE_HOME:-/opt/wisechef/cognee}
-${WISECHEF_SELF_IMPROVE_CRON:-17 2 * * *} root /opt/wisechef/board/docker/nightly-self-improve.sh
+ENV
+    chmod 600 /opt/wisechef/runtime.env
+
+    cat > /etc/cron.d/wisechef-nightly <<CRON
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+${WISECHEF_SELF_IMPROVE_CRON:-17 2 * * *} root bash -lc 'set -a; source /opt/wisechef/runtime.env; set +a; /opt/wisechef/board/docker/nightly-self-improve.sh'
 CRON
     chmod 0644 /etc/cron.d/wisechef-nightly
     touch /var/log/cron.log
