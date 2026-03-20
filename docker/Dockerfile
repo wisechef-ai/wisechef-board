@@ -56,7 +56,7 @@ RUN git clone --branch "$WISECHEF_ENTERPRISE_PANEL_REF" \
     git checkout --detach "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
     test "$(git rev-parse HEAD)" = "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
     corepack enable && \
-    pnpm install --frozen-lockfile && \
+    (pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile) && \
     pnpm -r build && \
     git remote set-url origin "$WISECHEF_ENTERPRISE_PANEL_REPO"
 
