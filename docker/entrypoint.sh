@@ -66,6 +66,7 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       "token": "$GATEWAY_TOKEN"
     },
     "port": 18789,
+    "bind": "lan",
     "mode": "local",
     "http": {
       "endpoints": {
