@@ -251,6 +251,13 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         sed -i 's/new EmbeddedPostgres({/new EmbeddedPostgres({ createPostgresUser: true,/' "$EPANEL_INDEX"
     fi
 
+    # Patch embedded-postgres locale: en_US.UTF-8 doesn't exist in minimal Docker images
+    EP_LIB="/opt/wisechef/enterprise-panel/node_modules/.pnpm/embedded-postgres@18.1.0-beta.16/node_modules/embedded-postgres/dist/index.js"
+    if [ -f "$EP_LIB" ] && grep -q "en_US.UTF-8" "$EP_LIB"; then
+        echo "[patch] Fixing embedded-postgres locale (en_US.UTF-8 → C)..."
+        sed -i "s/const LC_MESSAGES_LOCALE = .*/const LC_MESSAGES_LOCALE = 'C';/" "$EP_LIB"
+    fi
+
     # Pre-create postgres user/group if running as root (avoids embedded-postgres race)
     if [ "$(id -u)" = "0" ] && ! id postgres >/dev/null 2>&1; then
         echo "[patch] Pre-creating postgres user for embedded-postgres..."

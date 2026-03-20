@@ -96,7 +96,13 @@ RUN groupadd -f postgres && useradd -g postgres -s /bin/false -M postgres 2>/dev
     EPANEL_INDEX="/opt/wisechef/enterprise-panel/server/dist/index.js"; \
     if [ -f "$EPANEL_INDEX" ] && grep -q 'new EmbeddedPostgres({' "$EPANEL_INDEX" && ! grep -q 'createPostgresUser' "$EPANEL_INDEX"; then \
       sed -i 's/new EmbeddedPostgres({/new EmbeddedPostgres({ createPostgresUser: true,/' "$EPANEL_INDEX"; \
-    fi; true
+    fi; \
+    EP_LIB=$(find /opt/wisechef/enterprise-panel/node_modules -path '*/embedded-postgres/dist/index.js' 2>/dev/null | head -1); \
+    if [ -n "$EP_LIB" ] && grep -q 'en_US.UTF-8' "$EP_LIB"; then \
+      sed -i "s/const LC_MESSAGES_LOCALE = .*/const LC_MESSAGES_LOCALE = 'C';/" "$EP_LIB"; \
+    fi; \
+    chmod 755 /root; \
+    true
 
 EXPOSE 18789 3100 3333
 ENTRYPOINT ["/entrypoint.sh"]
