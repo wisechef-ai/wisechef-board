@@ -72,8 +72,9 @@ try:
     resp = json.load(sys.stdin)
     content = resp['choices'][0]['message']['content']
     # Extract JSON from potential markdown wrapping
-    if '```' in content:
-        content = content.split('```')[1].split('```')[0]
+    tick = chr(96) * 3
+    if tick in content:
+        content = content.split(tick)[1].split(tick)[0]
         if content.startswith('json'):
             content = content[4:]
     print(content.strip())
