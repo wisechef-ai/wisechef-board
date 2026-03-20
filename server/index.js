@@ -35,10 +35,11 @@ if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
 server.listen(PORT, HOST, async () => {
   console.log(`Dashboard running at http://${HOST}:${PORT}`);
   
-  // Start Paperclip sidecar (non-blocking, falls back to file storage if unavailable)
+  // Connect to the Paperclip surface when present. Embedded mode is opt-in.
   try {
     await startPaperclip({
-      port: parseInt(process.env.PAPERCLIP_PORT || '3338'),
+      port: parseInt(process.env.PAPERCLIP_PORT || '3100'),
+      mode: process.env.PAPERCLIP_MODE || 'external',
       companyName: process.env.COMPANY_NAME || 'WiseChef',
       companySlug: process.env.COMPANY_SLUG || 'wisechef',
     });

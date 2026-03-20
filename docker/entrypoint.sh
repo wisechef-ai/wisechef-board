@@ -315,6 +315,24 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
     cd /opt/wisechef/board
 fi
 
+# Install/start nightly self-improvement cron
+if [ "${WISECHEF_SELF_IMPROVE_ENABLED:-true}" = "true" ]; then
+    echo "🧠 Enabling nightly self-improvement cron..."
+    mkdir -p /etc/cron.d /var/log /opt/wisechef/logs/self-improve
+    cat > /etc/cron.d/wisechef-nightly <<CRON
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+WORKSPACE_DIR=${WORKSPACE_DIR}
+BOARD_URL=http://127.0.0.1:${PORT}
+COGNEE_HOME=${COGNEE_HOME:-/opt/wisechef/cognee}
+${WISECHEF_SELF_IMPROVE_CRON:-17 2 * * *} root /opt/wisechef/board/docker/nightly-self-improve.sh
+CRON
+    chmod 0644 /etc/cron.d/wisechef-nightly
+    touch /var/log/cron.log
+    cron
+fi
+
 # Start WiseChef Board (foreground)
 echo "📊 Starting WiseChef Board on port ${PORT}..."
 exec node --env-file=.env server.js

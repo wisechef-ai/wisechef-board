@@ -1,40 +1,90 @@
 /**
- * Paperclip integration helper for WiseChef Board
- * Manages Paperclip as a sidecar service for task management
- * @version 26.04.0
+ * Paperclip integration helper for WiseChef Board.
+ *
+ * Default behavior is to connect to an already-running Paperclip surface
+ * provided by the enterprise panel. Embedded startup is opt-in only.
  */
 
-import { startServer as createServer } from '@paperclipai/server';
 import http from 'http';
 
 let paperclipServer = null;
-let paperclipPort = 3338;
+let paperclipPort = parseInt(process.env.PAPERCLIP_PORT || '3100', 10);
+let paperclipBasePath = process.env.PAPERCLIP_BASE_PATH || '/api';
+let paperclipMode = 'disabled';
+let paperclipReady = false;
 let companyId = null;
+
+function withBasePath(apiPath) {
+  const trimmedBase = `/${String(paperclipBasePath || '/api').replace(/^\/+|\/+$/g, '')}`;
+  const trimmedPath = `/${String(apiPath || '/').replace(/^\/+/, '')}`;
+  if (trimmedPath === trimmedBase || trimmedPath.startsWith(`${trimmedBase}/`)) {
+    return trimmedPath;
+  }
+  return `${trimmedBase}${trimmedPath}`;
+}
+
+async function probeHealth() {
+  try {
+    const res = await paperclipAPI('GET', '/health');
+    return res.status >= 200 && res.status < 500;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Start Paperclip server as sidecar
  */
 export async function startPaperclip(opts = {}) {
-  paperclipPort = opts.port || 3338;
-  
+  paperclipPort = opts.port || parseInt(process.env.PAPERCLIP_PORT || '3100', 10);
+  paperclipBasePath = opts.basePath || process.env.PAPERCLIP_BASE_PATH || '/api';
+  paperclipMode = String(opts.mode || process.env.PAPERCLIP_MODE || 'external').toLowerCase();
+  paperclipReady = false;
+
+  if (paperclipMode !== 'embedded') {
+    const reachable = await probeHealth();
+    if (!reachable) {
+      console.log(`📎 Paperclip ${paperclipMode} mode unavailable on port ${paperclipPort}; board will continue without task sync`);
+      return null;
+    }
+
+    paperclipReady = true;
+    console.log(`📎 Paperclip external surface detected on port ${paperclipPort}`);
+
+    if (opts.companyName) {
+      companyId = await ensureCompany(opts.companyName, opts.companySlug);
+    }
+
+    return null;
+  }
+
   try {
-    paperclipServer = await createServer({
+    const paperclipModule = await import('@paperclipai/server');
+    const startServer = paperclipModule.startServer || paperclipModule.createServer;
+    if (typeof startServer !== 'function') {
+      throw new Error('No compatible Paperclip server export found');
+    }
+
+    paperclipServer = await startServer({
       port: paperclipPort,
       database: opts.database || 'embedded',
       logLevel: opts.logLevel || 'warn',
     });
-    
-    console.log(`📎 Paperclip sidecar running on port ${paperclipPort}`);
-    
+
+    paperclipReady = true;
+    console.log(`📎 Paperclip embedded server running on port ${paperclipPort}`);
+
     // Auto-create company if needed
     if (opts.companyName) {
       companyId = await ensureCompany(opts.companyName, opts.companySlug);
     }
-    
+
     return paperclipServer;
   } catch (err) {
     console.error('📎 Paperclip startup failed:', err.message);
     console.log('📎 Falling back to file-based task storage');
+    paperclipReady = false;
+    paperclipServer = null;
     return null;
   }
 }
@@ -46,18 +96,20 @@ export async function stopPaperclip() {
   if (paperclipServer) {
     try {
       await paperclipServer.close();
-      console.log('📎 Paperclip sidecar stopped');
+      console.log('📎 Paperclip embedded server stopped');
     } catch (err) {
       console.error('📎 Paperclip shutdown error:', err.message);
     }
   }
+  paperclipReady = false;
+  paperclipServer = null;
 }
 
 /**
  * Check if Paperclip is available
  */
 export function isPaperclipReady() {
-  return paperclipServer !== null;
+  return paperclipReady;
 }
 
 /**
@@ -68,7 +120,7 @@ async function paperclipAPI(method, path, body = null) {
     const options = {
       hostname: '127.0.0.1',
       port: paperclipPort,
-      path,
+      path: withBasePath(path),
       method,
       headers: { 'Content-Type': 'application/json' },
     };

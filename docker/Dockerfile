@@ -1,52 +1,69 @@
 # syntax=docker/dockerfile:1
-# WiseChef Agent Container — v2026.3.10
-# Full stack: OpenClaw + WiseChef Board + Enterprise Panel (SQLite) + Enterprise CLI
+# WiseChef Agent Container — reproducible customer runtime
+# Stack: OpenClaw + WiseChef Board + Enterprise Panel + nightly self-improve/Cognee scaffolding
 FROM node:22-slim
 
-# System deps
 RUN apt-get update && apt-get install -y \
-    git python3 curl ca-certificates build-essential openssl \
+    cron git python3 python3-venv curl ca-certificates build-essential openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install OpenClaw globally
 RUN npm install -g openclaw@latest
 
-# Brand WhatsApp device name
 RUN find /usr/local/lib/node_modules/openclaw/dist/ -name "session-*.js" \
     -exec sed -i 's/"openclaw","cli"/"Chef","web"/g' {} \; 2>/dev/null || true
 
 WORKDIR /opt/wisechef
 
-# ── 1. WiseChef Board ──
-RUN git clone --depth 1 https://github.com/wisechef-ai/wisechef-board.git board
-
-WORKDIR /opt/wisechef/board
-RUN npm install --production=false && \
-    npm run build && \
-    npm prune --production
-
-# ── 2. WiseChef Enterprise CLI (private repo) ──
 ARG GH_TOKEN
+
+# ── 1. WiseChef Board ──
+ARG WISECHEF_BOARD_REPO=https://github.com/wisechef-ai/wisechef-board.git
+ARG WISECHEF_BOARD_REF=stabilization/2604
+ARG WISECHEF_BOARD_SHA
+RUN test -n "$WISECHEF_BOARD_SHA" || (echo "WISECHEF_BOARD_SHA build arg is required" && exit 1)
+RUN git clone --branch "$WISECHEF_BOARD_REF" "$WISECHEF_BOARD_REPO" board && \
+    cd board && \
+    git checkout --detach "$WISECHEF_BOARD_SHA" && \
+    test "$(git rev-parse HEAD)" = "$WISECHEF_BOARD_SHA"
+WORKDIR /opt/wisechef/board
+RUN npm install --production=false && npm run build && npm prune --production
+
+# ── 2. WiseChef Enterprise CLI ──
 WORKDIR /opt/wisechef
-RUN git clone --depth 1 -b feature/enterprise-onboarding-wizard \
-    https://x-access-token:${GH_TOKEN}@github.com/wisechef-ai/wisechef-enterprise.git enterprise && \
-    cd enterprise && npm install --production && \
+ARG WISECHEF_ENTERPRISE_REPO=https://github.com/wisechef-ai/wisechef-enterprise.git
+ARG WISECHEF_ENTERPRISE_REF=feature/enterprise-onboarding-wizard
+ARG WISECHEF_ENTERPRISE_SHA
+RUN test -n "$GH_TOKEN" || (echo "GH_TOKEN build arg is required for private repos" && exit 1)
+RUN test -n "$WISECHEF_ENTERPRISE_SHA" || (echo "WISECHEF_ENTERPRISE_SHA build arg is required" && exit 1)
+RUN git clone --branch "$WISECHEF_ENTERPRISE_REF" \
+    "https://x-access-token:${GH_TOKEN}@github.com/wisechef-ai/wisechef-enterprise.git" enterprise && \
+    cd enterprise && \
+    git checkout --detach "$WISECHEF_ENTERPRISE_SHA" && \
+    test "$(git rev-parse HEAD)" = "$WISECHEF_ENTERPRISE_SHA" && \
+    npm install --production && \
     chmod +x cli.js && \
     ln -sf /opt/wisechef/enterprise/cli.js /usr/local/bin/wisechef-enterprise && \
-    # Scrub token from git remote
-    cd /opt/wisechef/enterprise && git remote set-url origin https://github.com/wisechef-ai/wisechef-enterprise.git
+    git remote set-url origin "$WISECHEF_ENTERPRISE_REPO"
 
-# ── 3. Enterprise Panel (pre-built SQLite bundle) ──
-COPY enterprise-panel-bundle /opt/wisechef/enterprise-panel
+# ── 3. WiseChef Enterprise Panel (built from pinned source, no opaque bundle) ──
+ARG WISECHEF_ENTERPRISE_PANEL_REPO=https://github.com/wisechef-ai/wisechef-enterprise-panel.git
+ARG WISECHEF_ENTERPRISE_PANEL_REF=hotfix/fix-docker-build-ts-errors
+ARG WISECHEF_ENTERPRISE_PANEL_SHA
+RUN test -n "$WISECHEF_ENTERPRISE_PANEL_SHA" || (echo "WISECHEF_ENTERPRISE_PANEL_SHA build arg is required" && exit 1)
+RUN git clone --branch "$WISECHEF_ENTERPRISE_PANEL_REF" \
+    "https://x-access-token:${GH_TOKEN}@github.com/wisechef-ai/wisechef-enterprise-panel.git" enterprise-panel && \
+    cd enterprise-panel && \
+    git checkout --detach "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
+    test "$(git rev-parse HEAD)" = "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
+    corepack enable && \
+    pnpm install --frozen-lockfile && \
+    pnpm -r build && \
+    git remote set-url origin "$WISECHEF_ENTERPRISE_PANEL_REPO"
 
-# ── 4. Enterprise mount override for local SQLite mode ──
-COPY enterprise-mount-local.js /opt/wisechef/board/server/enterprise-mount.js
-
-# ── 5. Final setup ──
+# ── 4. Runtime setup ──
 WORKDIR /opt/wisechef
-RUN mkdir -p /opt/wisechef/workspace /opt/wisechef/data
+RUN mkdir -p /opt/wisechef/workspace /opt/wisechef/data /opt/wisechef/logs/self-improve /opt/wisechef/cognee
 
-# Environment variables
 ENV PORT=3333 \
     GATEWAY_TOKEN="" \
     WORKSPACE_DIR=/opt/wisechef/workspace \
@@ -59,11 +76,20 @@ ENV PORT=3333 \
     WISECHEF_MODEL="" \
     DATABASE_PATH=/opt/wisechef/data/enterprise.sqlite \
     PAPERCLIP_PORT=3100 \
-    PAPERCLIP_AUTH_MODE=local_trusted
+    PAPERCLIP_AUTH_MODE=local_trusted \
+    PAPERCLIP_MODE=external \
+    WISECHEF_SELF_IMPROVE_ENABLED=true \
+    WISECHEF_SELF_IMPROVE_CRON="17 2 * * *" \
+    WISECHEF_COGNEE_ENABLED=true \
+    COGNEE_HOME=/opt/wisechef/cognee \
+    OPENAI_API_BASE=https://openrouter.ai/api/v1 \
+    LLM_MODEL=openai/gpt-4o \
+    EMBEDDING_MODEL=openai/text-embedding-3-small
+
+COPY docker/cognee /opt/wisechef/board/docker/cognee
+COPY docker/nightly-self-improve.sh /opt/wisechef/board/docker/nightly-self-improve.sh
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh /opt/wisechef/board/docker/nightly-self-improve.sh /opt/wisechef/board/docker/cognee/install.sh /opt/wisechef/board/docker/cognee/nightly-sync.sh
 
 EXPOSE 18789 3100 3333
-
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 ENTRYPOINT ["/entrypoint.sh"]

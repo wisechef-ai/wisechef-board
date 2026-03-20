@@ -6,8 +6,8 @@ const ROLES_DIR = path.join(__dirname, 'server', 'templates', 'roles');
 
 const TIER_LIMITS = {
   starter: 1,
-  pro: 3,
-  enterprise: 20,
+  pro: 5,
+  enterprise: 21,
 };
 
 function normalizeTier(input) {
