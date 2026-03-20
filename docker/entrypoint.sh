@@ -258,17 +258,9 @@ NODE_ENV=production
 AGENT_TYPES_ENABLED=false
 EOF
 
-# Start OpenClaw gateway in background
-echo "🌐 Starting OpenClaw gateway..."
-# Kill any stale gateway on the port first (prevents "port already in use" on container restart)
-fuser -k 18789/tcp 2>/dev/null || true
-sleep 1
-nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
-GATEWAY_PID=$!
-echo "Gateway PID: $GATEWAY_PID"
-
-# Wait for gateway to be ready
-sleep 4
+# NOTE: OpenClaw gateway start is deferred until after sync-agents
+# (starting then restarting breaks Docker port forwarding)
+echo "🌐 OpenClaw gateway start deferred until after agent sync..."
 
 # Sync provider API keys from provider-keys.json → env vars
 if [ -f /root/.openclaw/provider-keys.json ]; then
@@ -469,12 +461,12 @@ MANEOF
         echo "🔄 Syncing per-company OpenClaw agents..."
         node /opt/wisechef/board/docker/sync-agents.js 2>&1 || echo "[sync-agents] Script failed (non-fatal)"
 
-        # Restart gateway to pick up new agents
-        echo "🔄 Restarting OpenClaw gateway with updated agents..."
+        # Start gateway (first and only start — avoids Docker port-forward breakage)
+        echo "🌐 Starting OpenClaw gateway..."
         fuser -k 18789/tcp 2>/dev/null || true
-        sleep 2
+        sleep 1
         nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
-        echo "Gateway restarted (PID: $!)"
+        echo "Gateway started (PID: $!)"
         # Wait for gateway to be healthy (up to 30s)
         GATEWAY_READY=false
         for i in $(seq 1 30); do
