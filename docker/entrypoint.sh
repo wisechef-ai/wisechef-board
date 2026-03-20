@@ -258,6 +258,11 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         useradd -g postgres -s /bin/false -M postgres 2>/dev/null || true
     fi
 
+    # Ensure /root is traversable by postgres user (initdb runs as postgres via spawn uid/gid)
+    if [ "$(id -u)" = "0" ]; then
+        chmod 755 /root
+    fi
+
     cd /opt/wisechef/enterprise-panel
     DATABASE_PATH="${DATABASE_PATH:-/opt/wisechef/data/enterprise.sqlite}" \
     PAPERCLIP_AUTH_MODE="${PAPERCLIP_AUTH_MODE:-local_trusted}" \
