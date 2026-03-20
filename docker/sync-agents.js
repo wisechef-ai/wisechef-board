@@ -159,7 +159,8 @@ async function main() {
   const tier = resolveTier(process.env.WISECHEF_PLAN);
   const manifest = readManifest();
   const WISECHEF_MODEL = process.env.WISECHEF_MODEL || tier.model;
-  const envLimit = Number(process.env.WISECHEF_COMPANY_AGENT_LIMIT || '');
+  const envLimitRaw = process.env.WISECHEF_COMPANY_AGENT_LIMIT;
+  const envLimit = envLimitRaw != null && envLimitRaw !== '' ? Number(envLimitRaw) : NaN;
   const maxCompanyAgents = Number.isFinite(envLimit) && envLimit >= 0
     ? Math.floor(envLimit)
     : tier.companyAgents;
