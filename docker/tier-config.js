@@ -19,7 +19,7 @@ export const TIERS = {
     thinkingDefault: 'off',
     companyAgents: 0,       // main agent only
     totalAgentsCap: 1,
-    heartbeatInterval: '30s',
+    heartbeatInterval: '30m',
     openrouterLimit: 5,     // $/month
     features: {
       taskBoard: true,
@@ -42,7 +42,7 @@ export const TIERS = {
     thinkingDefault: 'off',
     companyAgents: 4,       // main + 4 company agents = 5 total
     totalAgentsCap: 5,
-    heartbeatInterval: '30s',
+    heartbeatInterval: '30m',
     openrouterLimit: 30,    // $/month
     features: {
       taskBoard: true,
@@ -65,7 +65,7 @@ export const TIERS = {
     thinkingDefault: 'off',
     companyAgents: 20,      // main + 20 company agents = 21 total
     totalAgentsCap: 21,
-    heartbeatInterval: '30s',
+    heartbeatInterval: '30m',
     openrouterLimit: 150,   // $/month
     features: {
       taskBoard: true,
