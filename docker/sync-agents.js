@@ -158,11 +158,21 @@ async function main() {
 
   const plan = (process.env.WISECHEF_PLAN || 'pro').toLowerCase();
   const manifest = readManifest();
+  const planLimits = {
+    starter: { companyAgents: 0 },
+    pro: { companyAgents: 4 },
+    enterprise: { companyAgents: 20 },
+  };
+  const selectedPlan = planLimits[plan] ? plan : 'starter';
+  const envLimit = Number(process.env.WISECHEF_COMPANY_AGENT_LIMIT || '');
+  const maxCompanyAgents = Number.isFinite(envLimit) && envLimit >= 0
+    ? Math.floor(envLimit)
+    : planLimits[selectedPlan].companyAgents;
 
-  // Pro tier: single "main" agent only — personal assistant, no company-specific agents.
-  // Enterprise tier: main + up to 4 dedicated company agents from Paperclip.
-  if (plan !== 'enterprise') {
-    console.log(`[sync-agents] Plan=${plan} — keeping single main agent, skipping company sync`);
+  // Starter tier: single "main" agent only.
+  // Pro/Enterprise: main + dedicated company agents, capped by plan or override env.
+  if (maxCompanyAgents <= 0) {
+    console.log(`[sync-agents] Plan=${selectedPlan} — keeping single main agent, skipping company sync`);
 
     // Ensure Paperclip agents point to "main" (not company-UUID)
     const companies = await apiCall('GET', '/api/companies');
@@ -196,7 +206,7 @@ async function main() {
     process.exit(0);
   }
 
-  // ── Enterprise tier: main + per-company agents (up to 4) ──
+  // ── Multi-agent tier: main + per-company agents ──
 
   // Get all companies from Paperclip
   const companies = await apiCall('GET', '/api/companies');
@@ -205,8 +215,7 @@ async function main() {
     process.exit(0);
   }
 
-  // Limit to 4 company agents (enterprise max = 5 total including main)
-  const maxCompanyAgents = 4;
+  // Limit company agents by plan or explicit override.
   const companiesToSync = companies.slice(0, maxCompanyAgents);
   if (companies.length > maxCompanyAgents) {
     console.log(`[sync-agents] Warning: ${companies.length} companies found, only syncing first ${maxCompanyAgents}`);
