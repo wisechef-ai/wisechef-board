@@ -244,6 +244,13 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
     echo "📊 Starting Enterprise Panel (Paperclip on port ${PAPERCLIP_PORT:-3100})..."
     mkdir -p /opt/wisechef/data
 
+    # Patch embedded-postgres to work as root (add createPostgresUser: true)
+    EPANEL_INDEX="/opt/wisechef/enterprise-panel/server/dist/index.js"
+    if grep -q 'new EmbeddedPostgres({' "$EPANEL_INDEX" && ! grep -q 'createPostgresUser' "$EPANEL_INDEX"; then
+        echo "[patch] Adding createPostgresUser:true to embedded-postgres config..."
+        sed -i 's/new EmbeddedPostgres({/new EmbeddedPostgres({ createPostgresUser: true,/' "$EPANEL_INDEX"
+    fi
+
     cd /opt/wisechef/enterprise-panel
     DATABASE_PATH="${DATABASE_PATH:-/opt/wisechef/data/enterprise.sqlite}" \
     PAPERCLIP_AUTH_MODE="${PAPERCLIP_AUTH_MODE:-local_trusted}" \
@@ -265,6 +272,21 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         fi
         sleep 1
     done
+
+    # Auto-generate manifest.json from env vars if missing
+    if [ ! -f /opt/wisechef/manifest.json ] && [ -n "$CLIENT_NAME" ]; then
+        echo "📋 Generating manifest.json from env vars..."
+        cat > /opt/wisechef/manifest.json <<MANEOF
+{
+  "name": "${CLIENT_NAME}",
+  "slug": "$(echo "${CLIENT_NAME}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')",
+  "gatewayToken": "${GATEWAY_TOKEN}",
+  "plan": "${WISECHEF_PLAN:-contractor}",
+  "phone": "${CLIENT_PHONE:-}",
+  "channel": "${CLIENT_CHANNEL:-}"
+}
+MANEOF
+    fi
 
     # === Bootstrap + per-company agent isolation ===
     if [ "$PAPERCLIP_READY" = true ] && [ -f /opt/wisechef/manifest.json ]; then
