@@ -346,7 +346,27 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
         sleep 2
         nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
         echo "Gateway restarted (PID: $!)"
-        sleep 3
+        # Wait for gateway to be healthy (up to 15s)
+        GATEWAY_READY=false
+        for i in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:18789/health > /dev/null 2>&1; then
+                echo "✅ Gateway ready after ${i}s"
+                GATEWAY_READY=true
+                break
+            fi
+            sleep 1
+        done
+        if [ "$GATEWAY_READY" != "true" ]; then
+            echo "⚠️ Gateway not responding after 15s — check /var/log/openclaw-gateway.log"
+        fi
+
+        # Verify agents are registered
+        node -e "
+          const cfg = JSON.parse(require('fs').readFileSync('/root/.openclaw/openclaw.json','utf8'));
+          const agents = cfg.agents?.list || [];
+          console.log('[verify] ' + agents.length + ' agents in config:');
+          agents.forEach(a => console.log('  → ' + a.id + (a.identity?.name ? ' (' + a.identity.name + ')' : '')));
+        " 2>&1 || true
     fi
 
     cd /opt/wisechef/board
