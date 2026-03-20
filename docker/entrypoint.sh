@@ -118,17 +118,63 @@ EOF
     chmod 700 /root/.openclaw
 fi
 
-# Write OpenRouter API key to provider-keys.json if provided
-if [ -n "$OPENROUTER_API_KEY" ] && [ ! -f /root/.openclaw/provider-keys.json ]; then
-    echo "🔑 Writing OpenRouter API key to provider-keys.json..."
-    cat > /root/.openclaw/provider-keys.json <<PKEOF
+# ── OpenRouter API key provisioning ──
+# Priority: OPENROUTER_API_KEY env → create via management API → warn
+OPENROUTER_KEY_FILE="/opt/wisechef/data/openrouter-key"
+if [ -z "$OPENROUTER_API_KEY" ] && [ -f "$OPENROUTER_KEY_FILE" ]; then
+    export OPENROUTER_API_KEY="$(cat "$OPENROUTER_KEY_FILE")"
+    echo "🔑 Loaded cached OpenRouter key from $OPENROUTER_KEY_FILE"
+fi
+if [ -z "$OPENROUTER_API_KEY" ] && [ -n "$OPENROUTER_MANAGEMENT_KEY" ]; then
+    echo "🔑 Creating per-client OpenRouter key via Management API..."
+    SLUG="${CLIENT_NAME:-wisechef}"
+    SLUG="$(echo "$SLUG" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')"
+    PLAN_LIMIT="${OPENROUTER_LIMIT:-15}"
+    OR_RESULT=$(curl -sf 'https://openrouter.ai/api/v1/keys' \
+      -H "Authorization: Bearer $OPENROUTER_MANAGEMENT_KEY" \
+      -H 'Content-Type: application/json' \
+      -d "{\"name\":\"wisechef-${SLUG}\",\"limit\":${PLAN_LIMIT},\"limit_reset\":\"monthly\"}" 2>&1)
+    OR_KEY=$(echo "$OR_RESULT" | node -e "
+      let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+        try{const j=JSON.parse(d);if(j.key)process.stdout.write(j.key)}catch{}
+      })
+    " 2>/dev/null)
+    if [ -n "$OR_KEY" ]; then
+        export OPENROUTER_API_KEY="$OR_KEY"
+        echo "$OR_KEY" > "$OPENROUTER_KEY_FILE"
+        chmod 600 "$OPENROUTER_KEY_FILE"
+        echo "✅ Created OpenRouter key for $SLUG (limit: \$${PLAN_LIMIT}/mo)"
+    else
+        echo "⚠️ Failed to create OpenRouter key: $OR_RESULT"
+    fi
+fi
+if [ -z "$OPENROUTER_API_KEY" ]; then
+    echo "⚠️ No OPENROUTER_API_KEY — agent will not be able to respond to messages"
+    echo "   Set OPENROUTER_API_KEY or OPENROUTER_MANAGEMENT_KEY env var"
+fi
+
+# Re-inject into openclaw.json if key was provisioned after initial config
+if [ -n "$OPENROUTER_API_KEY" ]; then
+    node -e "
+      const fs = require('fs');
+      const p = '/root/.openclaw/openclaw.json';
+      const cfg = JSON.parse(fs.readFileSync(p,'utf8'));
+      cfg.env = cfg.env || {};
+      cfg.env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+      fs.writeFileSync(p, JSON.stringify(cfg, null, 2));
+    " 2>/dev/null
+
+    # Also write provider-keys.json for backward compat
+    if [ ! -f /root/.openclaw/provider-keys.json ]; then
+        cat > /root/.openclaw/provider-keys.json <<PKEOF
 {
   "openrouter": {
     "apiKey": "$OPENROUTER_API_KEY"
   }
 }
 PKEOF
-    chmod 600 /root/.openclaw/provider-keys.json
+        chmod 600 /root/.openclaw/provider-keys.json
+    fi
 fi
 
 # Create workspace files if they don't exist (tier-aware SOUL.md)
@@ -381,16 +427,40 @@ MANEOF
         if [ -n "${DATABASE_URL:-}" ]; then
             echo "💓 Skipping SQLite heartbeat init (external database in use)"
         else
-            echo "💓 Setting initial agent heartbeat..."
+            echo "💓 Setting initial agent heartbeat via API..."
             node -e "
-            const path = require('path');
-            const Database = require(path.join('/opt/wisechef/enterprise-panel/node_modules/better-sqlite3'));
-            const db = new Database('/opt/wisechef/data/enterprise.sqlite');
-            const now = new Date().toISOString();
-            const result = db.prepare('UPDATE agents SET last_heartbeat_at = ?, status = ? WHERE last_heartbeat_at IS NULL').run(now, 'idle');
-            if (result.changes > 0) console.log('[heartbeat] Initialized ' + result.changes + ' agents');
-            else console.log('[heartbeat] All agents already have heartbeat');
-            db.close();
+            const http = require('http');
+            const port = process.env.PAPERCLIP_PORT || 3100;
+            // Get all companies, then all agents, then PATCH each one
+            const get = (path) => new Promise((ok,no) => {
+              http.get('http://127.0.0.1:'+port+path, r => {
+                let d=''; r.on('data',c=>d+=c); r.on('end',()=>{try{ok(JSON.parse(d))}catch{ok(d)}});
+              }).on('error',no);
+            });
+            const patch = (path, body) => new Promise((ok,no) => {
+              const req = http.request('http://127.0.0.1:'+port+path, {method:'PATCH',headers:{'Content-Type':'application/json'}}, r => {
+                let d=''; r.on('data',c=>d+=c); r.on('end',()=>{try{ok(JSON.parse(d))}catch{ok(d)}});
+              });
+              req.on('error',no);
+              req.write(JSON.stringify(body));
+              req.end();
+            });
+            (async()=>{
+              const companies = await get('/api/companies');
+              if (!Array.isArray(companies)) return console.log('[heartbeat] No companies found');
+              let count = 0;
+              for (const co of companies) {
+                const agents = await get('/api/companies/'+co.id+'/agents');
+                if (!Array.isArray(agents)) continue;
+                for (const a of agents) {
+                  if (!a.lastHeartbeatAt) {
+                    await patch('/api/agents/'+a.id, {status:'idle'}).catch(()=>{});
+                    count++;
+                  }
+                }
+              }
+              console.log('[heartbeat] Initialized '+count+' agents to idle');
+            })().catch(e=>console.error('[heartbeat]',e.message));
             " 2>&1 || echo "[heartbeat] Script failed (non-fatal)"
         fi
 
@@ -405,9 +475,9 @@ MANEOF
         sleep 2
         nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
         echo "Gateway restarted (PID: $!)"
-        # Wait for gateway to be healthy (up to 15s)
+        # Wait for gateway to be healthy (up to 30s)
         GATEWAY_READY=false
-        for i in $(seq 1 15); do
+        for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:18789/health > /dev/null 2>&1; then
                 echo "✅ Gateway ready after ${i}s"
                 GATEWAY_READY=true
@@ -416,7 +486,7 @@ MANEOF
             sleep 1
         done
         if [ "$GATEWAY_READY" != "true" ]; then
-            echo "⚠️ Gateway not responding after 15s — check /var/log/openclaw-gateway.log"
+            echo "⚠️ Gateway not responding after 30s — check /var/log/openclaw-gateway.log"
         fi
 
         # Verify agents are registered
