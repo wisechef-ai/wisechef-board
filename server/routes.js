@@ -188,7 +188,7 @@ router.get('/', (req, res, next) => {
   }
   // Enterprise tier → Paperclip dashboard immediately (channel linking optional)
   const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
-  if (plan === 'enterprise' && fs.existsSync(path.join(__dirname, '..', 'enterprise-dist', 'index.html'))) {
+  if (plan === 'enterprise' && fs.existsSync(path.join(__dirname, 'enterprise-dist', 'index.html'))) {
     return res.redirect('/enterprise/');
   }
   // Other tiers: require channel linking before showing TUI
