@@ -7,7 +7,7 @@ import { useTheme } from './ThemeContext'
 const navItems = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'kanban', label: 'Tasks', icon: LayoutDashboard },
-  { id: 'agents', label: 'Agents', icon: Bot },
+  // { id: 'agents', label: 'Agents', icon: Bot }, // disabled — agent config display needs rework
   { id: 'calendar', label: 'Activity', icon: Calendar },
   { id: 'files', label: 'Files', icon: FolderOpen },
   { id: 'skills', label: 'Skills', icon: Puzzle },

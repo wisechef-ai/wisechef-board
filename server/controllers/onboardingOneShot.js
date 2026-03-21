@@ -15,6 +15,63 @@ import { WORKSPACE, AGENT_TYPES_ENABLED, POST_ONBOARD_URL } from '../config.js';
 
 const VALID_TYPES = ['personal-assistant', 'ruthless-mentor', 'executive-assistant', 'generalist'];
 
+/**
+ * Build a sensible fallback config when the model call fails.
+ * Ensures onboarding ALWAYS completes — user can customize SOUL.md later.
+ */
+function buildFallbackConfig({ companyName, focusArea, language, userInput }) {
+  const name = companyName || 'Your Company';
+  const lang = language || 'English';
+  const focus = focusArea || 'General';
+
+  // Map focus area to agent type
+  const typeMap = {
+    'Customer Support': 'sales-assistant',
+    'Operations': 'executive-assistant',
+    'Everything': 'generalist',
+  };
+  const agent_type = typeMap[focus] || 'generalist';
+
+  const soul_md = `# SOUL.md — ${name}
+
+## Identity
+You are Chef, a personal AI assistant for **${name}**, powered by WiseChef.
+
+## Communication Style
+- Be helpful, concise, and direct
+- No filler phrases — just help
+- Speak in ${lang}
+- If you're not sure about something, say so
+
+## Priorities
+- Focus area: ${focus}
+- ${userInput ? `Context: ${userInput}` : 'Help with daily operations and tasks'}
+
+## How I Work
+- Proactive — anticipate needs
+- Track commitments and follow up
+- Respect time — no noise
+- Flag risks early
+- Learn and adapt
+
+## What I Avoid
+- Overcomplicating simple tasks
+- Making assumptions without checking
+- Being passive — always suggest next steps
+`;
+
+  const skillMap = {
+    'Customer Support': ['proactive-agent', 'summarize'],
+    'Operations': ['google-workspace', 'proactive-agent'],
+    'Everything': ['proactive-agent', 'summarize'],
+  };
+  const skills = skillMap[focus] || ['proactive-agent'];
+
+  const intro_message = `Hi! I'm Chef, your AI assistant for ${name}. I'm set up and ready to help with ${focus.toLowerCase()}. What would you like to tackle first?`;
+
+  return { agent_type, soul_md, skills, intro_message };
+}
+
 const GENERATION_PROMPT = (userInput, { companyName, focusArea, language } = {}) => {
   const structured = [
     companyName ? `Company/Name: ${companyName}` : null,
@@ -79,7 +136,7 @@ async function callOpenRouter(userInput, structured = {}) {
     body: JSON.stringify({
       model: (process.env.WISECHEF_MODEL || 'anthropic/claude-sonnet-4.6').replace('openrouter/', ''),
       messages: [{ role: 'user', content: GENERATION_PROMPT(userInput, structured) }],
-      max_tokens: 1500,
+      max_tokens: 800,
       temperature: 0.3,
     }),
     signal: AbortSignal.timeout(45000),
@@ -92,7 +149,7 @@ async function callOpenRouter(userInput, structured = {}) {
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error('Empty response from model');
+  if (!content) throw new Error('Empty response from model (content was empty or missing)');
 
   // Extract JSON — model may wrap in ```json ... ```
   const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || content.match(/(\{[\s\S]*\})/);
@@ -149,7 +206,10 @@ export async function generateOnboarding(req, res) {
     res.json({ ok: true, ...result });
   } catch (err) {
     console.error('[onboarding/generate] Error:', err.message);
-    res.status(500).json({ error: 'Failed to generate agent configuration. Please try again.' });
+    // Fallback: return a sensible default instead of failing
+    const fallback = buildFallbackConfig({ companyName, focusArea, language, userInput: input.trim() });
+    console.log('[onboarding/generate] Using fallback config');
+    res.json({ ok: true, ...fallback, fallback: true });
   }
 }
 
@@ -174,7 +234,9 @@ export async function oneShotOnboarding(req, res) {
     result = validateAndSanitize(raw);
   } catch (err) {
     console.error('[onboarding/one-shot] Generation error:', err.message);
-    return res.status(500).json({ error: 'Failed to generate agent configuration. Please try again.' });
+    // Fallback: use a sensible default so onboarding ALWAYS completes
+    console.log('[onboarding/one-shot] Using fallback config');
+    result = buildFallbackConfig({ companyName, focusArea, language, userInput: enrichedInput });
   }
 
   try {

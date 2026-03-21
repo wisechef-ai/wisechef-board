@@ -6,8 +6,8 @@ const ROLES_DIR = path.join(__dirname, 'server', 'templates', 'roles');
 
 const TIER_LIMITS = {
   starter: 1,
-  pro: 3,
-  enterprise: 20,
+  pro: 5,
+  enterprise: 21,
 };
 
 function normalizeTier(input) {
@@ -201,7 +201,61 @@ export function unifiedOnboarding(req, res) {
     fs.mkdirSync(WORKSPACE, { recursive: true });
     fs.writeFileSync(path.join(WORKSPACE, 'onboarding-complete.json'), JSON.stringify(metadata, null, 2), 'utf8');
 
-    const redirect = tier === 'enterprise' ? '/dashboard' : (POST_ONBOARD_URL || '/');
+    // ── Inject identity into agent memory ──
+    // This gives the agent context about who it's serving from day one
+    const memoryPath = path.join(WORKSPACE, 'MEMORY.md');
+    const identityBlock = [
+      `# MEMORY.md — ${company.name}`,
+      `> Populated during onboarding on ${new Date().toISOString().split('T')[0]}`,
+      '',
+      '## Company',
+      `- **Name:** ${company.name}`,
+      company.description ? `- **Description:** ${company.description}` : null,
+      company.industry ? `- **Industry:** ${company.industry}` : null,
+      company.size ? `- **Size:** ${company.size}` : null,
+      `- **Language:** ${company.language}`,
+      '',
+      '## Owner',
+      `- **Name:** ${process.env.CLIENT_NAME || 'Not configured'}`,
+      process.env.CLIENT_PHONE ? `- **Phone:** ${process.env.CLIENT_PHONE}` : null,
+      process.env.CLIENT_EMAIL ? `- **Email:** ${process.env.CLIENT_EMAIL}` : null,
+      '',
+      '## Plan',
+      `- **Tier:** ${tier}`,
+      `- **Max agents:** ${maxAgents}`,
+      `- **Agents configured:** ${resolvedAgents.length}`,
+      '',
+      '## Agents',
+      ...resolvedAgents.map(a => `- **${a.displayName}** (${a.roleName}) — ${a.priorityFocus || 'general'}`),
+      '',
+      '## Preferences',
+      '(Will be learned during conversations)',
+      '',
+    ].filter(line => line !== null).join('\n');
+    fs.writeFileSync(memoryPath, identityBlock, 'utf8');
+
+    // Also inject into SESSION-STATE.md if it exists (proactive agent)
+    const statePath = path.join(WORKSPACE, 'SESSION-STATE.md');
+    if (fs.existsSync(statePath)) {
+      const stateContent = [
+        '# SESSION-STATE.md — Active Working Memory',
+        '',
+        '## Company Context',
+        `- Serving: ${company.name}${company.industry ? ` (${company.industry})` : ''}`,
+        `- Owner: ${process.env.CLIENT_NAME || 'unknown'}`,
+        `- Plan: ${tier} (${maxAgents} agents)`,
+        '',
+        '## Current Task',
+        '(none yet — will be populated during conversations)',
+        '',
+        '## Key Details',
+        '(corrections, decisions, preferences captured here via WAL protocol)',
+        '',
+      ].join('\n');
+      fs.writeFileSync(statePath, stateContent, 'utf8');
+    }
+
+    const redirect = tier === 'enterprise' ? '/enterprise/' : (POST_ONBOARD_URL || '/');
     return res.json({ success: true, redirect });
   } catch (err) {
     console.error('[onboarding/unified] Error:', err.message);

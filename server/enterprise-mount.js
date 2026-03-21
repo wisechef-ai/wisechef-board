@@ -18,12 +18,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENTERPRISE_DIST = path.join(__dirname, '..', 'enterprise-dist');
 const MANIFEST_PATH = '/opt/wisechef/manifest.json';
 const LOCAL_ENTERPRISE_PORT = parseInt(process.env.PAPERCLIP_PORT || '3100', 10);
+const OPENCLAW_CONFIG_PATH = '/root/.openclaw/openclaw.json';
+const PLAN_LIMITS = {
+  starter: { totalAgents: 1, companyAgents: 0 },
+  pro: { totalAgents: 5, companyAgents: 4 },
+  enterprise: { totalAgents: 21, companyAgents: 20 },
+};
 
 function readManifest() {
   try {
     return JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
   } catch {
     return {};
+  }
+}
+
+function readOpenClawAgents() {
+  try {
+    const config = JSON.parse(fs.readFileSync(OPENCLAW_CONFIG_PATH, 'utf8'));
+    return Array.isArray(config?.agents?.list) ? config.agents.list : [];
+  } catch {
+    return [];
   }
 }
 
@@ -104,7 +119,15 @@ export function mountEnterprise(app) {
   // Plan info endpoint — lightweight, returns plan tier for the UI
   app.get('/enterprise/api/plan', (req, res) => {
     const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
-    res.json({ plan });
+    const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.starter;
+    const totalAgents = readOpenClawAgents().length || 1;
+    res.json({
+      plan,
+      personalAssistantIncluded: true,
+      totalAgentLimit: limits.totalAgents,
+      teamAgentLimit: limits.companyAgents,
+      teamAgentsUsed: Math.max(0, totalAgents - 1),
+    });
   });
 
   // Container context — minimal, for PA view

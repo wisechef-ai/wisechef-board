@@ -7,7 +7,7 @@ import { getActivity, getTime } from './controllers/activity.js';
 import {
   listTasks, createTask, updateTask, reorderTasks,
   runTask, getTaskQueue, pickupTask, completeTask, deleteTask, bulkDeleteTasks,
-  getCalendar, getRunHistory, toggleSchedule, getCapacity, reportStatusCheck,
+  getCalendar, getRunHistory, toggleSchedule, getCapacity, reportStatusCheck, getCompletionRate,
 } from './controllers/tasks.js';
 import { getUsage, getCurrentMonthUsage } from './controllers/usage.js';
 import { getOpenclawVersion, updateOpenclaw } from './controllers/openclaw.js';
@@ -79,6 +79,7 @@ router.post('/api/tasks/reorder', reorderTasks);
 router.post('/api/tasks/:id/run', runTask);
 router.get('/api/tasks/queue', getTaskQueue);
 router.get('/api/tasks/capacity', getCapacity);
+router.get('/api/tasks/completion-rate', getCompletionRate);
 router.post('/api/tasks/:id/pickup', pickupTask);
 router.post('/api/tasks/:id/complete', completeTask);
 router.post('/api/tasks/:id/status-check', reportStatusCheck);
@@ -180,21 +181,39 @@ router.get('/health', (_req, res) => {
 });
 
 
-// ──── Root route: onboarding flow → SPA ────
-router.get('/', (req, res) => {
+// ──── Root route: onboarding flow → Enterprise Dashboard / Control UI ────
+router.get('/', (req, res, next) => {
   if (!isOnboarded()) {
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
   }
+  // Enterprise tier → Paperclip dashboard immediately (channel linking optional)
+  const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
+  if (plan === 'enterprise' && fs.existsSync(path.join(__dirname, 'enterprise-dist', 'index.html'))) {
+    return res.redirect('/enterprise/');
+  }
+  // Other tiers: require channel linking before showing TUI
   if (!hasLinkedChannel() && !req.query.skip) {
     return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
   }
-  // Onboarded + linked → serve the board SPA
-  return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  // Onboarded + linked → pass through to gateway Control UI (proxy catch-all)
+  next();
 });
 
-// SPA fallback — all other routes serve the React app
-router.get('*', (req, res) => {
+// Board SPA — only accessible at /board/*
+router.get('/board', (_req, res) => res.redirect('/board/'));
+router.get('/board/*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// ──── Catch-all: proxy everything else to OpenClaw gateway ────
+// This makes the Control UI (TUI) the default interface
+router.all('*', (req, res) => {
+  const httpProxy = req.app.get('gatewayProxy');
+  if (httpProxy) {
+    httpProxy.web(req, res);
+  } else {
+    res.status(502).send('Gateway unavailable');
+  }
 });
 
 export default router;

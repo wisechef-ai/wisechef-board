@@ -515,15 +515,68 @@ export async function startLinking(req, res) {
     });
 
     proc.stderr.on('data', (data) => { session.logs.push(data.toString()); });
-    proc.on('exit', (code) => {
+    // Retry logic: on exit code 1, retry up to 3 times
+    session._retryCount = 0;
+    const MAX_RETRIES = 3;
+
+    const handleExit = (code) => {
       if (session.status === 'connected') return;
-      if (code !== 0) { session.status = 'failed'; session.error = `Process exited with code ${code}`; }
-    });
+      if (code !== 0 && session._retryCount < MAX_RETRIES) {
+        session._retryCount++;
+        session.logs.push(`[retry] Attempt ${session._retryCount}/${MAX_RETRIES} after exit code ${code}...`);
+        session.status = 'waiting';
+        session.qrRaw = null;
+
+        setTimeout(() => {
+          const retryProc = spawn('openclaw', ['channels', 'login', '--channel', channel, '--verbose'], {
+            env: { ...process.env, TERM: 'dumb', NO_COLOR: '1' },
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          session.process = retryProc;
+          let retryBuffer = '';
+
+          retryProc.stdout.on('data', (data) => {
+            const text = data.toString();
+            retryBuffer += text;
+            session.logs.push(text);
+            if (text.includes('▄') || text.includes('█')) {
+              const lines = retryBuffer.split('\n');
+              const qrLines = [];
+              for (let i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].includes('▄') || lines[i].includes('█') || lines[i].includes('▀')) {
+                  qrLines.unshift(lines[i]);
+                } else if (qrLines.length > 0) break;
+              }
+              session.qrRaw = qrLines.join('\n');
+              session.status = 'qr_ready';
+            }
+            if (text.toLowerCase().includes('connected') || text.toLowerCase().includes('success')) {
+              session.status = 'connected';
+              saveChannelLink(channel);
+              try { restartGateway(); } catch (e) { session.logs.push('Gateway restart error: ' + e.message); }
+              let welcomeTarget;
+              try {
+                const cfg = JSON.parse(fs.readFileSync(path.join(process.env.HOME || '/root', '.openclaw/openclaw.json'), 'utf8'));
+                welcomeTarget = cfg.channels?.[channel]?.account || cfg.channels?.[channel]?.allowFrom?.[0];
+              } catch {}
+              sendWelcomeMessage(channel, welcomeTarget);
+            }
+          });
+          retryProc.stderr.on('data', (data) => { session.logs.push(data.toString()); });
+          retryProc.on('exit', handleExit);
+        }, 3000); // 3s delay between retries
+      } else if (code !== 0) {
+        session.status = 'failed';
+        session.error = `Process exited with code ${code} after ${session._retryCount} retries`;
+      }
+    };
+
+    proc.on('exit', handleExit);
 
     setTimeout(() => {
       if (session.status === 'waiting' || session.status === 'qr_ready') {
         session.status = 'timeout';
-        try { proc.kill(); } catch {}
+        try { session.process?.kill(); } catch {}
       }
     }, 180000);
 
