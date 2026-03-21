@@ -197,6 +197,10 @@ router.get('/', (req, res, next) => {
   return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
+// Dashboard SPA — catch /dashboard/* paths (SPA client-side routes)
+router.get("/dashboard", (_req, res) => res.sendFile(path.join(__dirname, "dist", "index.html")));
+router.get("/dashboard/*", (_req, res) => res.sendFile(path.join(__dirname, "dist", "index.html")));
+
 // Board SPA — serve for /board and /board/* paths
 router.get('/board', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 router.get('/board/', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
