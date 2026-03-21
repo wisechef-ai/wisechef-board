@@ -1,0 +1,109 @@
+name: Release — Build & Push Docker Image
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  IMAGE: wisechef/agent
+  REGISTRY: docker.io
+
+jobs:
+  test:
+    name: E2E Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: cd tests/e2e && npm ci 2>/dev/null || true
+      - name: Run smoke tests (offline)
+        run: |
+          cd tests/e2e
+          node run-offline.cjs 2>&1 | tee /tmp/test-results.txt
+          grep -q "ALL CHECKS PASSED" /tmp/test-results.txt || (cat /tmp/test-results.txt && exit 1)
+
+  build-and-push:
+    name: Build & Push wisechef/agent
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set CalVer tag
+        id: calver
+        run: |
+          TAG=$(date -u '+%Y.%-m.%-d')
+          # bump patch if same-day tag exists
+          echo "TAG=${TAG}" >> $GITHUB_OUTPUT
+          echo "FULL_TAG=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get latest SHAs
+        id: shas
+        run: |
+          BOARD_SHA=$(git rev-parse HEAD)
+          echo "BOARD_SHA=${BOARD_SHA}" >> $GITHUB_OUTPUT
+
+          ENTERPRISE_SHA=$(git ls-remote https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/wisechef-ai/wisechef-enterprise.git refs/heads/feature/cost-controls | cut -f1)
+          echo "ENTERPRISE_SHA=${ENTERPRISE_SHA}" >> $GITHUB_OUTPUT
+
+          PANEL_SHA=$(git ls-remote https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/wisechef-ai/wisechef-enterprise-panel.git refs/heads/hotfix/fix-docker-build-ts-errors | cut -f1)
+          echo "PANEL_SHA=${PANEL_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.calver.outputs.TAG }}
+            ${{ env.IMAGE }}:latest
+          secrets: |
+            GH_TOKEN=${{ secrets.GH_TOKEN }}
+          build-args: |
+            WISECHEF_BOARD_SHA=${{ steps.shas.outputs.BOARD_SHA }}
+            WISECHEF_ENTERPRISE_SHA=${{ steps.shas.outputs.ENTERPRISE_SHA }}
+            WISECHEF_ENTERPRISE_PANEL_SHA=${{ steps.shas.outputs.PANEL_SHA }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Tag release in git
+        run: |
+          git config user.name "WiseChef Bot"
+          git config user.email "bot@wisechef.ai"
+          git tag -a "v${{ steps.calver.outputs.TAG }}" -m "Release ${{ steps.calver.outputs.TAG }}" || true
+          git push origin "v${{ steps.calver.outputs.TAG }}" || true
+
+      - name: Update image tag in provisioning env
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.WISECHEF_HQ_IP }}
+          username: wisechef
+          key: ${{ secrets.WISECHEF_HQ_SSH_KEY }}
+          script: |
+            sed -i "s|export WISECHEF_IMAGE_TAG=.*|export WISECHEF_IMAGE_TAG=${{ steps.calver.outputs.TAG }}|" \
+              /home/wisechef/companies/wisechef/wisechef-ops/provisioning/.env
+            echo "Image tag updated to ${{ steps.calver.outputs.TAG }}"
+            # Pull new image on docker-01
+            ssh wisechef@89.167.102.128 "docker pull wisechef/agent:${{ steps.calver.outputs.TAG }}"
+
+      - name: Notify Discord
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\":\"🚀 **wisechef/agent:${{ steps.calver.outputs.TAG }}** pushed to Docker Hub\\n• Board SHA: \`${{ steps.shas.outputs.BOARD_SHA }}\`\\n• Provisioning updated on wisechef-hq\\n• docker-01 pulling new image\"}"

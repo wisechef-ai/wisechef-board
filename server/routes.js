@@ -181,29 +181,27 @@ router.get('/health', (_req, res) => {
 });
 
 
-// ──── Root route: onboarding flow → Enterprise Dashboard / Control UI ────
+// ──── Root route: onboarding flow → Enterprise Dashboard / Board SPA ────
 router.get('/', (req, res, next) => {
   if (!isOnboarded()) {
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
   }
-  // Enterprise tier → Paperclip dashboard immediately (channel linking optional)
+  // Enterprise tier → Paperclip dashboard
   const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
   if (plan === 'enterprise' && fs.existsSync(path.join(__dirname, 'enterprise-dist', 'index.html'))) {
     return res.redirect('/enterprise/');
   }
-  // Other tiers: require channel linking before showing TUI
-  if (!hasLinkedChannel() && !req.query.skip) {
-    return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
-  }
-  // Onboarded + linked → pass through to gateway Control UI (proxy catch-all)
-  next();
+  // All other tiers → Board SPA (serve directly, no redirect)
+  return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-// Board SPA — only accessible at /board/*
-router.get('/board', (_req, res) => res.redirect('/board/'));
+// Board SPA — serve for /board and /board/* paths
+router.get('/board', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
+router.get('/board/', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 router.get('/board/*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
+
 
 // ──── Catch-all: proxy everything else to OpenClaw gateway ────
 // This makes the Control UI (TUI) the default interface
