@@ -181,7 +181,7 @@ router.get('/health', (_req, res) => {
 });
 
 
-// ──── Root route: onboarding flow → Control UI ────
+// ──── Root route: onboarding flow → Enterprise Dashboard / Control UI ────
 router.get('/', (req, res, next) => {
   if (!isOnboarded()) {
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
@@ -189,7 +189,12 @@ router.get('/', (req, res, next) => {
   if (!hasLinkedChannel() && !req.query.skip) {
     return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
   }
-  // Onboarded + linked → pass through to gateway Control UI (proxy catch-all)
+  // Enterprise tier → Paperclip dashboard (has chat + agent management + tasks)
+  const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
+  if (plan === 'enterprise' && fs.existsSync(path.join(__dirname, '..', 'enterprise-dist', 'index.html'))) {
+    return res.redirect('/enterprise/');
+  }
+  // Other tiers → pass through to gateway Control UI (proxy catch-all)
   next();
 });
 
