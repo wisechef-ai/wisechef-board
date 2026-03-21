@@ -18,7 +18,7 @@ ARG GH_TOKEN
 
 # ── 1. WiseChef Board ──
 ARG WISECHEF_BOARD_REPO=https://github.com/wisechef-ai/wisechef-board.git
-ARG WISECHEF_BOARD_REF=stabilization/2604
+ARG WISECHEF_BOARD_REF=release/v26.04.1
 ARG WISECHEF_BOARD_SHA
 RUN test -n "$WISECHEF_BOARD_SHA" || (echo "WISECHEF_BOARD_SHA build arg is required" && exit 1)
 RUN git clone --branch "$WISECHEF_BOARD_REF" "$WISECHEF_BOARD_REPO" board && \
@@ -31,7 +31,7 @@ RUN npm install --production=false && npm run build && npm prune --production
 # ── 2. WiseChef Enterprise CLI ──
 WORKDIR /opt/wisechef
 ARG WISECHEF_ENTERPRISE_REPO=https://github.com/wisechef-ai/wisechef-enterprise.git
-ARG WISECHEF_ENTERPRISE_REF=feature/enterprise-onboarding-wizard
+ARG WISECHEF_ENTERPRISE_REF=feature/cost-controls
 ARG WISECHEF_ENTERPRISE_SHA
 RUN test -n "$GH_TOKEN" || (echo "GH_TOKEN build arg is required for private repos" && exit 1)
 RUN test -n "$WISECHEF_ENTERPRISE_SHA" || (echo "WISECHEF_ENTERPRISE_SHA build arg is required" && exit 1)
@@ -47,7 +47,7 @@ RUN git clone --branch "$WISECHEF_ENTERPRISE_REF" \
 
 # ── 3. WiseChef Enterprise Panel (built from pinned source, no opaque bundle) ──
 ARG WISECHEF_ENTERPRISE_PANEL_REPO=https://github.com/wisechef-ai/wisechef-enterprise-panel.git
-ARG WISECHEF_ENTERPRISE_PANEL_REF=hotfix/fix-docker-build-ts-errors
+ARG WISECHEF_ENTERPRISE_PANEL_REF=master
 ARG WISECHEF_ENTERPRISE_PANEL_SHA
 RUN test -n "$WISECHEF_ENTERPRISE_PANEL_SHA" || (echo "WISECHEF_ENTERPRISE_PANEL_SHA build arg is required" && exit 1)
 RUN git clone --branch "$WISECHEF_ENTERPRISE_PANEL_REF" \
