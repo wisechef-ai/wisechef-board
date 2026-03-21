@@ -10,7 +10,7 @@
 set -e
 
 MARKER="/opt/wisechef/.post-install-done"
-VERSION="2026.04.1"
+VERSION="2026.04.1a"
 LOG="/opt/wisechef/logs/post-install.log"
 mkdir -p /opt/wisechef/logs
 
@@ -120,10 +120,15 @@ if [ -f "$OPENCLAW_CFG" ]; then
 const fs = require('fs');
 const cfg = JSON.parse(fs.readFileSync('$OPENCLAW_CFG', 'utf8'));
 
-// Ensure pairing codes don't leak to channels
+// Remove deprecated keys that break new OpenClaw (strict validation)
 if (!cfg.gateway) cfg.gateway = {};
-if (!cfg.gateway.devicePairing) cfg.gateway.devicePairing = {};
-cfg.gateway.devicePairing.autoApprove = true;
+for (const key of ['devicePairing', 'dangerouslyDisableDeviceAuth', 'apiTokens']) {
+    delete cfg.gateway[key];
+}
+// Disable device-pair plugin (prevents pairing code leak)
+if (!cfg.plugins) cfg.plugins = {};
+if (!cfg.plugins.entries) cfg.plugins.entries = {};
+cfg.plugins.entries['device-pair'] = { enabled: false };
 // Bind to all interfaces for Docker
 cfg.gateway.bind = 'lan';
 // Ensure env has API key for model resolution
@@ -132,7 +137,7 @@ if (process.env.OPENROUTER_API_KEY && !cfg.env.OPENROUTER_API_KEY) {
     cfg.env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 }
 fs.writeFileSync('$OPENCLAW_CFG', JSON.stringify(cfg, null, 2));
-console.log('OpenClaw config patched: devicePairing.autoApprove + bind:lan + env keys');
+console.log('[sanitize] Config patched: deprecated keys removed, device-pair disabled');
 " 2>>"$LOG" || log "⚠️ Config patch failed"
 fi
 
