@@ -310,7 +310,7 @@ export default function UsageWidget() {
               <div>
                 <p className="text-[11px] text-amber-400 font-medium">Beta Access</p>
                 <p className="text-[10px] text-muted-foreground">
-                  You're one of the first users! All Pro features at Starter price — for life.
+                  You're one of the first users! Early adopter pricing locked in — for life.
                 </p>
               </div>
             </div>
