@@ -47,7 +47,7 @@ RUN git clone --branch "$WISECHEF_ENTERPRISE_REF" \
 
 # ── 3. WiseChef Enterprise Panel (built from pinned source, no opaque bundle) ──
 ARG WISECHEF_ENTERPRISE_PANEL_REPO=https://github.com/wisechef-ai/wisechef-enterprise-panel.git
-ARG WISECHEF_ENTERPRISE_PANEL_REF=master
+ARG WISECHEF_ENTERPRISE_PANEL_REF=hotfix/fix-docker-build-ts-errors
 ARG WISECHEF_ENTERPRISE_PANEL_SHA
 RUN test -n "$WISECHEF_ENTERPRISE_PANEL_SHA" || (echo "WISECHEF_ENTERPRISE_PANEL_SHA build arg is required" && exit 1)
 RUN git clone --branch "$WISECHEF_ENTERPRISE_PANEL_REF" \
