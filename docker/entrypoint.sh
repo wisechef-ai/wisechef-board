@@ -39,6 +39,11 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       const t = resolveTier(process.env.WISECHEF_PLAN);
       process.stdout.write(t.model);
     " 2>/dev/null || echo 'openrouter/google/gemini-2.5-flash')}"
+    # Normalize model name: ensure openrouter/ prefix for all OpenRouter models
+    case "$WISECHEF_MODEL" in
+      openrouter/*) ;; # already prefixed
+      */*)  WISECHEF_MODEL="openrouter/$WISECHEF_MODEL" ;; # has slash but no openrouter prefix
+    esac
     echo "🤖 Model for ${WISECHEF_PLAN:-contractor} plan: $WISECHEF_MODEL"
 
     # Generate gateway token if not provided
