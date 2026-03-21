@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.6
 # WiseChef Agent Container — reproducible customer runtime
 # Stack: OpenClaw + WiseChef Board + Enterprise Panel + nightly self-improve/Cognee scaffolding
 FROM node:22-slim
@@ -13,8 +13,6 @@ RUN find /usr/local/lib/node_modules/openclaw/dist/ -name "session-*.js" \
     -exec sed -i 's/"openclaw","cli"/"Chef","web"/g' {} \; 2>/dev/null || true
 
 WORKDIR /opt/wisechef
-
-ARG GH_TOKEN
 
 # ── 1. WiseChef Board ──
 ARG WISECHEF_BOARD_REPO=https://github.com/wisechef-ai/wisechef-board.git
@@ -33,32 +31,39 @@ WORKDIR /opt/wisechef
 ARG WISECHEF_ENTERPRISE_REPO=https://github.com/wisechef-ai/wisechef-enterprise.git
 ARG WISECHEF_ENTERPRISE_REF=feature/cost-controls
 ARG WISECHEF_ENTERPRISE_SHA
-RUN test -n "$GH_TOKEN" || (echo "GH_TOKEN build arg is required for private repos" && exit 1)
 RUN test -n "$WISECHEF_ENTERPRISE_SHA" || (echo "WISECHEF_ENTERPRISE_SHA build arg is required" && exit 1)
-RUN git clone --branch "$WISECHEF_ENTERPRISE_REF" \
-    "https://x-access-token:${GH_TOKEN}@github.com/wisechef-ai/wisechef-enterprise.git" enterprise && \
-    cd enterprise && \
-    git checkout --detach "$WISECHEF_ENTERPRISE_SHA" && \
-    test "$(git rev-parse HEAD)" = "$WISECHEF_ENTERPRISE_SHA" && \
-    npm install --production && \
-    chmod +x cli.js && \
-    ln -sf /opt/wisechef/enterprise/cli.js /usr/local/bin/wisechef-enterprise && \
-    git remote set-url origin "$WISECHEF_ENTERPRISE_REPO"
+RUN --mount=type=secret,id=GH_TOKEN \
+    bash -lc 'set -e; \
+      printf "#!/bin/sh\ncat /run/secrets/GH_TOKEN\n" > /tmp/askpass && chmod +x /tmp/askpass; \
+      export GIT_ASKPASS=/tmp/askpass GIT_TERMINAL_PROMPT=0; \
+      git clone --branch "$WISECHEF_ENTERPRISE_REF" \
+        "https://x-access-token@github.com/wisechef-ai/wisechef-enterprise.git" enterprise && \
+      cd enterprise && \
+      git checkout --detach "$WISECHEF_ENTERPRISE_SHA" && \
+      test "$(git rev-parse HEAD)" = "$WISECHEF_ENTERPRISE_SHA" && \
+      npm install --production && \
+      chmod +x cli.js && \
+      ln -sf /opt/wisechef/enterprise/cli.js /usr/local/bin/wisechef-enterprise && \
+      git remote set-url origin "$WISECHEF_ENTERPRISE_REPO"'
 
 # ── 3. WiseChef Enterprise Panel (built from pinned source, no opaque bundle) ──
 ARG WISECHEF_ENTERPRISE_PANEL_REPO=https://github.com/wisechef-ai/wisechef-enterprise-panel.git
 ARG WISECHEF_ENTERPRISE_PANEL_REF=hotfix/fix-docker-build-ts-errors
 ARG WISECHEF_ENTERPRISE_PANEL_SHA
 RUN test -n "$WISECHEF_ENTERPRISE_PANEL_SHA" || (echo "WISECHEF_ENTERPRISE_PANEL_SHA build arg is required" && exit 1)
-RUN git clone --branch "$WISECHEF_ENTERPRISE_PANEL_REF" \
-    "https://x-access-token:${GH_TOKEN}@github.com/wisechef-ai/wisechef-enterprise-panel.git" enterprise-panel && \
-    cd enterprise-panel && \
-    git checkout --detach "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
-    test "$(git rev-parse HEAD)" = "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
-    corepack enable && \
-    (pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile) && \
-    pnpm -r build && \
-    git remote set-url origin "$WISECHEF_ENTERPRISE_PANEL_REPO"
+RUN --mount=type=secret,id=GH_TOKEN \
+    bash -lc 'set -e; \
+      printf "#!/bin/sh\ncat /run/secrets/GH_TOKEN\n" > /tmp/askpass && chmod +x /tmp/askpass; \
+      export GIT_ASKPASS=/tmp/askpass GIT_TERMINAL_PROMPT=0; \
+      git clone --branch "$WISECHEF_ENTERPRISE_PANEL_REF" \
+        "https://x-access-token@github.com/wisechef-ai/wisechef-enterprise-panel.git" enterprise-panel && \
+      cd enterprise-panel && \
+      git checkout --detach "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
+      test "$(git rev-parse HEAD)" = "$WISECHEF_ENTERPRISE_PANEL_SHA" && \
+      corepack enable && \
+      (pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile) && \
+      pnpm -r build && \
+      git remote set-url origin "$WISECHEF_ENTERPRISE_PANEL_REPO"'
 
 # ── 4. Runtime setup ──
 WORKDIR /opt/wisechef
