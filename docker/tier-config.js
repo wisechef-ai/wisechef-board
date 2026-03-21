@@ -17,7 +17,7 @@ export const TIERS = {
     label: 'Founder',
     price: 0,               // internal only, not for sale
     internal: true,         // sub-business founder template
-    model: 'openai/gpt-5.4-codex',
+    model: 'openrouter/openai/gpt-5.4',
     thinkingDefault: 'off',
     companyAgents: 0,       // main agent only
     totalAgentsCap: 1,
@@ -43,8 +43,8 @@ export const TIERS = {
   pro: {
     label: 'Pro',
     price: 199,
-    model: 'github-copilot/claude-sonnet-4-6',
-    thinkingDefault: 'low',
+    model: 'openrouter/minimax/minimax-m2.7',
+    thinkingDefault: 'adaptive',
     companyAgents: 4,       // main + 4 company agents = 5 total
     totalAgentsCap: 5,
     heartbeatInterval: '30m',
@@ -70,8 +70,8 @@ export const TIERS = {
   enterprise: {
     label: 'Enterprise',
     price: 499,
-    model: 'github-copilot/claude-sonnet-4-6',
-    thinkingDefault: 'low',
+    model: 'openrouter/minimax/minimax-m2.7',
+    thinkingDefault: 'adaptive',
     companyAgents: 20,      // main + 20 company agents = 21 total
     totalAgentsCap: 21,
     heartbeatInterval: '30m',

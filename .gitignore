@@ -6,3 +6,4 @@ credentials/
 *.pem
 *.key
 data/tasks.json
+.github/workflows/
