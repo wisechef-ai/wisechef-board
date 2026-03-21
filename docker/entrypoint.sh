@@ -80,14 +80,9 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
   "gateway": {
     "auth": {
       "token": "$GATEWAY_TOKEN",
-      "mode": "trusted-proxy",
-      "trustedProxy": {
-        "userHeader": "cf-access-authenticated-user-email",
-        "requiredHeaders": []
-      },
+      "mode": "token",
       "allowTailscale": false
     },
-    "trustedProxies": ["127.0.0.1", "::1"],
     "controlUi": {
       "allowInsecureAuth": true,
       "dangerouslyDisableDeviceAuth": true,
