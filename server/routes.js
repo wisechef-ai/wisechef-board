@@ -20,7 +20,7 @@ import { getBoardVersion, updateBoard } from './controllers/vidclaw.js';
 import { listCredentials, putCredential, deleteCredential } from './controllers/credentials.js';
 import { createChatSession, sendChatMessage } from './controllers/chat.js';
 import { getUsageLimits } from './middleware/usageGuard.js';
-import { listAgents, agentsStatus, updateAgent } from './controllers/agents.js';
+import { listAgents, agentsStatus, updateAgent, createAgent, deleteAgent } from './controllers/agents.js';
 import {
   isOnboarded, hasLinkedChannel,
   getOnboardingStatus, completeOnboarding,
@@ -138,6 +138,8 @@ router.delete('/api/credentials/:name', deleteCredential);
 router.get('/api/agents', listAgents);
 router.get('/api/agents/status', agentsStatus);
 router.put('/api/agents/:id', updateAgent);
+router.post("/api/agents", createAgent);
+router.delete("/api/agents/:id", deleteAgent);
 
 // WiseChef Board
 router.get('/api/wisechef-board/version', getBoardVersion);
