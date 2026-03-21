@@ -108,6 +108,13 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       }
     ]
   },
+  "plugins": {
+    "entries": {
+      "device-pair": {
+        "enabled": false
+      }
+    }
+  },
   "env": {}
 }
 EOF
@@ -368,6 +375,16 @@ BUF_EOF
         cp -rn /opt/wisechef/bundled-skills/* "$WORKSPACE_DIR/skills/" 2>/dev/null || true
         echo "[entrypoint] Copied bundled skills to workspace"
     fi
+fi
+
+# ── Run post-install script (Cognee, Scrapling, PinchTab, etc.) ──
+# This runs idempotently — skips if already done for current version
+if [ -x /opt/wisechef/board/docker/post-install.sh ]; then
+    echo "📦 Running post-install script..."
+    /opt/wisechef/board/docker/post-install.sh || echo "⚠️ Post-install had issues (non-fatal)"
+elif [ -n "$WISECHEF_POST_INSTALL_URL" ]; then
+    echo "📦 Fetching post-install script from $WISECHEF_POST_INSTALL_URL..."
+    curl -sf "$WISECHEF_POST_INSTALL_URL" -o /tmp/post-install.sh && chmod +x /tmp/post-install.sh && /tmp/post-install.sh || echo "⚠️ Remote post-install failed (non-fatal)"
 fi
 
 # Create project workspace directory (Issue 6)

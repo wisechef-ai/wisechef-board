@@ -11,11 +11,13 @@
  */
 
 export const TIERS = {
+  // Founder tier — internal WiseChef sub-business agents (geo-seo, hypecheck, etc.)
+  // Uses openai-codex/gpt-5.4 for maximum coding/autonomy capability
   contractor: {
-    label: 'Contractor',
+    label: 'Founder',
     price: 0,               // internal only, not for sale
     internal: true,         // sub-business founder template
-    model: 'openrouter/minimax/minimax-m2.7',
+    model: 'openai/gpt-5.4-codex',
     thinkingDefault: 'off',
     companyAgents: 0,       // main agent only
     totalAgentsCap: 1,
@@ -28,22 +30,26 @@ export const TIERS = {
       channels: 'unlimited',
       fileUpload: true,
       cron: true,
-      knowledgeGraph: false,
+      knowledgeGraph: true,
       selfImprove: true,
       codingAgent: true,
+      paperclip: true,
+      cognee: true,
     },
     soulTemplate: 'contractor',
   },
 
+  // Pro tier — customer plan, 5 total agents, Docker-based
   pro: {
     label: 'Pro',
     price: 199,
-    model: 'openrouter/minimax/minimax-m2.7',
-    thinkingDefault: 'off',
+    model: 'github-copilot/claude-sonnet-4-6',
+    thinkingDefault: 'low',
     companyAgents: 4,       // main + 4 company agents = 5 total
     totalAgentsCap: 5,
     heartbeatInterval: '30m',
     openrouterLimit: 30,    // $/month
+    spawnTarget: 'docker',  // sub-agents on same Docker host
     features: {
       taskBoard: true,
       subAgents: true,
@@ -51,22 +57,26 @@ export const TIERS = {
       channels: 'unlimited',
       fileUpload: true,
       cron: true,
-      knowledgeGraph: false,
+      knowledgeGraph: true,
       selfImprove: true,
       codingAgent: true,
+      paperclip: true,
+      cognee: true,
     },
     soulTemplate: 'pro',
   },
 
+  // Enterprise tier — customer plan, 21 total agents, dedicated VPS
   enterprise: {
     label: 'Enterprise',
     price: 499,
-    model: 'openrouter/minimax/minimax-m2.7',
-    thinkingDefault: 'off',
+    model: 'github-copilot/claude-sonnet-4-6',
+    thinkingDefault: 'low',
     companyAgents: 20,      // main + 20 company agents = 21 total
     totalAgentsCap: 21,
     heartbeatInterval: '30m',
     openrouterLimit: 150,   // $/month
+    spawnTarget: 'vps',     // sub-agents get dedicated VPS
     features: {
       taskBoard: true,
       subAgents: true,
@@ -79,6 +89,8 @@ export const TIERS = {
       codingAgent: true,
       customWorkflows: true,
       prioritySupport: true,
+      paperclip: true,
+      cognee: true,
     },
     soulTemplate: 'enterprise',
   },
