@@ -186,15 +186,16 @@ router.get('/', (req, res, next) => {
   if (!isOnboarded()) {
     return res.sendFile(path.join(__dirname, 'pages', 'onboarding-unified.html'));
   }
-  if (!hasLinkedChannel() && !req.query.skip) {
-    return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
-  }
-  // Enterprise tier → Paperclip dashboard (has chat + agent management + tasks)
+  // Enterprise tier → Paperclip dashboard immediately (channel linking optional)
   const plan = (process.env.WISECHEF_PLAN || 'starter').toLowerCase();
   if (plan === 'enterprise' && fs.existsSync(path.join(__dirname, '..', 'enterprise-dist', 'index.html'))) {
     return res.redirect('/enterprise/');
   }
-  // Other tiers → pass through to gateway Control UI (proxy catch-all)
+  // Other tiers: require channel linking before showing TUI
+  if (!hasLinkedChannel() && !req.query.skip) {
+    return res.sendFile(path.join(__dirname, 'pages', 'link-channel.html'));
+  }
+  // Onboarded + linked → pass through to gateway Control UI (proxy catch-all)
   next();
 });
 
