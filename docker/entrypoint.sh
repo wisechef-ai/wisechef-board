@@ -138,6 +138,11 @@ EOF
     chmod 700 /root/.openclaw
 fi
 
+# ── Config sanitizer — remove deprecated keys on every boot ──────────────
+# Runs AFTER config generation (first boot) and BEFORE gateway start (restart)
+node /opt/wisechef/board/docker/sanitize-config.mjs 2>/dev/null || true
+
+
 # ── OpenRouter API key provisioning ──
 # Priority: OPENROUTER_API_KEY env → create via management API → warn
 OPENROUTER_KEY_FILE="/opt/wisechef/data/openrouter-key"
