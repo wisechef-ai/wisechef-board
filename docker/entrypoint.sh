@@ -59,6 +59,17 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
       process.stdout.write(resolveTier(process.env.WISECHEF_PLAN).thinkingDefault);
     " 2>/dev/null || echo 'off')"
 
+
+    # Derive external hostname for CORS/WebSocket allowedOrigins
+    EXTERNAL_HOSTNAME=""
+    if [ -n "$COMPANY_SLUG" ]; then
+      EXTERNAL_HOSTNAME="${COMPANY_SLUG}.wisechef.ai"
+    elif [ -f /opt/wisechef/manifest.json ]; then
+      EXTERNAL_HOSTNAME="$(python3 -c "import json; print(json.load(open('/opt/wisechef/manifest.json')).get('hostname',''))" 2>/dev/null)"
+    fi
+    EXTERNAL_ORIGINS=""
+    [ -n "$EXTERNAL_HOSTNAME" ] && EXTERNAL_ORIGINS=", \"https://$EXTERNAL_HOSTNAME\""
+
     cat > /root/.openclaw/openclaw.json <<EOF
 {
   "gateway": {
@@ -75,7 +86,7 @@ if [ ! -f /root/.openclaw/openclaw.json ]; then
     "controlUi": {
       "allowInsecureAuth": true,
       "dangerouslyDisableDeviceAuth": true,
-      "allowedOrigins": ["http://localhost:18789", "http://127.0.0.1:18789", "http://localhost:3333", "http://127.0.0.1:3333"]
+      "allowedOrigins": ["http://localhost:18789", "http://127.0.0.1:18789", "http://localhost:3333", "http://127.0.0.1:3333"$EXTERNAL_ORIGINS]
     },
     "port": 18789,
     "bind": "lan",
