@@ -572,7 +572,7 @@
         });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.error || 'Launch failed');
-        window.location.href = data.redirect || '/dashboard';
+        window.location.href = data.redirect || '/link';
       } catch (err) {
         state.launchStarted = false;
         setMessage(err.message || 'Onboarding failed. Please try again.', 'error');
@@ -610,7 +610,7 @@
         });
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || 'Launch failed');
-        window.location.href = data.redirect || '/dashboard';
+        window.location.href = data.redirect || '/enterprise/';
       } catch (err) {
         setMessage(err.message || 'Could not launch your team.', 'error');
       }

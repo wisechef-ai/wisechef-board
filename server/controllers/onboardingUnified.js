@@ -255,7 +255,7 @@ export function unifiedOnboarding(req, res) {
       fs.writeFileSync(statePath, stateContent, 'utf8');
     }
 
-    const redirect = tier === 'enterprise' ? '/enterprise/' : (POST_ONBOARD_URL || '/');
+    const redirect = tier === 'enterprise' ? '/enterprise/' : (POST_ONBOARD_URL || '/link');
     return res.json({ success: true, redirect });
   } catch (err) {
     console.error('[onboarding/unified] Error:', err.message);

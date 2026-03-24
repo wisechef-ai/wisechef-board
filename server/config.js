@@ -216,7 +216,7 @@ You are a chief of staff — the connective tissue of an organisation. You see p
 ];
 
 // ──── Panel URL (post-onboarding redirect target) ────
-export const POST_ONBOARD_URL = process.env.POST_ONBOARD_URL || '/dashboard';
+export const POST_ONBOARD_URL = process.env.POST_ONBOARD_URL || '/link';
 
 // ──── Agent Type Selector ────
 export const AGENT_TYPES_ENABLED = (process.env.AGENT_TYPES_ENABLED || "").toLowerCase() === "true";
