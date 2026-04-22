@@ -28,8 +28,18 @@ if [ ! -f "$FIRST_BOOT_SENTINEL" ]; then
     echo "✅ Clean state ready"
 fi
 
-# Initialize OpenClaw config if not exists
-if [ ! -f /root/.openclaw/openclaw.json ]; then
+# Initialize agent runtime config
+RUNTIME="${WISECHEF_RUNTIME:-openclaw}"
+
+if [ "$RUNTIME" = "hermes" ]; then
+  # ── Hermes Runtime: create Hermes config instead of OpenClaw ──
+  # Full Hermes config is written later (after model resolution).
+  # Here we just ensure the directory structure exists.
+  echo "📝 Detected Hermes runtime — skipping OpenClaw config generation"
+  mkdir -p /root/.hermes
+else
+  # ── OpenClaw Runtime (default): generate openclaw.json ──
+  if [ ! -f /root/.openclaw/openclaw.json ]; then
     echo "📝 Initializing OpenClaw configuration..."
     mkdir -p /root/.openclaw
 
@@ -147,11 +157,15 @@ EOF
     "
     chmod 600 /root/.openclaw/openclaw.json
     chmod 700 /root/.openclaw
-fi
+  fi  # end OpenClaw config block
+fi  # end runtime config block
 
 # ── Config sanitizer — remove deprecated keys on every boot ──────────────
 # Runs AFTER config generation (first boot) and BEFORE gateway start (restart)
-node /opt/wisechef/board/docker/sanitize-config.mjs 2>/dev/null || true
+# Only relevant for OpenClaw runtime
+if [ "$RUNTIME" != "hermes" ]; then
+  node /opt/wisechef/board/docker/sanitize-config.mjs 2>/dev/null || true
+fi
 
 
 # ── OpenRouter API key provisioning ──
@@ -189,14 +203,29 @@ if [ -z "$OPENROUTER_API_KEY" ]; then
     echo "   Set OPENROUTER_API_KEY or OPENROUTER_MANAGEMENT_KEY env var"
 fi
 
-# Re-inject into openclaw.json if key was provisioned after initial config
+# Re-inject API keys into runtime config if key was provisioned after initial config
 if [ -n "$OPENROUTER_API_KEY" ]; then
+  if [ "$RUNTIME" = "hermes" ]; then
+    # Write keys to Hermes .env
+    if [ -f /root/.hermes/.env ]; then
+      node -e "
+        const fs = require('fs');
+        const p = '/root/.hermes/.env';
+        let content = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
+        const lines = content.split('\\n').filter(l => !l.startsWith('OPENROUTER_API_KEY='));
+        lines.push('OPENROUTER_API_KEY=' + process.env.OPENROUTER_API_KEY);
+        fs.writeFileSync(p, lines.join('\\n'));
+        console.log('[entrypoint] Injected OPENROUTER_API_KEY into Hermes config');
+      " 2>/dev/null
+    fi
+  else
+    # Write keys to openclaw.json
     node -e "
       const fs = require('fs');
       const p = '/root/.openclaw/openclaw.json';
       const cfg = JSON.parse(fs.readFileSync(p,'utf8'));
       cfg.env = cfg.env || {};
-      cfg.env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+      cfg.env.OPENROUTER_API_KEY=process.env.OPENROUTER_API_KEY;
       fs.writeFileSync(p, JSON.stringify(cfg, null, 2));
     " 2>/dev/null
 
@@ -211,6 +240,7 @@ if [ -n "$OPENROUTER_API_KEY" ]; then
 PKEOF
         chmod 600 /root/.openclaw/provider-keys.json
     fi
+  fi
 fi
 
 # Create workspace files if they don't exist (tier-aware SOUL.md)
@@ -418,12 +448,19 @@ NODE_ENV=production
 AGENT_TYPES_ENABLED=false
 EOF
 
-# NOTE: OpenClaw gateway start is deferred until after sync-agents
-# (starting then restarting breaks Docker port forwarding)
-echo "🌐 OpenClaw gateway start deferred until after agent sync..."
+# NOTE: Gateway start is deferred until after agent sync
+echo "🌐 Gateway start deferred until after agent sync..."
 
-# Sync provider API keys from provider-keys.json → env vars
-if [ -f /root/.openclaw/provider-keys.json ]; then
+# Sync provider API keys from runtime config → env vars
+if [ "$RUNTIME" = "hermes" ]; then
+  # Load keys from Hermes .env
+  if [ -f /root/.hermes/.env ]; then
+    echo "🔑 Loading provider API keys from Hermes config..."
+    set -a; while IFS='=' read -r key val; do [ -n "$key" ] && export "$key=$val"; done < /root/.hermes/.env; set +a
+  fi
+else
+  # Load keys from OpenClaw provider-keys.json
+  if [ -f /root/.openclaw/provider-keys.json ]; then
     echo "🔑 Loading provider API keys..."
     eval $(node -e "
     try {
@@ -432,10 +469,12 @@ if [ -f /root/.openclaw/provider-keys.json ]; then
       for (const [p,d] of Object.entries(k)) { if (m[p] && d.apiKey) console.log('export '+m[p]+'='+JSON.stringify(d.apiKey)); }
     } catch {}
   ")
+  fi
 fi
 
-# Migrate legacy config.providers on startup (if present)
-node -e "
+# Migrate legacy config.providers on startup (if present) — OpenClaw only
+if [ "$RUNTIME" != "hermes" ]; then
+  node -e "
   const fs = require('fs');
   const cfgPath = '/root/.openclaw/openclaw.json';
   const keysPath = '/root/.openclaw/provider-keys.json';
@@ -454,6 +493,7 @@ node -e "
     }
   } catch {}
 " 2>/dev/null || true
+fi  # end OpenClaw-only migration block
 
 # === Start Enterprise Panel (Paperclip native) ===
 if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
@@ -517,6 +557,7 @@ if [ -d /opt/wisechef/enterprise-panel/server/dist ]; then
   "slug": "$(echo "${CLIENT_NAME}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')",
   "gatewayToken": "${GATEWAY_TOKEN}",
   "plan": "${WISECHEF_PLAN:-contractor}",
+  "runtime": "${WISECHEF_RUNTIME:-openclaw}",
   "phone": "${CLIENT_PHONE:-}",
   "channel": "${CLIENT_CHANNEL:-}"
 }
@@ -616,38 +657,117 @@ MANEOF
             " 2>&1 || echo "[heartbeat] Script failed (non-fatal)"
         fi
 
-        # Sync Paperclip companies → OpenClaw agents (per-company isolation)
-        # Creates per-company OpenClaw agents, workspaces, fixes agentIds, claims API keys
-        echo "🔄 Syncing per-company OpenClaw agents..."
-        node /opt/wisechef/board/docker/sync-agents.js 2>&1 || echo "[sync-agents] Script failed (non-fatal)"
-
-        # Start gateway (first and only start — avoids Docker port-forward breakage)
-        echo "🌐 Starting OpenClaw gateway..."
-        fuser -k 18789/tcp 2>/dev/null || true
-        sleep 1
-        nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
-        echo "Gateway started (PID: $!)"
-        # Wait for gateway to be healthy (up to 30s)
-        GATEWAY_READY=false
-        for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:18789/health > /dev/null 2>&1; then
-                echo "✅ Gateway ready after ${i}s"
-                GATEWAY_READY=true
-                break
-            fi
-            sleep 1
-        done
-        if [ "$GATEWAY_READY" != "true" ]; then
-            echo "⚠️ Gateway not responding after 30s — check /var/log/openclaw-gateway.log"
+        # Sync Paperclip companies → agent runtime (per-company isolation)
+        # For OpenClaw: creates per-company agents, workspaces, fixes agentIds, claims API keys
+        # For Hermes: skipped (Hermes uses hermes-paperclip-adapter directly)
+        if [ "${WISECHEF_RUNTIME:-openclaw}" != "hermes" ]; then
+          echo "🔄 Syncing per-company OpenClaw agents..."
+          node /opt/wisechef/board/docker/sync-agents.js 2>&1 || echo "[sync-agents] Script failed (non-fatal)"
+        else
+          echo "🔄 Skipping OpenClaw agent sync (Hermes runtime — adapter handles Paperclip integration)"
         fi
 
-        # Verify agents are registered
-        node -e "
-          const cfg = JSON.parse(require('fs').readFileSync('/root/.openclaw/openclaw.json','utf8'));
-          const agents = cfg.agents?.list || [];
-          console.log('[verify] ' + agents.length + ' agents in config:');
-          agents.forEach(a => console.log('  → ' + a.id + (a.identity?.name ? ' (' + a.identity.name + ')' : '')));
-        " 2>&1 || true
+        # Start gateway (first and only start — avoids Docker port-forward breakage)
+        RUNTIME="${WISECHEF_RUNTIME:-openclaw}"
+
+        if [ "$RUNTIME" = "hermes" ]; then
+          # ── Hermes Runtime ──
+          # Hermes uses its own gateway (Python-based) + hermes-paperclip-adapter
+          # for Paperclip integration instead of OpenClaw.
+          echo "🌐 Starting Hermes runtime..."
+
+          # Write Hermes config if not present
+          if [ ! -f /root/.hermes/config.yaml ]; then
+            mkdir -p /root/.hermes
+            cat > /root/.hermes/config.yaml <<HERMESCFG
+model: ${WISECHEF_MODEL:-anthropic/claude-sonnet-4.6}
+platform: docker
+workspace: ${WORKSPACE_DIR}
+HERMESCFG
+
+            # Write Hermes .env with API keys
+            cat > /root/.hermes/.env <<HERMESENV
+ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+OPENAI_API_KEY=${OPENAI_API_KEY:-}
+OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+HERMESENV
+            chmod 600 /root/.hermes/.env
+            echo "📝 Created Hermes config"
+          fi
+
+          # Start Hermes gateway via hermes-paperclip-adapter
+          # The adapter bridges Hermes ↔ Paperclip: heartbeats, task pickup, completions
+          if command -v hermes-paperclip-adapter >/dev/null 2>&1; then
+            echo "🔌 Starting Hermes-Paperclip adapter..."
+            nohup hermes-paperclip-adapter \
+              --paperclip-url "http://127.0.0.1:${PAPERCLIP_PORT:-3100}" \
+              --workspace "${WORKSPACE_DIR}" \
+              > /var/log/hermes-adapter.log 2>&1 &
+            ADAPTER_PID=$!
+            echo "Hermes-Paperclip adapter started (PID: $ADAPTER_PID)"
+          else
+            echo "⚠️ hermes-paperclip-adapter not found — falling back to OpenClaw gateway"
+            nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
+            echo "OpenClaw gateway started as fallback (PID: $!)"
+          fi
+
+          # Hermes health: check adapter log for startup confirmation
+          HERMES_READY=false
+          for i in $(seq 1 30); do
+            if [ -f /var/log/hermes-adapter.log ] && grep -q "ready\|connected\|listening" /var/log/hermes-adapter.log 2>/dev/null; then
+              echo "✅ Hermes adapter ready after ${i}s"
+              HERMES_READY=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$HERMES_READY" != "true" ]; then
+            echo "⚠️ Hermes adapter not confirmed after 30s — check /var/log/hermes-adapter.log"
+          fi
+
+          # Verify: check Paperclip agent status
+          node -e "
+            const http = require('http');
+            const port = process.env.PAPERCLIP_PORT || 3100;
+            http.get('http://127.0.0.1:' + port + '/api/companies', (res) => {
+              let d = ''; res.on('data', c => d += c);
+              res.on('end', () => {
+                try {
+                  const companies = JSON.parse(d);
+                  console.log('[verify] ' + (Array.isArray(companies) ? companies.length : 0) + ' companies in Paperclip');
+                } catch { console.log('[verify] Could not parse companies'); }
+              });
+            }).on('error', () => console.log('[verify] Paperclip not reachable'));
+          " 2>&1 || true
+        else
+          # ── OpenClaw Runtime (default) ──
+          echo "🌐 Starting OpenClaw gateway..."
+          fuser -k 18789/tcp 2>/dev/null || true
+          sleep 1
+          nohup openclaw gateway run > /var/log/openclaw-gateway.log 2>&1 &
+          echo "Gateway started (PID: $!)"
+          # Wait for gateway to be healthy (up to 30s)
+          GATEWAY_READY=false
+          for i in $(seq 1 30); do
+              if curl -sf http://127.0.0.1:18789/health > /dev/null 2>&1; then
+                  echo "✅ Gateway ready after ${i}s"
+                  GATEWAY_READY=true
+                  break
+              fi
+              sleep 1
+          done
+          if [ "$GATEWAY_READY" != "true" ]; then
+              echo "⚠️ Gateway not responding after 30s — check /var/log/openclaw-gateway.log"
+          fi
+
+          # Verify agents are registered
+          node -e "
+            const cfg = JSON.parse(require('fs').readFileSync('/root/.openclaw/openclaw.json','utf8'));
+            const agents = cfg.agents?.list || [];
+            console.log('[verify] ' + agents.length + ' agents in config:');
+            agents.forEach(a => console.log('  → ' + a.id + (a.identity?.name ? ' (' + a.identity.name + ')' : '')));
+          " 2>&1 || true
+        fi
     fi
 
     cd /opt/wisechef/board
@@ -687,10 +807,23 @@ echo "📊 Starting WiseChef Board on port ${PORT}..."
 (
   while true; do
     sleep 30
-    if ! curl -sf http://127.0.0.1:18789/health > /dev/null 2>&1; then
-      echo "[watchdog] Gateway down — restarting..." >> /var/log/openclaw-gateway.log
-      nohup openclaw gateway run >> /var/log/openclaw-gateway.log 2>&1 &
-      sleep 15
+    if [ "$RUNTIME" = "hermes" ]; then
+      # Hermes adapter watchdog — check adapter process
+      if [ -f /var/log/hermes-adapter.log ] && ! pgrep -f "hermes-paperclip-adapter" >/dev/null 2>&1; then
+        echo "[watchdog] Hermes adapter down — restarting..." >> /var/log/hermes-adapter.log
+        nohup hermes-paperclip-adapter \
+          --paperclip-url "http://127.0.0.1:${PAPERCLIP_PORT:-3100}" \
+          --workspace "${WORKSPACE_DIR}" \
+          >> /var/log/hermes-adapter.log 2>&1 &
+        sleep 15
+      fi
+    else
+      # OpenClaw gateway watchdog
+      if ! curl -sf http://127.0.0.1:18789/health > /dev/null 2>&1; then
+        echo "[watchdog] Gateway down — restarting..." >> /var/log/openclaw-gateway.log
+        nohup openclaw gateway run >> /var/log/openclaw-gateway.log 2>&1 &
+        sleep 15
+      fi
     fi
   done
 ) &

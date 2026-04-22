@@ -70,7 +70,26 @@ All endpoints are served on `localhost:3333`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/onboarding/tier` | Get detected tier and agent limits |
+| GET | `/api/onboarding/tier` | Get detected tier, runtime, and agent limits |
 | GET | `/api/onboarding/roles` | List all role templates used by onboarding |
 | POST | `/api/onboarding/unified` | Run unified onboarding provisioning flow |
 | POST | `/api/onboarding/one-shot` | Fast generation flow used by Starter/Pro launch |
+
+### Runtime Selection
+
+Both onboarding endpoints accept a `runtime` field (`"openclaw"` or `"hermes"`). The selected runtime determines which agent framework is used:
+
+- **`openclaw`** (default): Node.js agent framework with gateway mode
+- **`hermes`**: Python-based agent framework with hermes-paperclip-adapter for Paperclip integration
+
+Example payload for `/api/onboarding/one-shot`:
+```json
+{
+  "userInput": "...",
+  "companyName": "Acme Corp",
+  "runtime": "hermes",
+  "language": "English"
+}
+```
+
+The runtime is persisted in `onboarding-complete.json` and used by the container entrypoint to configure the appropriate services.
