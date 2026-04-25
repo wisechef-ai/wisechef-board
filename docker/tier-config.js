@@ -66,6 +66,38 @@ export const TIERS = {
     soulTemplate: 'pro',
   },
 
+  // Managed tier — Framework Managed $999/mo, compliance bundle, human SLA
+  managed: {
+    label: 'Framework Managed',
+    price: 999,
+    model: 'openrouter/anthropic/claude-sonnet-4-20250514',
+    thinkingDefault: 'adaptive',
+    companyAgents: 9,       // main + 9 company agents = 10 total
+    totalAgentsCap: 10,
+    heartbeatInterval: '15m',
+    openrouterLimit: 80,    // $/month
+    spawnTarget: 'vps',     // dedicated VPS
+    features: {
+      taskBoard: true,
+      subAgents: true,
+      skills: 'all',
+      channels: 'unlimited',
+      fileUpload: true,
+      cron: true,
+      knowledgeGraph: true,
+      selfImprove: true,
+      codingAgent: true,
+      customWorkflows: true,
+      prioritySupport: true,
+      paperclip: true,
+      cognee: true,
+      complianceBundle: true,   // NIS2, DORA Art.28, AI Act Art.12
+      managedDeploy: true,      // updates, backups, SSL managed
+      sla: { p1: '4h', p2: '24h', monthlyReview: true },
+    },
+    soulTemplate: 'enterprise',  // reuse enterprise soul, upgrade later
+  },
+
   // Enterprise tier — customer plan, 21 total agents, dedicated VPS
   enterprise: {
     label: 'Enterprise',
@@ -101,8 +133,9 @@ export const TIERS = {
  */
 export function resolveTier(planName) {
   const key = (planName || 'contractor').toLowerCase();
-  // Accept 'starter' as alias for 'contractor' (legacy compat)
+  // Accept aliases (legacy compat)
   if (key === 'starter') return { key: 'contractor', ...TIERS.contractor };
+  if (key === 'framework-managed' || key === 'framework_managed') return { key: 'managed', ...TIERS.managed };
   if (TIERS[key]) return { key, ...TIERS[key] };
   return { key: 'contractor', ...TIERS.contractor };
 }
