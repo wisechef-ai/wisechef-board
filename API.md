@@ -33,6 +33,34 @@ All endpoints are served on `localhost:3333`.
 | GET | `/api/skills/:id/content` | Read full SKILL.md content |
 | DELETE | `/api/skills/:id` | Delete a workspace skill |
 
+## Skills — MinIO Storage (WIS-479)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/skills/packages` | List all skill tarballs in S3 registry |
+| GET | `/api/skills/:id/install?version=X.Y.Z` | Get presigned URL + ed25519 signature |
+| POST | `/api/skills/:id/publish` | Package and upload skill to S3 registry |
+| POST | `/api/skills/publish-all` | Bulk publish all scanned skills |
+| GET | `/api/skills/storage/health` | MinIO health check |
+
+### Install Response
+```json
+{
+  "ok": true,
+  "slug": "github",
+  "version": "1.0.0",
+  "url": "http://127.0.0.1:9000/recipes-skills/github/1.0.0.tar.gz?X-Amz-...",
+  "signature": "base64-encoded-ed25519-sig",
+  "algorithm": "ed25519"
+}
+```
+
+### Client-Side Verification
+```js
+import { verifySkillTarball } from './server/lib/verify-skill.js';
+const valid = verifySkillTarball(tarballBuffer, signatureBase64, publicKeyBase64);
+```
+
 ## Files
 
 | Method | Endpoint | Description |

@@ -13,6 +13,7 @@ import { getUsage, getCurrentMonthUsage } from './controllers/usage.js';
 import { getOpenclawVersion, updateOpenclaw } from './controllers/openclaw.js';
 import { listModels, setModel, getHeartbeat, postHeartbeat } from './controllers/models.js';
 import { listSkills, toggleSkill, createSkill, getSkillContent, deleteSkill } from './controllers/skills.js';
+import { listPackages, installSkill, publishSkill, publishAllSkills, storageHealth } from './controllers/skillStorage.js';
 import { listFiles, getFileContent, downloadFile, getWorkspaceFile, putWorkspaceFile, getWorkspaceFileHistory } from './controllers/files.js';
 import { getSoul, putSoul, getSoulHistory, revertSoul, getSoulTemplates } from './controllers/soul.js';
 import { getSettings, postSettings } from './controllers/settings.js';
@@ -109,6 +110,13 @@ router.post('/api/skills/:id/toggle', toggleSkill);
 router.post('/api/skills/create', createSkill);
 router.get('/api/skills/:id/content', getSkillContent);
 router.delete('/api/skills/:id', deleteSkill);
+
+// Skills — MinIO Storage (WIS-479)
+router.get('/api/skills/packages', listPackages);
+router.get('/api/skills/:id/install', installSkill);
+router.post('/api/skills/:id/publish', publishSkill);
+router.post('/api/skills/publish-all', publishAllSkills);
+router.get('/api/skills/storage/health', storageHealth);
 
 // Files & Workspace
 router.get('/api/files', listFiles);
