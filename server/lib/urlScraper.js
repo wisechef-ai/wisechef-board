@@ -11,6 +11,12 @@
  */
 
 import * as cheerio from 'cheerio';
+import { execFileSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const LINKEDIN_SCRAPER = join(__dirname, 'linkedin_scrape.py');
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_TEXT_CHARS = 4000; // cap text before sending to Claude
@@ -119,26 +125,48 @@ async function scrapeWebsite(url) {
 }
 
 async function scrapeLinkedIn(url, type) {
-  // LinkedIn is JS-rendered — most content is gated.
-  // We can reliably get: og:title, og:description, og:image alt text.
-  const html = await fetchHtml(url).catch(() => null);
+  // Layer 1: Try Python scraper (Scrapling/Playwright stealth → basic urllib)
+  //          Handles anti-bot, extracts DOM text beyond og:meta.
+  try {
+    const raw = execFileSync('python3', [LINKEDIN_SCRAPER, url], {
+      timeout: 30_000,
+      maxBuffer: 512 * 1024,
+      env: { ...process.env, DISPLAY: '' },
+    });
+    const result = JSON.parse(raw.toString().trim());
+    if (result.ok && result.text?.length > 30) {
+      console.log('[urlScraper] LinkedIn scrape OK —', result.text.length, 'chars');
+      return { sourceType: type, url, rawText: result.text, hint: 'LinkedIn via stealth scraper' };
+    }
+    console.warn('[urlScraper] LinkedIn scraper soft-fail:', result.error);
+  } catch (err) {
+    console.warn('[urlScraper] LinkedIn scraper error:', err.message?.slice(0, 120));
+  }
 
+  // Layer 2: og:meta from regular fetch (often just name + generic desc)
+  const html = await fetchHtml(url).catch(() => null);
   let rawText = '';
   if (html) {
     const $ = cheerio.load(html);
     const ogTitle = $('meta[property="og:title"]').attr('content') || '';
-    const ogDesc = $('meta[property="og:description"]').attr('content') || '';
-    const title = $('title').text().trim();
-    rawText = [ogTitle, ogDesc, title].filter(Boolean).join('\n');
+    const ogDesc  = $('meta[property="og:description"]').attr('content') || '';
+    rawText = [ogTitle, ogDesc].filter(Boolean).join('\n');
   }
 
+  // Layer 3: URL slug fallback — gives Claude the name at minimum
   if (!rawText || rawText.length < 20) {
-    // Graceful fallback — return URL only and let Claude infer from the URL slug
     const slug = url.split('/').filter(Boolean).pop();
-    rawText = `LinkedIn ${type === 'linkedin-profile' ? 'profile' : 'company page'}: ${slug} (${url})`;
+    rawText = `LinkedIn ${type === 'linkedin-profile' ? 'profile' : 'company page'}: ${slug} (${url})\n` +
+      `Note: Could not scrape full profile — LinkedIn login wall. User should describe themselves manually.`;
   }
 
-  return { sourceType: type, url, rawText, hint: 'LinkedIn (limited HTML — og:meta extracted)' };
+  return {
+    sourceType:   type,
+    url,
+    rawText,
+    hint:         'LinkedIn (og:meta or slug fallback — partial data)',
+    linkedInWall: true,  // signal to frontend: scrape was partial, show manual-entry prompt
+  };
 }
 
 async function scrapeGitHub(url, username) {
