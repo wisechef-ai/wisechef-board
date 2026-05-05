@@ -201,6 +201,12 @@
       background: rgba(20, 83, 45, 0.2);
     }
 
+    .message.warn {
+      border-color: rgba(245, 158, 11, 0.7);
+      color: #fde68a;
+      background: rgba(120, 53, 15, 0.2);
+    }
+
     .counter {
       margin-top: 12px;
       color: #d2d2ff;
@@ -347,6 +353,8 @@
   <script>
     const state = {
       tier: 'starter',
+      runtime: 'openclaw',
+      availableRuntimes: ['openclaw', 'hermes'],
       limit: 1,
       steps: [],
       stepIndex: 0,
@@ -450,6 +458,12 @@
         state.tier = tier;
         state.limit = Number(data?.limits?.agents) > 0 ? Number(data.limits.agents) : conf.limit;
         state.steps = conf.steps;
+        if (data.runtimes && Array.isArray(data.runtimes) && data.runtimes.length > 0) {
+          state.availableRuntimes = data.runtimes;
+        }
+        if (data.runtime && state.availableRuntimes.includes(data.runtime)) {
+          state.runtime = data.runtime;
+        }
       } catch (_err) {
         const conf = tierConfig('starter');
         state.tier = 'starter';
@@ -526,7 +540,11 @@
         if (ext.name && !state.business.name) state.business.name = ext.name;
         if (ext.description && !state.business.description) state.business.description = ext.description;
         if (ext.industry && !state.business.industry) state.business.industry = ext.industry;
-        setMessage('Context added from your URL. You can edit any field before continuing.', 'ok');
+        if (data.linkedInWall) {
+          setMessage('Partial data from LinkedIn (login wall). Please paste your bio or edit fields manually.', 'warn');
+        } else {
+          setMessage('Context added from your URL. You can edit any field before continuing.', 'ok');
+        }
       } catch (err) {
         setMessage(err.message || 'Could not scrape this URL. Fill fields manually.', 'error');
       }
@@ -567,7 +585,8 @@
             userInput: composite,
             companyName: state.business.name,
             focusArea: roleLabel || 'Everything',
-            language: state.business.language
+            language: state.business.language,
+            runtime: state.runtime
           })
         });
         const data = await res.json();
@@ -605,7 +624,8 @@
               language: state.business.language
             },
             agents,
-            tier: state.tier
+            tier: state.tier,
+            runtime: state.runtime
           })
         });
         const data = await res.json();
@@ -628,9 +648,26 @@
     }
 
     function businessScreen() {
+      const runtimeOptions = state.availableRuntimes.map(r =>
+        `<option value="${r}" ${state.runtime === r ? 'selected' : ''}>${r === 'openclaw' ? 'OpenClaw (default)' : 'Hermes'}</option>`
+      ).join('');
+
       return `
         <h1>Your Business</h1>
         <p class="muted">Add your details manually or paste a website URL and import context.</p>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="runtimeInput">Agent Runtime</label>
+            <select id="runtimeInput">
+              ${runtimeOptions}
+            </select>
+          </div>
+          <div class="field">
+            <label for="langInput">Language</label>
+            <input id="langInput" placeholder="English" value="${escapeHtml(state.business.language)}" />
+          </div>
+        </div>
 
         <div class="field">
           <label for="urlInput">Website URL (optional)</label>
@@ -647,14 +684,9 @@
             <input id="nameInput" value="${escapeHtml(state.business.name)}" />
           </div>
           <div class="field">
-            <label for="langInput">Language</label>
-            <input id="langInput" placeholder="English" value="${escapeHtml(state.business.language)}" />
+            <label for="descInput">What do you do?</label>
+            <textarea id="descInput" placeholder="Describe your business, audience, and priorities">${escapeHtml(state.business.description)}</textarea>
           </div>
-        </div>
-
-        <div class="field">
-          <label for="descInput">What do you do?</label>
-          <textarea id="descInput" placeholder="Describe your business, audience, and priorities">${escapeHtml(state.business.description)}</textarea>
         </div>
 
         ${navButtons({ back: state.stepIndex > 0, next: true, nextLabel: 'Continue' })}
@@ -689,6 +721,18 @@
             <label for="langInput">Language</label>
             <input id="langInput" value="${escapeHtml(state.business.language)}" />
           </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="runtimeInput">Agent Runtime</label>
+            <select id="runtimeInput">
+              ${state.availableRuntimes.map(r =>
+                `<option value="${r}" ${state.runtime === r ? 'selected' : ''}>${r === 'openclaw' ? 'OpenClaw (default)' : 'Hermes'}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <div class="field"></div>
         </div>
 
         <div class="field">
@@ -815,6 +859,7 @@
           <div><strong>Industry:</strong> ${escapeHtml(state.business.industry)}</div>
           <div><strong>Size:</strong> ${escapeHtml(state.business.size)}</div>
           <div><strong>Language:</strong> ${escapeHtml(state.business.language)}</div>
+          <div><strong>Runtime:</strong> ${state.runtime === 'hermes' ? 'Hermes' : 'OpenClaw'}</div>
           <div style="margin-top:8px;"><strong>Agents:</strong></div>
           <ul>${list}</ul>
         </div>
@@ -859,7 +904,7 @@
       progress.innerHTML = progressHtml();
 
       const message = state.message
-        ? `<div class="message ${state.messageType === 'error' ? 'error' : (state.messageType === 'ok' ? 'ok' : '')}">${escapeHtml(state.message)}</div>`
+        ? `<div class="message ${state.messageType === 'error' ? 'error' : (state.messageType === 'ok' ? 'ok' : (state.messageType === 'warn' ? 'warn' : ''))}">${escapeHtml(state.message)}</div>`
         : '';
       screen.innerHTML = currentScreenHtml() + message;
       bindInputs();
@@ -885,6 +930,9 @@
 
       const size = byId('sizeInput');
       if (size) size.onchange = (e) => { state.business.size = e.target.value; };
+
+      const runtime = byId('runtimeInput');
+      if (runtime) runtime.onchange = (e) => { state.runtime = e.target.value; };
 
       document.querySelectorAll('[data-role]').forEach((card) => {
         card.onclick = () => toggleRole(card.getAttribute('data-role'));
